@@ -68,94 +68,109 @@ export default function MatchPage() {
         fetchData();
     }, [matchId]);
 
-    if (loading) return <div className="p-8 text-center text-gray-500">Maç verileri yükleniyor...</div>;
-    if (!match) return <div className="p-8 text-center text-red-500">Maç bulunamadı.</div>;
+    if (loading) return (
+        <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
+            <div className="flex flex-col items-center gap-2">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm font-medium">Maç Verileri Yükleniyor...</span>
+            </div>
+        </div>
+    );
+    if (!match) return <div className="p-12 text-center text-red-500 font-bold bg-red-50 rounded-xl m-8 border border-red-100">Maç bulunamadı.</div>;
+
+    const homeColors = getTeamColors(match.homeTeamId);
+    const awayColors = getTeamColors(match.awayTeamId);
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-20">
-            {/* Match Header */}
-            <div className="bg-white shadow-sm border-b sticky top-0 z-10">
-                <div className="max-w-4xl mx-auto px-4 py-4">
-                    <Link href="/" className="text-gray-400 hover:text-gray-600 text-[10px] mb-2 block">&larr; Geri</Link>
+        <div className="min-h-screen bg-background pb-20">
+            {/* New Premium Header */}
+            <div className="relative bg-slate-900 text-white overflow-hidden pb-8 pt-6 shadow-xl">
+                {/* Decorative background elements */}
+                <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-slate-800 to-transparent opacity-50 pointer-events-none"></div>
+                <div className="absolute -left-20 top-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
 
-                    <div className="flex justify-center items-center gap-6 pb-2">
-                        <div className="flex-1 text-right">
-                            <h2 className="text-lg md:text-2xl font-bold truncate leading-none" style={{ color: getTeamColors(match.homeTeamId).primary }}>{match.homeTeamName}</h2>
-                        </div>
-                        <div className="shrink-0 flex flex-col items-center">
-                            <div className="text-3xl font-black bg-gray-900 text-white px-4 py-1 rounded-md shadow-sm tracking-widest leading-none">{match.score || '0-0'}</div>
-                            <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mt-1">{match.stadium}</div>
-                        </div>
-                        <div className="flex-1 text-left">
-                            <h2 className="text-lg md:text-2xl font-bold truncate leading-none" style={{ color: getTeamColors(match.awayTeamId).primary }}>{match.awayTeamName}</h2>
-                        </div>
-                    </div>
+                <div className="max-w-4xl mx-auto px-4 relative z-10">
+                    <Link href="/" className="inline-flex items-center text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider mb-6 transition-colors group">
+                        <span className="group-hover:-translate-x-1 transition-transform mr-1">&larr;</span> Ana Sayfa
+                    </Link>
 
-                    {/* Tabs - More Compact */}
-                    <div className="flex gap-6 justify-center mt-1 border-t border-gray-100 pt-1">
-                        <button
-                            onClick={() => setActiveTab('summary')}
-                            className={`py-2 text-xs font-bold uppercase tracking-wide border-b-2 transition-colors ${activeTab === 'summary' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                        >
-                            Maç Merkezi
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('lineups')}
-                            className={`py-2 text-xs font-bold uppercase tracking-wide border-b-2 transition-colors ${activeTab === 'lineups' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                        >
-                            Kadrolar
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('pfdk')}
-                            className={`py-2 text-xs font-bold uppercase tracking-wide border-b-2 transition-colors ${activeTab === 'pfdk' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                        >
-                            PFDK Sevkleri
-                        </button>
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12">
+                        {/* Home Team */}
+                        <div className="flex-1 text-center md:text-right order-2 md:order-1">
+                            <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-1" style={{ textShadow: '0 0 30px rgba(255,255,255,0.1)' }}>{match.homeTeamName}</h2>
+                            {/* Placeholder for visuals if needed */}
+                        </div>
+
+                        {/* Scoreboard */}
+                        <div className="shrink-0 flex flex-col items-center order-1 md:order-2 bg-slate-800/50 p-4 rounded-2xl border border-white/5 backdrop-blur-sm">
+                            <div className="text-4xl md:text-5xl font-black text-white px-6 py-2 tracking-widest leading-none font-mono">
+                                {match.score || '0-0'}
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 px-3 py-1 bg-slate-900/50 rounded-full border border-white/5">
+                                {match.stadium}
+                            </div>
+                        </div>
+
+                        {/* Away Team */}
+                        <div className="flex-1 text-center md:text-left order-3">
+                            <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-1">{match.awayTeamName}</h2>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Content Content */}
-            <div className="max-w-7xl mx-auto mt-6 px-4">
+            {/* Tabs */}
+            <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border mb-8">
+                <div className="max-w-4xl mx-auto px-4 flex justify-center">
+                    <div className="flex gap-2 p-2">
+                        {['summary', 'lineups', 'pfdk'].map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab as any)}
+                                className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${activeTab === tab
+                                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105'
+                                        : 'text-muted-foreground hover:bg-slate-100 hover:text-foreground'
+                                    }`}
+                            >
+                                {tab === 'summary' ? 'Maç Merkezi' : tab === 'lineups' ? 'Kadrolar' : 'PFDK'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Content Container */}
+            <div className="max-w-5xl mx-auto px-4 md:px-8">
 
                 {/* SUMMARY TAB */}
                 {activeTab === 'summary' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                        {/* Left Column */}
-                        <div className="lg:col-span-1 space-y-6">
-                            {/* Stats */}
-                            {match.stats && (
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center">
-                                        <h3 className="font-bold text-gray-800 text-xs uppercase tracking-wide">Maç İstatistikleri</h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
+                        {/* Left Column: Stats & Info (4 cols) */}
+                        <div className="lg:col-span-4 space-y-6">
+                            {/* Simple Stats Card */}
+                            {match.stats && (
+                                <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border overflow-hidden">
+                                    <div className="bg-slate-50/50 px-4 py-3 border-b border-border">
+                                        <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">İstatistikler</h3>
                                     </div>
                                     <div className="p-5 space-y-5">
-                                        {/* Possession */}
+                                        {/* Possession Bar */}
                                         <div>
-                                            <div className="flex justify-between items-end mb-2">
-                                                <div className="text-center">
-                                                    <span className="block text-xl font-black" style={{ color: getTeamColors(match.homeTeamId).primary }}>%{match.stats.homePossession}</span>
-                                                    <span className="text-[10px] text-gray-400 font-bold uppercase">Top</span>
-                                                </div>
-                                                <div className="text-center">
-                                                    <span className="block text-xl font-black" style={{ color: getTeamColors(match.awayTeamId).primary }}>%{match.stats.awayPossession}</span>
-                                                    <span className="text-[10px] text-gray-400 font-bold uppercase">Top</span>
-                                                </div>
+                                            <div className="flex justify-between items-end mb-2 text-sm font-bold">
+                                                <span style={{ color: homeColors.primary }}>%{match.stats.homePossession}</span>
+                                                <span className="text-[10px] text-muted-foreground font-normal uppercase">Topla Oynama</span>
+                                                <span style={{ color: awayColors.primary }}>%{match.stats.awayPossession}</span>
                                             </div>
-                                            <div className="w-full bg-gray-100 rounded-full h-2 flex overflow-hidden">
-                                                <div className="h-full" style={{ width: `${match.stats.homePossession}%`, backgroundColor: getTeamColors(match.homeTeamId).primary }}></div>
-                                                <div className="h-full" style={{ width: `${match.stats.awayPossession}%`, backgroundColor: getTeamColors(match.awayTeamId).primary }}></div>
+                                            <div className="w-full bg-slate-100 rounded-full h-2 flex overflow-hidden">
+                                                <div className="h-full" style={{ width: `${match.stats.homePossession}%`, backgroundColor: homeColors.primary }}></div>
+                                                <div className="h-full" style={{ width: `${match.stats.awayPossession}%`, backgroundColor: awayColors.primary }}></div>
                                             </div>
                                         </div>
 
-                                        <div className="space-y-2 pt-2">
+                                        <div className="space-y-1">
                                             <StatRow label="Şut" home={match.stats.homeShots} away={match.stats.awayShots} />
                                             <StatRow label="İsabetli Şut" home={match.stats.homeShotsOnTarget} away={match.stats.awayShotsOnTarget} />
-                                            <StatRow label="Net Gol Şansı" home={match.stats.homeBigChances} away={match.stats.awayBigChances} />
-                                            <StatRow label="Köşe Vuruşu" home={match.stats.homeCorners} away={match.stats.awayCorners} />
-                                            <StatRow label="Ofsayt" home={match.stats.homeOffsides} away={match.stats.awayOffsides} />
-                                            <StatRow label="Kurtarış" home={match.stats.homeSaves} away={match.stats.awaySaves} />
                                             <StatRow label="Faul" home={match.stats.homeFouls} away={match.stats.awayFouls} />
                                             <StatRow label="Sarı Kart" home={match.stats.homeYellowCards} away={match.stats.awayYellowCards} isCard />
                                             <StatRow label="Kırmızı Kart" home={match.stats.homeRedCards} away={match.stats.awayRedCards} isCard />
@@ -164,164 +179,115 @@ export default function MatchPage() {
                                 </div>
                             )}
 
-                            {/* Officials Redesigned: Show ALL visible */}
+                            {/* Officials Card */}
                             {match.officials && (
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 text-center">
-                                        <h3 className="font-bold text-gray-800 text-xs uppercase tracking-wide">Maç Yetkilileri</h3>
+                                <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border overflow-hidden">
+                                    <div className="bg-slate-50/50 px-4 py-3 border-b border-border">
+                                        <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Hakem Ekibi</h3>
                                     </div>
-                                    <div className="divide-y divide-gray-50">
-                                        {/* Main Referees */}
-                                        <div className="p-3 grid grid-cols-2 gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">H</div>
-                                                <div>
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase">Hakem</p>
-                                                    <p className="font-bold text-gray-800 text-xs truncate">{match.referee || match.officials.referees[0]}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-[10px] font-bold text-blue-500">V</div>
-                                                <div>
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase">VAR</p>
-                                                    <p className="font-bold text-gray-800 text-xs truncate">{match.varReferee || match.officials.varReferees[0]}</p>
-                                                </div>
+                                    <div className="p-4 space-y-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-lg shadow-sm">🏁</div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">Orta Hakem</p>
+                                                <p className="font-bold text-sm">{match.referee || match.officials.referees[0]}</p>
                                             </div>
                                         </div>
-
-                                        {/* Assistants */}
-                                        {match.officials.referees.length > 1 && (
-                                            <div className="p-3">
-                                                <p className="text-[10px] uppercase font-bold text-gray-400 mb-2">Yardımcı Hakemler</p>
-                                                <div className="space-y-1">
-                                                    {match.officials.referees.slice(1).map((r, i) => (
-                                                        <div key={i} className="flex justify-between items-center text-xs">
-                                                            <span className="text-gray-500">{i === 2 ? '4. Hakem' : `${i + 1}. Yrd`}</span>
-                                                            <span className="font-medium text-gray-700">{r}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-lg shadow-sm">📺</div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-blue-600/70 uppercase">VAR Hakemi</p>
+                                                <p className="font-bold text-sm text-foreground">{match.varReferee || match.officials.varReferees[0]}</p>
                                             </div>
-                                        )}
-
-                                        {/* AVAR */}
-                                        {match.officials.varReferees.length > 1 && (
-                                            <div className="p-3">
-                                                <p className="text-[10px] uppercase font-bold text-gray-400 mb-2">VAR Ekibi (AVAR)</p>
-                                                <div className="space-y-1">
-                                                    {match.officials.varReferees.slice(1).map((r, i) => (
-                                                        <div key={`avar-${i}`} className="flex justify-between items-center text-xs">
-                                                            <span className="text-gray-500">AVAR</span>
-                                                            <span className="font-medium text-gray-700">{r}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Observers */}
-                                        {match.officials.observers.length > 0 && (
-                                            <div className="p-3">
-                                                <p className="text-[10px] uppercase font-bold text-gray-400 mb-2">Gözlemciler</p>
-                                                <div className="space-y-1">
-                                                    {match.officials.observers.map((r, i) => (
-                                                        <div key={`obs-${i}`} className="text-right text-xs font-medium text-gray-700">{r}</div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Representatives */}
-                                        {match.officials.representatives.length > 0 && (
-                                            <div className="p-3">
-                                                <p className="text-[10px] uppercase font-bold text-gray-400 mb-2">Temsilciler</p>
-                                                <div className="space-y-1">
-                                                    {match.officials.representatives.map((r, i) => (
-                                                        <div key={`rep-${i}`} className="text-right text-xs font-medium text-gray-700">{r}</div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
+                                        </div>
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        {/* Right Column (Timeline) */}
-                        <div className="lg:col-span-2 space-y-6">
-                            {/* Incidents Loop */}
+                        {/* Right Column: Timeline (8 cols) */}
+                        <div className="lg:col-span-8 space-y-8">
                             {incidents.length === 0 && (
-                                <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-                                    <p className="text-gray-500">Henüz kritik pozisyon girilmemiş.</p>
+                                <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
+                                    <p className="text-muted-foreground">Henüz kritik pozisyon girilmemiş.</p>
                                 </div>
                             )}
 
-                            {incidents.map((inc) => (
-                                <div key={inc.id} className="relative">
-                                    {/* Timeline Connector */}
-                                    <div className="absolute left-6 top-12 bottom-0 w-0.5 bg-gray-200 -z-10 hidden md:block"></div>
+                            {incidents.map((inc, index) => (
+                                <div key={inc.id} className="relative pl-8 md:pl-0 group">
+                                    {/* Center Line for Desktop */}
+                                    <div className="hidden md:block absolute left-10 top-0 bottom-0 w-px bg-slate-200 group-last:bottom-auto group-last:h-full"></div>
 
-                                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-                                        <div className="bg-gray-50 p-4 border-b flex items-start gap-4">
-                                            <div className="bg-gray-900 text-white w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full font-bold text-lg shadow-md border-4 border-white">
+                                    <div className="flex flex-col md:flex-row gap-6 relative">
+                                        {/* Minute Badge */}
+                                        <div className="absolute -left-3 md:static md:w-20 md:shrink-0 flex flex-col items-center">
+                                            <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-lg shadow-lg border-4 border-white z-10 relative">
                                                 {inc.minute}'
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex flex-wrap gap-2 mb-2">
-                                                    <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded shadow-sm tracking-wide ${getImpactColor(inc.impact)}`}>
-                                                        {inc.impact.replace('_', ' ')}
-                                                    </span>
-                                                </div>
-                                                <p className="text-gray-900 font-bold text-lg mb-1 leading-tight">{inc.description}</p>
-
-                                                <div className="mt-3 flex flex-wrap gap-4 text-sm bg-white p-2 rounded-lg border border-gray-100 inline-flex">
-                                                    <div><span className="font-bold text-gray-500 uppercase text-[10px] block">Hakem Kararı</span> <span className="font-semibold text-gray-900">{inc.refereeDecision}</span></div>
-                                                    {inc.varDecision && (
-                                                        <div className="border-l pl-4"><span className="font-bold text-blue-500 uppercase text-[10px] block">VAR Müdahalesi</span> <span className="font-semibold text-blue-900">{inc.varDecision}</span></div>
-                                                    )}
-                                                </div>
-
-                                                {inc.videoUrl && (
-                                                    <a href={inc.videoUrl} target="_blank" rel="noreferrer" className="block mt-3 text-xs font-bold text-red-600 hover:underline">
-                                                        ▶ Pozisyonu İzle
-                                                    </a>
-                                                )}
                                             </div>
                                         </div>
 
-                                        {/* Opinions Section */}
-                                        <div className="p-5 grid md:grid-cols-2 gap-6 bg-white">
-                                            <div>
-                                                <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
-                                                    <span className="w-2 h-2 rounded-full bg-blue-500"></span> Trio Yorumları
-                                                </h4>
-                                                <div className="space-y-3">
-                                                    {inc.opinions.filter(o => o.type === 'trio' || !o.type).map(op => (
-                                                        <div key={op.id} className="relative pl-3 border-l-2 border-gray-100 hover:border-blue-500 transition-colors">
-                                                            <div className="flex justify-between items-baseline mb-1">
-                                                                <span className="font-bold text-sm text-gray-900">{op.criticName}</span>
-                                                                <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${getJudgmentColor(op.judgment).replace('text-', 'bg-').replace('600', '100')} ${getJudgmentColor(op.judgment)}`}>
-                                                                    {op.judgment}
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-sm text-gray-600 leading-relaxed">"{op.opinion}"</p>
+                                        {/* Content Card */}
+                                        <div className="flex-1 bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                                            {/* Header */}
+                                            <div className="p-5 border-b border-border bg-slate-50/30">
+                                                <div className="flex flex-wrap gap-2 mb-3">
+                                                    <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-md tracking-wider ${getImpactColor(inc.impact)}`}>
+                                                        {inc.impact.replace('_', ' ')}
+                                                    </span>
+                                                    {inc.videoUrl && (
+                                                        <a href={inc.videoUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-1 rounded-md bg-red-100 text-red-700 hover:bg-red-200 transition-colors">
+                                                            <span>▶</span> Video
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                <h3 className="text-lg font-bold text-foreground leading-tight">{inc.description}</h3>
+
+                                                <div className="mt-4 flex flex-wrap gap-3">
+                                                    <div className="px-3 py-2 rounded bg-white border border-border shadow-sm">
+                                                        <span className="block text-[10px] font-bold text-muted-foreground uppercase">Hakem</span>
+                                                        <span className="font-semibold text-sm">{inc.refereeDecision}</span>
+                                                    </div>
+                                                    {inc.varDecision && (
+                                                        <div className="px-3 py-2 rounded bg-blue-50 border border-blue-100 shadow-sm">
+                                                            <span className="block text-[10px] font-bold text-blue-600/70 uppercase">VAR</span>
+                                                            <span className="font-semibold text-sm text-blue-900">{inc.varDecision}</span>
                                                         </div>
-                                                    ))}
-                                                    {inc.opinions.filter(o => o.type === 'trio' || !o.type).length === 0 && <span className="text-xs text-gray-300 italic">Yorum yok.</span>}
+                                                    )}
                                                 </div>
                                             </div>
-                                            <div>
-                                                <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
-                                                    <span className="w-2 h-2 rounded-full bg-purple-500"></span> Diğer Yorumlar
-                                                </h4>
-                                                <div className="space-y-3">
-                                                    {inc.opinions.filter(o => o.type === 'general').map(op => (
-                                                        <div key={op.id} className="relative pl-3 border-l-2 border-gray-100 hover:border-purple-500 transition-colors">
-                                                            <div className="font-bold text-sm text-gray-900 mb-1">{op.criticName}</div>
-                                                            <p className="text-sm text-gray-600">"{op.opinion}"</p>
-                                                        </div>
-                                                    ))}
-                                                    {inc.opinions.filter(o => o.type === 'general').length === 0 && <span className="text-xs text-gray-300 italic">Yorum yok.</span>}
+
+                                            {/* Opinions */}
+                                            <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
+                                                <div className="p-5 bg-gradient-to-b from-white to-slate-50/50">
+                                                    <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Trio Yorumları
+                                                    </h4>
+                                                    <div className="space-y-4">
+                                                        {inc.opinions.filter(o => o.type === 'trio' || !o.type).map(op => (
+                                                            <div key={op.id} className="text-sm">
+                                                                <div className="flex justify-between items-baseline mb-1">
+                                                                    <span className="font-bold text-slate-800">{op.criticName}</span>
+                                                                    <Badge judgment={op.judgment} />
+                                                                </div>
+                                                                <p className="text-muted-foreground leading-relaxed">"{op.opinion}"</p>
+                                                            </div>
+                                                        ))}
+                                                        {inc.opinions.filter(o => o.type === 'trio' || !o.type).length === 0 && <span className="text-xs text-muted-foreground italic">Yorum yok.</span>}
+                                                    </div>
+                                                </div>
+                                                <div className="p-5 bg-gradient-to-b from-white to-slate-50/50">
+                                                    <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Diğer
+                                                    </h4>
+                                                    <div className="space-y-4">
+                                                        {inc.opinions.filter(o => o.type === 'general').map(op => (
+                                                            <div key={op.id} className="text-sm">
+                                                                <div className="font-bold text-slate-800 mb-1">{op.criticName}</div>
+                                                                <p className="text-muted-foreground leading-relaxed">"{op.opinion}"</p>
+                                                            </div>
+                                                        ))}
+                                                        {inc.opinions.filter(o => o.type === 'general').length === 0 && <span className="text-xs text-muted-foreground italic">Yorum yok.</span>}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -336,105 +302,28 @@ export default function MatchPage() {
                 {activeTab === 'lineups' && match.lineups && (
                     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <div className="grid md:grid-cols-2 gap-8">
-                            {/* Home Team */}
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                <div className="p-4 border-b bg-gray-50 flex items-center gap-3">
-                                    <div className="w-3 h-8 rounded-full" style={{ backgroundColor: getTeamColors(match.homeTeamId).primary }}></div>
-                                    <h3 className="font-bold text-lg text-gray-800">{match.homeTeamName}</h3>
-                                </div>
-                                <div className="p-6">
-                                    <div className="mb-6">
-                                        <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 tracking-wider">İlk 11</h4>
-                                        <div className="space-y-2">
-                                            {match.lineups.home.map((p, i) => (
-                                                <div key={i} className="flex items-center gap-4 p-2 hover:bg-gray-50 rounded transition-colors border-b border-gray-50 last:border-0">
-                                                    <span className="font-mono font-bold text-gray-400 w-6 text-right text-lg">{p.number}</span>
-                                                    <span className="font-bold text-gray-800">{p.name}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    {match.lineups.homeSubs.length > 0 && (
-                                        <div>
-                                            <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 tracking-wider">Yedekler</h4>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {match.lineups.homeSubs.map((p, i) => (
-                                                    <div key={i} className="flex items-center gap-2 p-1">
-                                                        <span className="font-mono font-bold text-gray-300 text-xs w-5 text-right">{p.number}</span>
-                                                        <span className="text-sm text-gray-600 truncate">{p.name}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {match.lineups.homeCoach && (
-                                        <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center">
-                                            <span className="text-xs font-bold text-gray-400 uppercase">Teknik Direktör</span>
-                                            <span className="font-bold text-gray-900">{match.lineups.homeCoach}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Away Team */}
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                <div className="p-4 border-b bg-gray-50 flex items-center gap-3 justify-end">
-                                    <h3 className="font-bold text-lg text-gray-800">{match.awayTeamName}</h3>
-                                    <div className="w-3 h-8 rounded-full" style={{ backgroundColor: getTeamColors(match.awayTeamId).primary }}></div>
-                                </div>
-                                <div className="p-6">
-                                    <div className="mb-6">
-                                        <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 tracking-wider text-right">İlk 11</h4>
-                                        <div className="space-y-2">
-                                            {match.lineups.away.map((p, i) => (
-                                                <div key={i} className="flex flex-row-reverse items-center gap-4 p-2 hover:bg-gray-50 rounded transition-colors border-b border-gray-50 last:border-0">
-                                                    <span className="font-mono font-bold text-gray-400 w-6 text-lg">{p.number}</span>
-                                                    <span className="font-bold text-gray-800">{p.name}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    {match.lineups.awaySubs.length > 0 && (
-                                        <div>
-                                            <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 tracking-wider text-right">Yedekler</h4>
-                                            <div className="grid grid-cols-2 gap-2 direction-rtl">
-                                                {match.lineups.awaySubs.map((p, i) => (
-                                                    <div key={i} className="flex flex-row-reverse items-center gap-2 p-1">
-                                                        <span className="font-mono font-bold text-gray-300 text-xs w-5">{p.number}</span>
-                                                        <span className="text-sm text-gray-600 truncate text-right">{p.name}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {match.lineups.awayCoach && (
-                                        <div className="mt-6 pt-4 border-t border-gray-100 flex flex-row-reverse justify-between items-center">
-                                            <span className="text-xs font-bold text-gray-400 uppercase">Teknik Direktör</span>
-                                            <span className="font-bold text-gray-900">{match.lineups.awayCoach}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                            <TeamLineupCard teamName={match.homeTeamName} color={homeColors.primary} players={match.lineups.home} subs={match.lineups.homeSubs} coach={match.lineups.homeCoach} />
+                            <TeamLineupCard teamName={match.awayTeamName} color={awayColors.primary} players={match.lineups.away} subs={match.lineups.awaySubs} coach={match.lineups.awayCoach} isAway />
                         </div>
                     </div>
                 )}
 
                 {/* PFDK TAB */}
                 {activeTab === 'pfdk' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-2xl mx-auto">
+                        <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
                             {disciplinary.length === 0 ? (
-                                <div className="p-8 text-center text-gray-500">Bu maça ait PFDK sevki bulunmamaktadır.</div>
+                                <div className="p-12 text-center text-muted-foreground">Bu maça ait PFDK sevki bulunmamaktadır.</div>
                             ) : (
-                                <div className="divide-y divide-gray-100">
+                                <div className="divide-y divide-border">
                                     {disciplinary.map(act => (
-                                        <div key={act.id} className="p-6 hover:bg-gray-50 transition-colors">
+                                        <div key={act.id} className="p-6 hover:bg-slate-50 transition-colors">
                                             <div className="flex justify-between items-start mb-2">
-                                                <h4 className="font-bold text-gray-900">{act.subject}</h4>
-                                                <span className="text-xs font-mono text-gray-400">{act.date}</span>
+                                                <h4 className="font-bold text-foreground">{act.subject}</h4>
+                                                <span className="text-xs font-mono text-muted-foreground">{act.date}</span>
                                             </div>
-                                            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{act.teamName}</div>
-                                            <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 p-3 rounded-lg border border-gray-100 italic">
+                                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 bg-slate-100 inline-block px-2 py-1 rounded">{act.teamName}</div>
+                                            <p className="text-sm text-slate-600 leading-relaxed bg-white p-4 rounded-lg border border-border shadow-sm italic">
                                                 "{act.reason}"
                                             </p>
                                         </div>
@@ -449,32 +338,76 @@ export default function MatchPage() {
     );
 }
 
-
-function getJudgmentColor(judgment: string) {
-    switch (judgment) {
-        case 'correct': return 'text-green-600';
-        case 'incorrect': return 'text-red-600';
-        case 'controversial': return 'text-orange-600';
-        default: return 'text-gray-600';
-    }
+// Sub-components
+function Badge({ judgment }: { judgment: string }) {
+    const colors = {
+        correct: 'bg-green-100 text-green-700',
+        incorrect: 'bg-red-100 text-red-700',
+        controversial: 'bg-orange-100 text-orange-700',
+        default: 'bg-slate-100 text-slate-700'
+    };
+    const c = (colors as any)[judgment] || colors.default;
+    return <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${c}`}>{judgment}</span>;
 }
 
 function StatRow({ label, home, away, isCard }: { label: string, home: number, away: number, isCard?: boolean }) {
     if (home === undefined || away === undefined) return null;
     return (
-        <div className="flex items-center justify-between text-sm py-1 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors px-2 rounded">
-            <span className={`font-bold w-8 text-center ${isCard && label.includes('Kırmızı') ? 'text-red-600' : isCard && label.includes('Sarı') ? 'text-yellow-600' : 'text-gray-800'}`}>{home}</span>
-            <span className="text-xs text-gray-500 font-medium">{label}</span>
-            <span className={`font-bold w-8 text-center ${isCard && label.includes('Kırmızı') ? 'text-red-600' : isCard && label.includes('Sarı') ? 'text-yellow-600' : 'text-gray-800'}`}>{away}</span>
+        <div className="flex items-center justify-between text-sm py-2 border-b border-border last:border-0 hover:bg-slate-50 transition-colors px-2 rounded-sm group">
+            <span className={`font-bold w-6 text-center group-hover:scale-110 transition-transform ${isCard && label.includes('Kırmızı') ? 'text-red-500' : isCard && label.includes('Sarı') ? 'text-yellow-500' : 'text-foreground'}`}>{home}</span>
+            <span className="text-xs text-muted-foreground font-medium">{label}</span>
+            <span className={`font-bold w-6 text-center group-hover:scale-110 transition-transform ${isCard && label.includes('Kırmızı') ? 'text-red-500' : isCard && label.includes('Sarı') ? 'text-yellow-500' : 'text-foreground'}`}>{away}</span>
         </div>
     );
 }
 
 function getImpactColor(impact: string) {
     switch (impact) {
-        case 'penalty': return 'bg-yellow-200 text-yellow-800';
-        case 'red_card': return 'bg-red-200 text-red-800';
-        case 'goal': return 'bg-green-200 text-green-800';
-        default: return 'bg-gray-200 text-gray-800';
+        case 'penalty': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+        case 'red_card': return 'bg-red-100 text-red-800 border border-red-200';
+        case 'goal': return 'bg-green-100 text-green-800 border border-green-200';
+        default: return 'bg-slate-100 text-slate-800 border border-slate-200';
     }
 }
+
+const TeamLineupCard = ({ teamName, color, players, subs, coach, isAway }: any) => (
+    <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+        <div className={`p-4 border-b border-border bg-slate-50/50 flex items-center gap-3 ${isAway ? 'justify-end' : ''}`}>
+            {!isAway && <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: color }}></div>}
+            <h3 className="font-bold text-lg text-foreground">{teamName}</h3>
+            {isAway && <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: color }}></div>}
+        </div>
+        <div className="p-6">
+            <div className="mb-6">
+                <h4 className={`text-xs font-bold text-muted-foreground uppercase mb-3 tracking-wider ${isAway ? 'text-right' : ''}`}>İlk 11</h4>
+                <div className="space-y-2">
+                    {players.map((p: any, i: number) => (
+                        <div key={i} className={`flex items-center gap-4 p-2 hover:bg-slate-50 rounded transition-colors border-b border-border last:border-0 ${isAway ? 'flex-row-reverse' : ''}`}>
+                            <span className="font-mono font-bold text-slate-400 w-6 text-lg text-center">{p.number}</span>
+                            <span className="font-bold text-foreground text-sm">{p.name}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            {subs.length > 0 && (
+                <div>
+                    <h4 className={`text-xs font-bold text-muted-foreground uppercase mb-3 tracking-wider ${isAway ? 'text-right' : ''}`}>Yedekler</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                        {subs.map((p: any, i: number) => (
+                            <div key={i} className={`flex items-center gap-2 p-1 ${isAway ? 'flex-row-reverse' : ''}`}>
+                                <span className="font-mono font-bold text-slate-300 text-xs w-5 text-center">{p.number}</span>
+                                <span className={`text-xs text-slate-500 truncate ${isAway ? 'text-right' : ''}`}>{p.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+            {coach && (
+                <div className={`mt-6 pt-4 border-t border-border flex justify-between items-center ${isAway ? 'flex-row-reverse' : ''}`}>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Teknik Direktör</span>
+                    <span className="font-bold text-sm text-foreground">{coach}</span>
+                </div>
+            )}
+        </div>
+    </div>
+);

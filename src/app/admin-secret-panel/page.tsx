@@ -7,6 +7,7 @@ import { StandingForm, StatementForm, DisciplinaryForm } from '@/components/admi
 export default function AdminPage() {
     const [apiKey, setApiKey] = useState('');
     const [seeding, setSeeding] = useState(false);
+    const [activeTab, setActiveTab] = useState<'setup' | 'matches' | 'incidents' | 'extras'>('setup');
 
     // Central Data Management
     const [targetMatchId, setTargetMatchId] = useState('week1-gfk-gs');
@@ -74,74 +75,139 @@ export default function AdminPage() {
     };
 
     return (
-        <div className="p-8 max-w-4xl mx-auto space-y-8 min-h-screen bg-gray-100 text-gray-900">
-            <h1 className="text-3xl font-bold">Yönetici Paneli</h1>
-
-            <div className="grid md:grid-cols-2 gap-4">
-                {/* Admin Key Section */}
-                <div className="bg-white p-6 border rounded shadow-sm">
-                    <label className="font-bold block mb-2 text-red-600">1. Admin Key (Zorunlu)</label>
-                    <input
-                        type="password"
-                        className="border border-gray-300 p-2 w-full rounded text-gray-900"
-                        value={apiKey}
-                        onChange={e => setApiKey(e.target.value)}
-                        placeholder="ADMIN_KEY giriniz"
-                    />
-                </div>
-
-                {/* Match Fetch Section */}
-                <div className="bg-white p-6 border rounded shadow-sm border-blue-200">
-                    <label className="font-bold block mb-2 text-blue-600">2. Maç Seç / Getir</label>
-                    <div className="flex gap-2">
+        <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
+            {/* Header */}
+            <div className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50">
+                <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+                    <h1 className="text-lg font-black tracking-wider uppercase flex items-center gap-2">
+                        <span className="text-blue-500">◆</span> Yönetici Paneli
+                    </h1>
+                    <div className="flex items-center gap-4">
                         <input
-                            className="border border-gray-300 p-2 w-full rounded text-gray-900"
-                            value={targetMatchId}
-                            onChange={e => setTargetMatchId(e.target.value)}
-                            placeholder="Maç ID (week1-gfk-gs)"
+                            type="password"
+                            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 w-48 transition-colors"
+                            value={apiKey}
+                            onChange={e => setApiKey(e.target.value)}
+                            placeholder="ADMIN_KEY..."
                         />
-                        <button onClick={handleFetchMatch} className="bg-blue-600 text-white px-4 rounded font-bold hover:bg-blue-700">
-                            Getir
-                        </button>
+                        <div className={`w-2 h-2 rounded-full ${apiKey ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-slate-700'}`}></div>
                     </div>
                 </div>
             </div>
 
-            <div className="bg-green-50 p-6 border border-green-200 rounded flex justify-between items-center mb-8">
-                <div>
-                    <h2 className="font-bold text-green-900">🚀 Tam Demo Kurulumu</h2>
-                    <p className="text-sm text-green-700">Tüm verileri (Maç, Puan Durumu, Açıklamalar, PFDK) yükle.</p>
+            {/* Main Content */}
+            <div className="max-w-6xl mx-auto px-6 py-8">
+
+                {/* Tabs */}
+                <div className="flex gap-2 mb-8 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm w-fit mx-auto">
+                    {[
+                        { id: 'setup', label: 'Kurulum & Veri' },
+                        { id: 'matches', label: 'Takım & Maç' },
+                        { id: 'incidents', label: 'Pozisyon & Yorum' },
+                        { id: 'extras', label: 'Puan & PFDK' }
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${activeTab === tab.id
+                                    ? 'bg-slate-900 text-white shadow-md transform scale-105'
+                                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                                }`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
-                <button
-                    onClick={handleSeed}
-                    disabled={seeding || !apiKey}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
-                >
-                    {seeding ? 'Yükleniyor...' : 'Örnek Veriyi Yükle'}
-                </button>
-            </div>
 
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
 
+                    {/* SETUP TAB */}
+                    {activeTab === 'setup' && (
+                        <div className="max-w-xl mx-auto space-y-6">
+                            {/* Match Fetcher Card */}
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                                    <h3 className="font-bold text-sm uppercase text-slate-700">Aktif Maç Yönetimi</h3>
+                                    <p className="text-xs text-slate-500 mt-1">Düzenlemek istediğiniz maçı seçin.</p>
+                                </div>
+                                <div className="p-6">
+                                    <div className="flex gap-3">
+                                        <input
+                                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                                            value={targetMatchId}
+                                            onChange={e => setTargetMatchId(e.target.value)}
+                                            placeholder="Maç ID (örn: week1-gfk-gs)"
+                                        />
+                                        <button onClick={handleFetchMatch} className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-all active:scale-95 shadow-sm hover:shadow">
+                                            Getir
+                                        </button>
+                                    </div>
+                                    {loadedMatch && (
+                                        <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-lg flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold">✓</div>
+                                            <div>
+                                                <p className="text-xs font-bold text-green-800">Maç Yüklendi</p>
+                                                <p className="text-[10px] text-green-600 font-mono">{loadedMatch.homeTeamName} vs {loadedMatch.awayTeamName}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-                <TeamForm apiKey={apiKey} />
-                <MatchForm apiKey={apiKey} preloadedMatch={loadedMatch} />
-                <IncidentForm apiKey={apiKey} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} />
-                <OpinionForm apiKey={apiKey} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} />
-            </div>
+                            {/* Seeder Card */}
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                                    <div>
+                                        <h3 className="font-bold text-sm uppercase text-slate-700">Demo Veri</h3>
+                                        <p className="text-xs text-slate-500 mt-1">Sistemi test verileriyle doldur.</p>
+                                    </div>
+                                    <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded uppercase">Dikkat</span>
+                                </div>
+                                <div className="p-6 text-center">
+                                    <button
+                                        onClick={handleSeed}
+                                        disabled={seeding || !apiKey}
+                                        className="w-full bg-slate-900 text-white px-6 py-3 rounded-lg text-sm font-bold hover:bg-slate-800 disabled:opacity-50 transition-all shadow-sm"
+                                    >
+                                        {seeding ? 'Yükleniyor...' : 'Örnek Maç Verisini Yükle'}
+                                    </button>
+                                    <p className="text-[10px] text-slate-400 mt-3">Gaziantep FK - Galatasaray maçı verilerini sıfırlar ve yeniden yükler.</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-            <div className="mt-8 pt-8 border-t border-gray-300">
-                <h2 className="text-2xl font-bold mb-4 text-gray-800">Ekstra Veriler (Faz 2)</h2>
-                <div className="grid md:grid-cols-3 gap-6">
-                    <StandingForm apiKey={apiKey} />
-                    <StatementForm apiKey={apiKey} />
-                    <DisciplinaryForm apiKey={apiKey} />
+                    {/* MATCHES TAB */}
+                    {activeTab === 'matches' && (
+                        <div className="grid md:grid-cols-2 gap-8">
+                            <TeamForm apiKey={apiKey} />
+                            <MatchForm apiKey={apiKey} preloadedMatch={loadedMatch} />
+                        </div>
+                    )}
+
+                    {/* INCIDENTS TAB */}
+                    {activeTab === 'incidents' && (
+                        <div className="grid md:grid-cols-2 gap-8">
+                            <IncidentForm apiKey={apiKey} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} />
+                            <OpinionForm apiKey={apiKey} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} />
+                        </div>
+                    )}
+
+                    {/* EXTRAS TAB */}
+                    {activeTab === 'extras' && (
+                        <div className="grid md:grid-cols-3 gap-6">
+                            <StandingForm apiKey={apiKey} />
+                            <StatementForm apiKey={apiKey} />
+                            <DisciplinaryForm apiKey={apiKey} />
+                        </div>
+                    )}
+
                 </div>
-            </div>
-
-            <div className="p-4 rounded text-center text-gray-500 text-sm">
-                Formları kullanarak yeni veriler ekleyebilirsin.
             </div>
         </div>
     );
 }
+
+// Styling note: The sub-forms (TeamForm, etc.) are imported from separate components.
+// We are trusting they will inherit the global tailwind styles nicely, or we might need to visit them if they have hardcoded ugly styles.
+// For now, looking at previous context, they seemed basic. We'll assume they are acceptable or will be updated if requested specifically.

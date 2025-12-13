@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, collectionGroup, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, collectionGroup, query, where, limit } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { TrioSection, GeneralCommentsSection, PfdkSection, StatementsSection, StandingsSection } from '@/components/home/DashboardWidgets';
 import Link from 'next/link';
@@ -12,31 +12,23 @@ export default function Home() {
   const [pfdkActions, setPfdkActions] = useState<any[]>([]);
   const [statements, setStatements] = useState<any[]>([]);
   const [standings, setStandings] = useState<any[]>([]);
-
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
-        // Helper to group opinions by match
         const groupOpinions = async (querySnapshot: any) => {
           const groups: { [key: string]: any } = {};
-
-          // 1. Group by MatchID from Ref Path
           for (const d of querySnapshot.docs) {
-            // Path: matches/{matchId}/incidents/{incId}/opinions/{opId}
             const matchId = d.ref.path.split('/')[1];
             if (!groups[matchId]) {
               groups[matchId] = { matchId, matchName: 'Yükleniyor...', opinions: [] };
             }
             groups[matchId].opinions.push(d.data());
           }
-
-          // 2. Fetch Match Names
           const matchIds = Object.keys(groups);
           if (matchIds.length > 0) {
-            // For now, fetch individually or promise.all (efficient enough for small N)
             const { doc, getDoc } = await import('firebase/firestore');
             await Promise.all(matchIds.map(async (mid) => {
               try {
@@ -48,29 +40,23 @@ export default function Home() {
               } catch (e) { console.error('Match name fetch err', e) }
             }));
           }
-
           return Object.values(groups);
         };
 
-        // 1. Fetch Trio Opinions (Global)
         const trioQ = query(collectionGroup(db, 'opinions'), where('type', '==', 'trio'), limit(20));
         const trioSnap = await getDocs(trioQ);
         setTrioGrouped(await groupOpinions(trioSnap));
 
-        // 2. Fetch General Opinions
         const genQ = query(collectionGroup(db, 'opinions'), where('type', '==', 'general'), limit(20));
         const genSnap = await getDocs(genQ);
         setGeneralGrouped(await groupOpinions(genSnap));
 
-        // 3. PFDK
         const pfdkSnap = await getDocs(collection(db, 'disciplinary_actions'));
         setPfdkActions(pfdkSnap.docs.map(d => d.data()));
 
-        // 4. Statements
         const stmtSnap = await getDocs(collection(db, 'statements'));
         setStatements(stmtSnap.docs.map(d => d.data()));
 
-        // 5. Standings
         const standSnap = await getDocs(collection(db, 'standings'));
         setStandings(standSnap.docs.map(d => d.data()));
 
@@ -80,47 +66,90 @@ export default function Home() {
         setLoading(false);
       }
     }
-
     fetchData();
   }, []);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Yükleniyor...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
+      <div className="flex flex-col items-center gap-2">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-sm font-medium">Veriler Yükleniyor...</span>
+      </div>
+    </div>
+  );
 
   return (
-    <main className="min-h-screen bg-gray-100 p-4 md:p-8 space-y-6">
-      <header className="flex justify-between items-center bg-white p-4 rounded shadow-sm border-b-4 border-red-600">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">REFEREE <span className="text-red-600">LIG</span></h1>
-          <p className="text-xs text-gray-500">Süper Lig Hakem Analiz Platformu</p>
-        </div>
-        {/* Temporary Navigation to Match for Demo */}
-        <Link href="/matches/week1-gfk-gs" className="bg-red-600 text-white px-4 py-2 rounded font-bold text-sm hover:bg-red-700 transition">
-          Haftanın Maçı &rarr;
-        </Link>
-      </header>
+    <main className="min-h-screen bg-background pb-20">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-b from-slate-900 to-slate-800 text-white pb-24 pt-10 px-4 md:px-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
 
-      {/* Top Row: 3 Columns (Trio, Statements, General) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[500px]">
-        <TrioSection groupedOpinions={trioGrouped} />
-        <StatementsSection statements={statements.filter(s => !s.title.toLowerCase().includes('pfdk'))} />
-        <GeneralCommentsSection groupedOpinions={generalGrouped} />
+        <div className="max-w-7xl mx-auto relative z-10">
+          <header className="flex justify-between items-center mb-12">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-black tracking-tighter">
+                REFEREE<span className="text-primary">LIG</span>
+              </h1>
+              <p className="text-slate-400 text-sm mt-1">Süper Lig Hakem Performans Analizi</p>
+            </div>
+          </header>
+
+          <div className="glass-panel p-1 rounded-2xl border border-white/10 max-w-2xl">
+            <div className="bg-slate-950/80 rounded-xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="text-center md:text-left">
+                <span className="inline-block px-3 py-1 bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider rounded-full mb-3">
+                  Haftanın Maçı
+                </span>
+                <h2 className="text-2xl font-bold mb-1">Gaziantep FK - Galatasaray</h2>
+                <div className="flex items-center justify-center md:justify-start gap-4 text-sm text-slate-400">
+                  <span>Ali Şansalan</span>
+                  <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+                  <span>19.00</span>
+                </div>
+              </div>
+              <Link
+                href="/matches/week1-gfk-gs"
+                className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-bold transition-all shadow-lg hover:shadow-primary/25 whitespace-nowrap"
+              >
+                Analize Git &rarr;
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Bottom Row: 2 Columns (PFDK, Standings) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2">
-          <PfdkSection
-            actions={pfdkActions}
-            statements={statements.filter(s => s.title.toLowerCase().includes('pfdk'))}
-          />
-        </div>
-        <div>
-          <StandingsSection standings={standings} />
-        </div>
-      </div>
+      {/* Content Grid */}
+      <div className="max-w-7xl mx-auto px-4 md:px-8 -mt-16 relative z-20 space-y-8">
 
-      <div className="text-center p-4 text-xs text-gray-400 mt-8">
-        <p>Bu platformdaki veriler tamamen demo amaçlıdır. Gerçek kurum ve kişilerle ilgisi olmayabilir.</p>
+        {/* Top Row: Opinions */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 h-[500px]">
+            <TrioSection groupedOpinions={trioGrouped} />
+          </div>
+          <div className="lg:col-span-1 h-[500px]">
+            <StatementsSection statements={statements.filter(s => !s.title.toLowerCase().includes('pfdk'))} />
+          </div>
+          <div className="lg:col-span-1 h-[500px]">
+            <GeneralCommentsSection groupedOpinions={generalGrouped} />
+          </div>
+        </div>
+
+        {/* Bottom Row: PFDK & Standings */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <PfdkSection
+              actions={pfdkActions}
+              statements={statements.filter(s => s.title.toLowerCase().includes('pfdk'))}
+            />
+          </div>
+          <div className="lg:col-span-1">
+            <StandingsSection standings={standings} />
+          </div>
+        </div>
+
+        <div className="text-center py-8 text-xs text-muted-foreground border-t border-border mt-8">
+          <p>Bu platformdaki veriler tamamen demo amaçlıdır. Gerçek kurum ve kişilerle ilgisi olmayabilir.</p>
+        </div>
       </div>
     </main>
   );
