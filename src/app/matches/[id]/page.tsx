@@ -475,7 +475,6 @@ function getImpactColor(impact: string) {
         case 'penalty': return 'bg-yellow-200 text-yellow-800';
         case 'red_card': return 'bg-red-200 text-red-800';
         case 'goal': return 'bg-green-200 text-green-800';
-        case 'cancelled_goal': return 'bg-orange-200 text-orange-800';
         default: return 'bg-gray-200 text-gray-800';
     }
 }

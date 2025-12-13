@@ -134,22 +134,32 @@ export const StandingsSection = ({ standings }: { standings: Standing[] }) => (
             <table className="w-full text-sm text-left">
                 <thead className="text-xs text-gray-500 bg-gray-50 uppercase">
                     <tr>
-                        <th className="px-2 py-2">#</th>
+                        <th className="px-2 py-2 w-8">#</th>
                         <th className="px-2 py-2">Takım</th>
-                        <th className="px-2 py-2 text-center">O</th>
-                        <th className="px-2 py-2 text-center">Av</th>
-                        <th className="px-2 py-2 text-center font-bold">P</th>
+                        <th className="px-1 py-2 text-center" title="Oynanan">O</th>
+                        <th className="px-1 py-2 text-center" title="Galibiyet">G</th>
+                        <th className="px-1 py-2 text-center" title="Beraberlik">B</th>
+                        <th className="px-1 py-2 text-center" title="Mağlubiyet">M</th>
+                        <th className="px-1 py-2 text-center" title="Atılan Gol">AG</th>
+                        <th className="px-1 py-2 text-center" title="Yenilen Gol">YG</th>
+                        <th className="px-1 py-2 text-center" title="Averaj">AV</th>
+                        <th className="px-2 py-2 text-center font-bold" title="Puan">P</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                     {standings.length === 0 ? (
-                        <tr><td colSpan={5} className="text-center p-4 text-gray-400">Veri yok</td></tr>
-                    ) : standings.sort((a, b) => b.points - a.points).map((team, i) => (
-                        <tr key={i} className="hover:bg-gray-50">
-                            <td className="px-2 py-2 font-medium text-gray-600">{i + 1}</td>
-                            <td className="px-2 py-2 font-bold text-gray-900">{team.teamName}</td>
-                            <td className="px-2 py-2 text-center">{team.played}</td>
-                            <td className="px-2 py-2 text-center">{team.goalDiff}</td>
+                        <tr><td colSpan={10} className="text-center p-4 text-gray-400">Veri yok</td></tr>
+                    ) : standings.sort((a, b) => (a.rank || 99) - (b.rank || 99)).map((team, i) => (
+                        <tr key={team.id} className="hover:bg-gray-50">
+                            <td className="px-2 py-2 font-bold text-gray-800">{team.rank || i + 1}</td>
+                            <td className="px-2 py-2 font-bold text-gray-900 truncate max-w-[120px]" title={team.teamName}>{team.teamName}</td>
+                            <td className="px-1 py-2 text-center text-gray-800">{team.played}</td>
+                            <td className="px-1 py-2 text-center text-gray-800">{team.won}</td>
+                            <td className="px-1 py-2 text-center text-gray-800">{team.drawn}</td>
+                            <td className="px-1 py-2 text-center text-gray-800">{team.lost}</td>
+                            <td className="px-1 py-2 text-center text-gray-800">{team.goalsFor}</td>
+                            <td className="px-1 py-2 text-center text-gray-800">{team.goalsAgainst}</td>
+                            <td className="px-1 py-2 text-center text-gray-800">{team.goalDiff}</td>
                             <td className="px-2 py-2 text-center font-bold text-green-700 bg-green-50 rounded">{team.points}</td>
                         </tr>
                     ))}

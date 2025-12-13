@@ -788,8 +788,37 @@ export const IncidentForm = ({ apiKey, defaultMatchId, existingIncidents }: Base
             <textarea placeholder="Pozisyon Açıklaması" rows={3} className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.description} onChange={e => setIncident({ ...incident, description: e.target.value })} />
             <input placeholder="YouTube Linki (örn: https://youtu.be/...?t=120)" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.videoUrl || ''} onChange={e => setIncident({ ...incident, videoUrl: e.target.value })} />
             <div className="grid grid-cols-2 gap-2">
-                <input placeholder="Hakem Kararı" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.refereeDecision} onChange={e => setIncident({ ...incident, refereeDecision: e.target.value })} />
-                <input placeholder="VAR Kararı" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.finalDecision} onChange={e => setIncident({ ...incident, finalDecision: e.target.value })} />
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-500">Hakem Kararı</label>
+                    <select className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.refereeDecision} onChange={e => setIncident({ ...incident, refereeDecision: e.target.value })}>
+                        <option value="">(Seçiniz)</option>
+                        <option value="Devam">Devam</option>
+                        <option value="Faul">Faul</option>
+                        <option value="Gol">Gol</option>
+                        <option value="Ofsayt">Ofsayt</option>
+                        <option value="Taç / Korner">Taç / Korner</option>
+                        <option value="Sarı Kart">Sarı Kart</option>
+                        <option value="Kırmızı Kart">Kırmızı Kart</option>
+                        <option value="Penaltı">Penaltı</option>
+                    </select>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-500">VAR Kararı</label>
+                    <select className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.varDecision || ''} onChange={e => setIncident({ ...incident, varDecision: e.target.value })}>
+                        <option value="">(Yok/Seçiniz)</option>
+                        <option value="Müdahale Yok">Müdahale Yok</option>
+                        <option value="İnceleme Önerisi">İnceleme Önerisi</option>
+                        <option value="Gol İptal">Gol İptal</option>
+                        <option value="Gol Onay">Gol Onay</option>
+                        <option value="Penaltı Verildi">Penaltı Verildi</option>
+                        <option value="Penaltı İptal">Penaltı İptal</option>
+                        <option value="Kart Değişimi">Kart Değişimi</option>
+                    </select>
+                </div>
+            </div>
+            <div className="mt-2">
+                <label className="text-xs font-bold text-gray-500">Verilmesi Gereken Karar (Nihai)</label>
+                <input placeholder="Örn: Net Penaltı, Devam Doğru vb." className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.finalDecision || ''} onChange={e => setIncident({ ...incident, finalDecision: e.target.value })} />
             </div>
             <button className="bg-red-600 hover:bg-red-700 text-white p-2 rounded w-full font-medium">Pozisyonu Kaydet</button>
 

@@ -9,18 +9,15 @@ interface BaseProps {
 
 export const StandingForm = ({ apiKey }: BaseProps) => {
     const [standing, setStanding] = useState<Partial<Standing>>({
-        id: '', teamName: '', played: 0, won: 0, drawn: 0, lost: 0, goalDiff: 0, points: 0
+        id: '', rank: 1, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Since we don't have a dedicated API for this yet, we'll generally default to a generic 'bulk' or 'single' endpoint logic
-        // But for MVP phase 2, let's assume we create generic admin endpoints or specific ones. 
-        // Let's assume /api/admin/standings exists.
         const res = await fetch('/api/admin/standings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
-            body: JSON.stringify(standing),
+            body: JSON.stringify({ ...standing, teamName: standing.id }),
         });
         if (res.ok) alert('Puan Durumu Eklendi!');
         else alert('Hata oluştu');
@@ -29,18 +26,28 @@ export const StandingForm = ({ apiKey }: BaseProps) => {
     return (
         <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm">
             <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Puan Durumu Ekle</h3>
-            <input placeholder="Takım ID (örn: galatasaray)" className="border border-gray-300 p-2 w-full rounded" value={standing.id} onChange={e => setStanding({ ...standing, id: e.target.value })} required />
-            <input placeholder="Takım Adı" className="border border-gray-300 p-2 w-full rounded" value={standing.teamName} onChange={e => setStanding({ ...standing, teamName: e.target.value })} required />
-            <div className="grid grid-cols-4 gap-2">
-                <input type="number" placeholder="O" className="border p-2 rounded" value={standing.played} onChange={e => setStanding({ ...standing, played: +e.target.value })} />
-                <input type="number" placeholder="G" className="border p-2 rounded" value={standing.won} onChange={e => setStanding({ ...standing, won: +e.target.value })} />
-                <input type="number" placeholder="B" className="border p-2 rounded" value={standing.drawn} onChange={e => setStanding({ ...standing, drawn: +e.target.value })} />
-                <input type="number" placeholder="M" className="border p-2 rounded" value={standing.lost} onChange={e => setStanding({ ...standing, lost: +e.target.value })} />
+            <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500">Takım Kodu (ID)</label>
+                <input placeholder="örn: galatasaray" className="border border-gray-300 p-2 w-full rounded" value={standing.id} onChange={e => setStanding({ ...standing, id: e.target.value })} required />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-                <input type="number" placeholder="Averaj" className="border p-2 rounded" value={standing.goalDiff} onChange={e => setStanding({ ...standing, goalDiff: +e.target.value })} />
-                <input type="number" placeholder="Puan" className="border p-2 rounded" value={standing.points} onChange={e => setStanding({ ...standing, points: +e.target.value })} />
+
+            <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500">Sıralama (Rank)</label>
+                <input type="number" placeholder="Kaçıncı sırada?" className="border border-gray-300 p-2 w-full rounded" value={standing.rank || ''} onChange={e => setStanding({ ...standing, rank: +e.target.value })} />
             </div>
+
+            <div className="grid grid-cols-4 gap-3 pt-2">
+                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">O</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.played || ''} onChange={e => setStanding({ ...standing, played: +e.target.value })} /></div>
+                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">G</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.won || ''} onChange={e => setStanding({ ...standing, won: +e.target.value })} /></div>
+                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">B</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.drawn || ''} onChange={e => setStanding({ ...standing, drawn: +e.target.value })} /></div>
+                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">M</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.lost || ''} onChange={e => setStanding({ ...standing, lost: +e.target.value })} /></div>
+
+                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">AG</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalsFor || ''} onChange={e => setStanding({ ...standing, goalsFor: +e.target.value })} /></div>
+                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">YG</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalsAgainst || ''} onChange={e => setStanding({ ...standing, goalsAgainst: +e.target.value })} /></div>
+                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">AV</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalDiff || ''} onChange={e => setStanding({ ...standing, goalDiff: +e.target.value })} /></div>
+                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">P</span><input type="number" className="border p-2 rounded w-full text-center font-black bg-gray-50" value={standing.points || ''} onChange={e => setStanding({ ...standing, points: +e.target.value })} /></div>
+            </div>
+
             <button className="bg-purple-600 text-white p-2 rounded w-full">Kaydet</button>
         </form>
     );
@@ -48,7 +55,7 @@ export const StandingForm = ({ apiKey }: BaseProps) => {
 
 export const StatementForm = ({ apiKey }: BaseProps) => {
     const [statement, setStatement] = useState<Partial<Statement>>({
-        id: '', title: '', content: '', entity: 'TFF', date: new Date().toISOString().split('T')[0], type: 'tff'
+        title: '', content: '', entity: '', type: 'tff', date: new Date().toISOString().split('T')[0]
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -64,23 +71,24 @@ export const StatementForm = ({ apiKey }: BaseProps) => {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm">
-            <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Açıklama Ekle (TFF/Kulüp)</h3>
-            <input placeholder="ID (otomatik veya manuel)" className="border border-gray-300 p-2 w-full rounded" value={statement.id} onChange={e => setStatement({ ...statement, id: e.target.value })} />
+            <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Resmi Açıklama Ekle</h3>
             <select className="border border-gray-300 p-2 w-full rounded" value={statement.type} onChange={e => setStatement({ ...statement, type: e.target.value as any })}>
-                <option value="tff">TFF</option>
+                <option value="tff">TFF / MHK</option>
                 <option value="club">Kulüp</option>
             </select>
-            <input placeholder="Kurum Adı (örn: Galatasaray SK)" className="border border-gray-300 p-2 w-full rounded" value={statement.entity} onChange={e => setStatement({ ...statement, entity: e.target.value })} />
+            <input placeholder="Kurum Adı (örn: TFF, Galatasaray)" className="border border-gray-300 p-2 w-full rounded" value={statement.entity} onChange={e => setStatement({ ...statement, entity: e.target.value })} required />
             <input placeholder="Başlık" className="border border-gray-300 p-2 w-full rounded" value={statement.title} onChange={e => setStatement({ ...statement, title: e.target.value })} required />
-            <textarea placeholder="İçerik..." rows={3} className="border border-gray-300 p-2 w-full rounded" value={statement.content} onChange={e => setStatement({ ...statement, content: e.target.value })} />
-            <button className="bg-indigo-600 text-white p-2 rounded w-full">Kaydet</button>
+            <textarea placeholder="Açıklama içeriği..." className="border border-gray-300 p-2 w-full rounded h-24" value={statement.content} onChange={e => setStatement({ ...statement, content: e.target.value })} required />
+            <input type="date" className="border border-gray-300 p-2 w-full rounded" value={statement.date} onChange={e => setStatement({ ...statement, date: e.target.value })} />
+
+            <button className="bg-blue-600 text-white p-2 rounded w-full">Kaydet</button>
         </form>
     );
 };
 
 export const DisciplinaryForm = ({ apiKey }: BaseProps) => {
     const [action, setAction] = useState<Partial<DisciplinaryAction>>({
-        id: '', teamName: '', subject: '', reason: '', date: new Date().toISOString().split('T')[0]
+        teamName: '', subject: '', reason: '', date: new Date().toISOString().split('T')[0]
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -97,11 +105,12 @@ export const DisciplinaryForm = ({ apiKey }: BaseProps) => {
     return (
         <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm">
             <h3 className="font-bold text-lg text-gray-800 border-b pb-2">PFDK Sevki Ekle</h3>
-            <input placeholder="ID" className="border border-gray-300 p-2 w-full rounded" value={action.id} onChange={e => setAction({ ...action, id: e.target.value })} />
-            <input placeholder="Takım Adı" className="border border-gray-300 p-2 w-full rounded" value={action.teamName} onChange={e => setAction({ ...action, teamName: e.target.value })} />
-            <input placeholder="Kişi (Futbolcu/Yönetici)" className="border border-gray-300 p-2 w-full rounded" value={action.subject} onChange={e => setAction({ ...action, subject: e.target.value })} required />
-            <textarea placeholder="Sevk Nedeni (örn: Hakaret)" rows={2} className="border border-gray-300 p-2 w-full rounded" value={action.reason} onChange={e => setAction({ ...action, reason: e.target.value })} />
-            <button className="bg-orange-600 text-white p-2 rounded w-full">Kaydet</button>
+            <input placeholder="Takım Adı (örn: Galatasaray)" className="border border-gray-300 p-2 w-full rounded" value={action.teamName} onChange={e => setAction({ ...action, teamName: e.target.value })} required />
+            <input placeholder="Özne (Futbolcu/Yönetici Adı)" className="border border-gray-300 p-2 w-full rounded" value={action.subject} onChange={e => setAction({ ...action, subject: e.target.value })} required />
+            <textarea placeholder="Sevk Nedeni (Gerekçe)" className="border border-gray-300 p-2 w-full rounded h-24" value={action.reason} onChange={e => setAction({ ...action, reason: e.target.value })} required />
+            <input type="date" className="border border-gray-300 p-2 w-full rounded" value={action.date} onChange={e => setAction({ ...action, date: e.target.value })} />
+
+            <button className="bg-red-600 text-white p-2 rounded w-full">Kaydet</button>
         </form>
     );
 };

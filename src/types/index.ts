@@ -71,7 +71,7 @@ export interface Match {
     lineups?: MatchLineups;
 }
 
-export type DecisionImpact = 'penalty' | 'red_card' | 'goal' | 'cancelled_goal' | 'none' | 'unknown';
+export type DecisionImpact = 'penalty' | 'red_card' | 'goal' | 'none' | 'unknown';
 
 export interface Incident {
     id: string; // Document ID
@@ -103,6 +103,8 @@ export interface Standing {
     won: number;
     drawn: number;
     lost: number;
+    goalsFor: number;
+    goalsAgainst: number;
     goalDiff: number;
     points: number;
     rank?: number;
