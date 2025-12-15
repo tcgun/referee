@@ -1,18 +1,47 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TeamForm, MatchForm, IncidentForm, OpinionForm } from '@/components/admin/AdminForms';
 import { StandingForm, StatementForm, DisciplinaryForm } from '@/components/admin/ExtraForms';
+import { Match, Incident, Opinion } from '@/types';
 
 export default function AdminPage() {
+    // Use sessionStorage instead of component state for admin key
+    // This ensures the key is cleared when the browser tab is closed
     const [apiKey, setApiKey] = useState('');
     const [seeding, setSeeding] = useState(false);
     const [activeTab, setActiveTab] = useState<'setup' | 'matches' | 'incidents' | 'extras'>('setup');
 
+    // Load admin key from sessionStorage on mount
+    useEffect(() => {
+        const storedKey = sessionStorage.getItem('admin_key');
+        if (storedKey) {
+            setApiKey(storedKey);
+        }
+    }, []);
+
+    // Save admin key to sessionStorage when it changes
+    const handleApiKeyChange = (newKey: string) => {
+        setApiKey(newKey);
+        if (newKey) {
+            sessionStorage.setItem('admin_key', newKey);
+        } else {
+            sessionStorage.removeItem('admin_key');
+        }
+    };
+
+    // Clear admin key when component unmounts (tab closed)
+    useEffect(() => {
+        return () => {
+            // Note: sessionStorage automatically clears when tab closes, but we can also clear on unmount
+            // sessionStorage.removeItem('admin_key');
+        };
+    }, []);
+
     // Central Data Management
     const [targetMatchId, setTargetMatchId] = useState('week1-gfk-gs');
-    const [loadedMatch, setLoadedMatch] = useState<any>(null);
-    const [loadedIncidents, setLoadedIncidents] = useState<any[]>([]);
+    const [loadedMatch, setLoadedMatch] = useState<Match | null>(null);
+    const [loadedIncidents, setLoadedIncidents] = useState<Array<Incident & { opinions: Opinion[] }>>([]);
 
     const handleFetchMatch = async () => {
         if (!targetMatchId) return alert('Lütfen Maç ID girin.');
@@ -87,10 +116,40 @@ export default function AdminPage() {
                             type="password"
                             className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 w-48 transition-colors"
                             value={apiKey}
-                            onChange={e => setApiKey(e.target.value)}
+                            onChange={e => handleApiKeyChange(e.target.value)}
                             placeholder="ADMIN_KEY..."
+                            autoComplete="off"
                         />
+                        <button
+                            onClick={() => {
+                                handleApiKeyChange('');
+                                alert('Admin key temizlendi. Sekme kapatıldığında otomatik olarak silinir.');
+                            }}
+                            className="text-xs text-slate-400 hover:text-white transition-colors"
+                            title="Admin key'i temizle"
+                        >
+                            ✕
+                        </button>
                         <div className={`w-2 h-2 rounded-full ${apiKey ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-slate-700'}`}></div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Security Warning */}
+            <div className="max-w-6xl mx-auto px-6 pt-4">
+                <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded">
+                    <div className="flex">
+                        <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                        <div className="ml-3">
+                            <p className="text-sm text-amber-700">
+                                <strong>Güvenlik Uyarısı:</strong> Admin key browser'da saklanıyor. Bu sayfayı sadece güvenli bir cihazda kullanın. 
+                                Sekme kapatıldığında admin key otomatik olarak silinir.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>

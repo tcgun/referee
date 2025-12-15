@@ -45,3 +45,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# security and audit reports
+SECURITY_FIXES_SUMMARY.md
+SECURITY_AUDIT_REPORT.md

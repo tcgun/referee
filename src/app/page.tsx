@@ -1,31 +1,39 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, collectionGroup, query, where, limit } from 'firebase/firestore';
+import { collection, getDocs, collectionGroup, query, where, limit, QuerySnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { TrioSection, GeneralCommentsSection, PfdkSection, StatementsSection, StandingsSection } from '@/components/home/DashboardWidgets';
+import { Opinion, DisciplinaryAction, Statement, Standing } from '@/types';
 import Link from 'next/link';
 
+interface GroupedOpinion {
+  matchId: string;
+  matchName: string;
+  opinions: Opinion[];
+}
+
 export default function Home() {
-  const [trioGrouped, setTrioGrouped] = useState<any[]>([]);
-  const [generalGrouped, setGeneralGrouped] = useState<any[]>([]);
-  const [pfdkActions, setPfdkActions] = useState<any[]>([]);
-  const [statements, setStatements] = useState<any[]>([]);
-  const [standings, setStandings] = useState<any[]>([]);
+  const [trioGrouped, setTrioGrouped] = useState<GroupedOpinion[]>([]);
+  const [generalGrouped, setGeneralGrouped] = useState<GroupedOpinion[]>([]);
+  const [pfdkActions, setPfdkActions] = useState<DisciplinaryAction[]>([]);
+  const [statements, setStatements] = useState<Statement[]>([]);
+  const [standings, setStandings] = useState<Standing[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
-        const groupOpinions = async (querySnapshot: any) => {
-          const groups: { [key: string]: any } = {};
+        const groupOpinions = async (querySnapshot: QuerySnapshot<DocumentData>) => {
+          const groups: { [key: string]: GroupedOpinion } = {};
           for (const d of querySnapshot.docs) {
             const matchId = d.ref.path.split('/')[1];
             if (!groups[matchId]) {
               groups[matchId] = { matchId, matchName: 'Yükleniyor...', opinions: [] };
             }
-            groups[matchId].opinions.push(d.data());
+            const opinionData = d.data() as Opinion;
+            groups[matchId].opinions.push(opinionData);
           }
           const matchIds = Object.keys(groups);
           if (matchIds.length > 0) {
@@ -34,7 +42,7 @@ export default function Home() {
               try {
                 const mSnap = await getDoc(doc(db, 'matches', mid));
                 if (mSnap.exists()) {
-                  const mData = mSnap.data();
+                  const mData = mSnap.data() as Match;
                   groups[mid].matchName = `${mData.homeTeamName} - ${mData.awayTeamName}`;
                 }
               } catch (e) { console.error('Match name fetch err', e) }
@@ -52,13 +60,13 @@ export default function Home() {
         setGeneralGrouped(await groupOpinions(genSnap));
 
         const pfdkSnap = await getDocs(collection(db, 'disciplinary_actions'));
-        setPfdkActions(pfdkSnap.docs.map(d => d.data()));
+        setPfdkActions(pfdkSnap.docs.map(d => d.data() as DisciplinaryAction));
 
         const stmtSnap = await getDocs(collection(db, 'statements'));
-        setStatements(stmtSnap.docs.map(d => d.data()));
+        setStatements(stmtSnap.docs.map(d => d.data() as Statement));
 
         const standSnap = await getDocs(collection(db, 'standings'));
-        setStandings(standSnap.docs.map(d => d.data()));
+        setStandings(standSnap.docs.map(d => d.data() as Standing));
 
       } catch (err) {
         console.error("Dashboard Fetch Error:", err);

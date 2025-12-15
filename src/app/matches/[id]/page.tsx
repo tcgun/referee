@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc, collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
+import { Match, Incident, Opinion, DisciplinaryAction, Player } from '@/types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getTeamColors } from '@/lib/teams';
@@ -370,7 +370,16 @@ function getImpactColor(impact: string) {
     }
 }
 
-const TeamLineupCard = ({ teamName, color, players, subs, coach, isAway }: any) => (
+interface TeamLineupCardProps {
+    teamName: string;
+    color: string;
+    players: Player[];
+    subs: Player[];
+    coach: string;
+    isAway: boolean;
+}
+
+const TeamLineupCard = ({ teamName, color, players, subs, coach, isAway }: TeamLineupCardProps) => (
     <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         <div className={`p-4 border-b border-border bg-slate-50/50 flex items-center gap-3 ${isAway ? 'justify-end' : ''}`}>
             {!isAway && <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: color }}></div>}
@@ -381,7 +390,7 @@ const TeamLineupCard = ({ teamName, color, players, subs, coach, isAway }: any) 
             <div className="mb-6">
                 <h4 className={`text-xs font-bold text-muted-foreground uppercase mb-3 tracking-wider ${isAway ? 'text-right' : ''}`}>İlk 11</h4>
                 <div className="space-y-2">
-                    {players.map((p: any, i: number) => (
+                    {players.map((p: Player, i: number) => (
                         <div key={i} className={`flex items-center gap-4 p-2 hover:bg-slate-50 rounded transition-colors border-b border-border last:border-0 ${isAway ? 'flex-row-reverse' : ''}`}>
                             <span className="font-mono font-bold text-slate-400 w-6 text-lg text-center">{p.number}</span>
                             <span className="font-bold text-foreground text-sm">{p.name}</span>
@@ -393,7 +402,7 @@ const TeamLineupCard = ({ teamName, color, players, subs, coach, isAway }: any) 
                 <div>
                     <h4 className={`text-xs font-bold text-muted-foreground uppercase mb-3 tracking-wider ${isAway ? 'text-right' : ''}`}>Yedekler</h4>
                     <div className="grid grid-cols-2 gap-2">
-                        {subs.map((p: any, i: number) => (
+                        {subs.map((p: Player, i: number) => (
                             <div key={i} className={`flex items-center gap-2 p-1 ${isAway ? 'flex-row-reverse' : ''}`}>
                                 <span className="font-mono font-bold text-slate-300 text-xs w-5 text-center">{p.number}</span>
                                 <span className={`text-xs text-slate-500 truncate ${isAway ? 'text-right' : ''}`}>{p.name}</span>
