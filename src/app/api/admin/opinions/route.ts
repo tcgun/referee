@@ -11,11 +11,11 @@ export async function POST(request: Request) {
         const rateLimit = checkRateLimit(`admin-api:${clientIP}`, 20, 10000);
         if (!rateLimit.success) {
             return NextResponse.json(
-                { 
-                    error: 'Too many requests', 
+                {
+                    error: 'Too many requests',
                     retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
                 },
-                { 
+                {
                     status: 429,
                     headers: {
                         'X-RateLimit-Limit': rateLimit.limit.toString(),
@@ -33,14 +33,14 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        
+
         // Validate with Zod
         const validationResult = opinionSchema.safeParse(body);
         if (!validationResult.success) {
             return NextResponse.json(
-                { 
-                    error: 'Validation failed', 
-                    details: validationResult.error.errors 
+                {
+                    error: 'Validation failed',
+                    details: validationResult.error.format()
                 },
                 { status: 400 }
             );
@@ -61,11 +61,11 @@ export async function POST(request: Request) {
     } catch (error) {
         const isDev = process.env.NODE_ENV === 'development';
         const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-        
+
         console.error('Error adding opinion:', error);
-        
+
         return NextResponse.json(
-            { 
+            {
                 error: 'Internal Server Error',
                 ...(isDev && { details: errorMessage })
             },

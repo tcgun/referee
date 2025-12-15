@@ -45,12 +45,12 @@ export interface Player {
 }
 
 export interface MatchLineups {
-    home: Player[];
-    away: Player[];
-    homeSubs: Player[];
-    awaySubs: Player[];
-    homeCoach: string;
-    awayCoach: string;
+    home?: Player[];
+    away?: Player[];
+    homeSubs?: Player[];
+    awaySubs?: Player[];
+    homeCoach?: string;
+    awayCoach?: string;
 }
 
 export interface Match {

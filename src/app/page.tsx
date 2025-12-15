@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { collection, getDocs, collectionGroup, query, where, limit, QuerySnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { TrioSection, GeneralCommentsSection, PfdkSection, StatementsSection, StandingsSection } from '@/components/home/DashboardWidgets';
-import { Opinion, DisciplinaryAction, Statement, Standing } from '@/types';
+import { Opinion, DisciplinaryAction, Statement, Standing, Match } from '@/types';
 import Link from 'next/link';
 
 interface GroupedOpinion {

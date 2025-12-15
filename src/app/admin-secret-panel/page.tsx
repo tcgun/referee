@@ -53,7 +53,7 @@ export default function AdminPage() {
             const matchSnap = await getDoc(doc(db, 'matches', targetMatchId));
 
             if (matchSnap.exists()) {
-                const matchData = matchSnap.data();
+                const matchData = matchSnap.data() as Match;
                 setLoadedMatch(matchData);
 
                 // 2. Fetch Incidents
@@ -61,13 +61,13 @@ export default function AdminPage() {
                 const incSnap = await getDocs(incQ);
 
                 const incidentsWithOpinions = await Promise.all(incSnap.docs.map(async (incDoc) => {
-                    const incData = incDoc.data();
+                    const incData = incDoc.data() as Incident;
                     incData.id = incDoc.id; // ensure ID
 
                     // 3. Fetch Opinions
                     const opQ = collection(db, 'matches', targetMatchId, 'incidents', incData.id, 'opinions');
                     const opSnap = await getDocs(opQ);
-                    const opinions = opSnap.docs.map(d => ({ ...d.data(), id: d.id }));
+                    const opinions = opSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Opinion[];
 
                     return { ...incData, opinions };
                 }));
@@ -146,7 +146,7 @@ export default function AdminPage() {
                         </div>
                         <div className="ml-3">
                             <p className="text-sm text-amber-700">
-                                <strong>Güvenlik Uyarısı:</strong> Admin key browser'da saklanıyor. Bu sayfayı sadece güvenli bir cihazda kullanın. 
+                                <strong>Güvenlik Uyarısı:</strong> Admin key browser'da saklanıyor. Bu sayfayı sadece güvenli bir cihazda kullanın.
                                 Sekme kapatıldığında admin key otomatik olarak silinir.
                             </p>
                         </div>
@@ -169,8 +169,8 @@ export default function AdminPage() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as any)}
                             className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${activeTab === tab.id
-                                    ? 'bg-slate-900 text-white shadow-md transform scale-105'
-                                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                                ? 'bg-slate-900 text-white shadow-md transform scale-105'
+                                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                                 }`}
                         >
                             {tab.label}

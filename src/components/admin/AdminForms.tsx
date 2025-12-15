@@ -338,8 +338,8 @@ export const MatchForm = ({ apiKey, preloadedMatch }: BaseProps) => {
                     }}
                 />
                 <div className="flex justify-between text-[10px] text-gray-500 px-1 mb-2">
-                    <span>Tespit Edilen İlk 11: <strong>{match.lineups?.home.length || 0}</strong> - <strong>{match.lineups?.away.length || 0}</strong></span>
-                    <span>Yedek: <strong>{match.lineups?.homeSubs.length || 0}</strong> - <strong>{match.lineups?.awaySubs.length || 0}</strong></span>
+                    <span>Tespit Edilen İlk 11: <strong>{match.lineups?.home?.length || 0}</strong> - <strong>{match.lineups?.away?.length || 0}</strong></span>
+                    <span>Yedek: <strong>{match.lineups?.homeSubs?.length || 0}</strong> - <strong>{match.lineups?.awaySubs?.length || 0}</strong></span>
                 </div>
                 <button type="button" onClick={handleQuickSave} className="w-full bg-green-100 text-green-800 text-xs font-bold py-1 rounded hover:bg-green-200">
                     Kadroyu Kaydet 💾

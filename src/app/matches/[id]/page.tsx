@@ -128,8 +128,8 @@ export default function MatchPage() {
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
                                 className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${activeTab === tab
-                                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105'
-                                        : 'text-muted-foreground hover:bg-slate-100 hover:text-foreground'
+                                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105'
+                                    : 'text-muted-foreground hover:bg-slate-100 hover:text-foreground'
                                     }`}
                             >
                                 {tab === 'summary' ? 'Maç Merkezi' : tab === 'lineups' ? 'Kadrolar' : 'PFDK'}
@@ -302,8 +302,8 @@ export default function MatchPage() {
                 {activeTab === 'lineups' && match.lineups && (
                     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <div className="grid md:grid-cols-2 gap-8">
-                            <TeamLineupCard teamName={match.homeTeamName} color={homeColors.primary} players={match.lineups.home} subs={match.lineups.homeSubs} coach={match.lineups.homeCoach} />
-                            <TeamLineupCard teamName={match.awayTeamName} color={awayColors.primary} players={match.lineups.away} subs={match.lineups.awaySubs} coach={match.lineups.awayCoach} isAway />
+                            <TeamLineupCard teamName={match.homeTeamName} color={homeColors.primary} players={match.lineups.home || []} subs={match.lineups.homeSubs || []} coach={match.lineups.homeCoach || ''} isAway={false} />
+                            <TeamLineupCard teamName={match.awayTeamName} color={awayColors.primary} players={match.lineups.away || []} subs={match.lineups.awaySubs || []} coach={match.lineups.awayCoach || ''} isAway />
                         </div>
                     </div>
                 )}
