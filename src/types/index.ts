@@ -16,8 +16,14 @@ export interface MatchStats {
     awayShots: number;
     homeShotsOnTarget: number;
     awayShotsOnTarget: number;
-    homeBigChances: number;
-    awayBigChances: number;
+    homeBlockedShots?: number;
+    awayBlockedShots?: number;
+    homePasses?: number;
+    awayPasses?: number;
+    homePassAccuracy?: number;
+    awayPassAccuracy?: number;
+    homeBigChances?: number;
+    awayBigChances?: number;
     homeCorners: number;
     awayCorners: number;
     homeOffsides: number;
@@ -35,6 +41,9 @@ export interface MatchStats {
 export interface MatchOfficials {
     referees: string[]; // [Main, Asst1, Asst2, 4th]
     varReferees: string[]; // [VAR, AVAR, etc]
+    assistants?: string[];
+    fourthOfficial?: string;
+    avarReferees?: string[];
     observers: string[];
     representatives: string[];
 }

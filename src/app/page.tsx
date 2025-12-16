@@ -43,7 +43,8 @@ export default function Home() {
                 const mSnap = await getDoc(doc(db, 'matches', mid));
                 if (mSnap.exists()) {
                   const mData = mSnap.data() as Match;
-                  groups[mid].matchName = `${mData.homeTeamName} - ${mData.awayTeamName}`;
+                  // Updated to include Week info per user request
+                  groups[mid].matchName = `${mData.week}. Hafta: ${mData.homeTeamName} - ${mData.awayTeamName}`;
                 }
               } catch (e) { console.error('Match name fetch err', e) }
             }));
@@ -87,76 +88,52 @@ export default function Home() {
   );
 
   return (
-    <main className="min-h-screen bg-background pb-20">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-800 text-white pb-24 pt-10 px-4 md:px-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+    <main className="min-h-screen bg-background pb-20 pt-8">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-6">
 
-        <div className="max-w-7xl mx-auto relative z-10">
-          <header className="flex justify-between items-center mb-12">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tighter">
-                REFEREE<span className="text-primary">LIG</span>
-              </h1>
-              <p className="text-slate-400 text-sm mt-1">Süper Lig Hakem Performans Analizi</p>
+        {/* Simple Header instead of Hero */}
+        <header className="flex justify-between items-end border-b border-border pb-4 mb-4">
+          <div>
+            <h1 className="text-3xl font-black tracking-tighter text-foreground">
+              REFEREE<span className="text-primary">LIG</span>
+            </h1>
+            <p className="text-muted-foreground text-xs font-medium tracking-wide mt-1">Süper Lig Hakem Performans & Karar Analiz Platformu</p>
+          </div>
+          <div className="hidden md:block text-right">
+            <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-1 rounded">2024-2025 Sezonu</span>
+          </div>
+        </header>
+
+        {/* 4 Main Sections + Standings Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+          {/* Left Area: 4 Widgets (2x2) */}
+          <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="h-[450px]">
+              <TrioSection groupedOpinions={trioGrouped} />
             </div>
-          </header>
-
-          <div className="glass-panel p-1 rounded-2xl border border-white/10 max-w-2xl">
-            <div className="bg-slate-950/80 rounded-xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="text-center md:text-left">
-                <span className="inline-block px-3 py-1 bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider rounded-full mb-3">
-                  Haftanın Maçı
-                </span>
-                <h2 className="text-2xl font-bold mb-1">Gaziantep FK - Galatasaray</h2>
-                <div className="flex items-center justify-center md:justify-start gap-4 text-sm text-slate-400">
-                  <span>Ali Şansalan</span>
-                  <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-                  <span>19.00</span>
-                </div>
-              </div>
-              <Link
-                href="/matches/week1-gfk-gs"
-                className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-bold transition-all shadow-lg hover:shadow-primary/25 whitespace-nowrap"
-              >
-                Analize Git &rarr;
-              </Link>
+            <div className="h-[450px]">
+              <GeneralCommentsSection groupedOpinions={generalGrouped} />
+            </div>
+            <div className="h-[450px]">
+              <PfdkSection actions={pfdkActions} statements={statements.filter(s => s.title.toLowerCase().includes('pfdk'))} />
+            </div>
+            <div className="h-[450px]">
+              <StatementsSection statements={statements.filter(s => !s.title.toLowerCase().includes('pfdk'))} />
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Content Grid */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8 -mt-16 relative z-20 space-y-8">
+          {/* Right Area: Standings */}
+          <div className="lg:col-span-1 h-full min-h-[500px]">
+            <div className="sticky top-4 h-full">
+              <StandingsSection standings={standings} />
+            </div>
+          </div>
 
-        {/* Top Row: Opinions */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 h-[500px]">
-            <TrioSection groupedOpinions={trioGrouped} />
-          </div>
-          <div className="lg:col-span-1 h-[500px]">
-            <StatementsSection statements={statements.filter(s => !s.title.toLowerCase().includes('pfdk'))} />
-          </div>
-          <div className="lg:col-span-1 h-[500px]">
-            <GeneralCommentsSection groupedOpinions={generalGrouped} />
-          </div>
         </div>
 
-        {/* Bottom Row: PFDK & Standings */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <PfdkSection
-              actions={pfdkActions}
-              statements={statements.filter(s => s.title.toLowerCase().includes('pfdk'))}
-            />
-          </div>
-          <div className="lg:col-span-1">
-            <StandingsSection standings={standings} />
-          </div>
-        </div>
-
-        <div className="text-center py-8 text-xs text-muted-foreground border-t border-border mt-8">
-          <p>Bu platformdaki veriler tamamen demo amaçlıdır. Gerçek kurum ve kişilerle ilgisi olmayabilir.</p>
+        <div className="text-center py-6 text-[10px] text-muted-foreground border-t border-border mt-12">
+          <p>Bu platformdaki veriler tamamen demo amaçlıdır. Gerçek lig verileriyle eşleşmeyebilir.</p>
         </div>
       </div>
     </main>

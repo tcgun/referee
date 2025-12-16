@@ -1,16 +1,24 @@
 "use client";
 
+import { useState } from 'react';
 import { Opinion, DisciplinaryAction, Statement, Standing } from '@/types';
 import Link from 'next/link';
+import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'; // Ensure lucide-react is installed or use chars
 
-// Helper to color judgment
-const getJudgmentColor = (j: string) => {
-    switch (j) {
-        case 'correct': return 'text-green-600 bg-green-50 border-green-100';
-        case 'incorrect': return 'text-red-600 bg-red-50 border-red-100';
-        case 'controversial': return 'text-orange-600 bg-orange-50 border-orange-100';
-        default: return 'text-slate-600 bg-slate-50 border-slate-100';
-    }
+// Helper: Group matches by week
+const groupByWeek = (matches: MatchGroupedOpinions[]) => {
+    const groups: { [key: number]: MatchGroupedOpinions[] } = {};
+    matches.forEach(m => {
+        // Extract week from "X. Hafta: ..."
+        const weekMatch = m.matchName.match(/^(\d+)\./);
+        const week = weekMatch ? parseInt(weekMatch[1]) : 0;
+        if (!groups[week]) groups[week] = [];
+        groups[week].push(m);
+    });
+    // Sort weeks descending
+    return Object.entries(groups)
+        .sort(([a], [b]) => Number(b) - Number(a))
+        .map(([week, matches]) => ({ week: Number(week), matches }));
 };
 
 interface MatchGroupedOpinions {
@@ -19,166 +27,180 @@ interface MatchGroupedOpinions {
     opinions: Opinion[];
 }
 
-// Reusable Card Component
 const WidgetCard = ({ title, icon, children, headerColor = "text-foreground" }: { title: string, icon: string, children: React.ReactNode, headerColor?: string }) => (
-    <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border h-full flex flex-col overflow-hidden transition-all hover:shadow-md">
-        <div className="p-4 border-b border-border bg-slate-50/50 flex items-center gap-2">
+    <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border h-full flex flex-col overflow-hidden">
+        <div className="p-3 border-b border-border bg-muted/30 flex items-center gap-2">
             <span className="text-xl">{icon}</span>
-            <h3 className={`font-bold text-sm uppercase tracking-wider ${headerColor}`}>
+            <h3 className={`font-bold text-xs uppercase tracking-wider ${headerColor}`}>
                 {title}
             </h3>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-card">
             {children}
         </div>
     </div>
 );
 
-export const TrioSection = ({ groupedOpinions }: { groupedOpinions: MatchGroupedOpinions[] }) => (
-    <WidgetCard title="Trio Yorumları" icon="📺" headerColor="text-blue-600">
-        <div className="space-y-6">
-            {groupedOpinions.length === 0 ? <p className="text-muted-foreground text-sm text-center py-8">Henüz yorum yok.</p> : groupedOpinions.map((group) => (
-                <div key={group.matchId} className="space-y-3">
-                    <Link href={`/matches/${group.matchId}`} className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 uppercase tracking-widest pl-1">
-                        {group.matchName} <span>&rarr;</span>
+// Collapsible Match Item
+const MatchItem = ({ match, headerColor }: { match: MatchGroupedOpinions, headerColor: string }) => {
+    const [expanded, setExpanded] = useState(false);
+
+    // Clean match name for display (remove week prefix if exists for cleaner look)
+    const displayName = match.matchName.includes(':') ? match.matchName.split(':')[1].trim() : match.matchName;
+
+    return (
+        <div className="border-b border-border last:border-0">
+            <button
+                onClick={() => setExpanded(!expanded)}
+                className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
+            >
+                <span className="text-xs font-bold text-foreground">{displayName}</span>
+                <span className={`text-xs ${expanded ? headerColor : 'text-muted-foreground'}`}>
+                    {expanded ? '▼' : '▶'}
+                </span>
+            </button>
+
+            {expanded && (
+                <div className="bg-muted/10 p-3 space-y-3 animate-in slide-in-from-top-2">
+                    <Link href={`/matches/${match.matchId}`} className="block text-center text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary py-2 rounded hover:bg-primary/20 transition-colors mb-2">
+                        Maç Detayına Git &rarr;
                     </Link>
-                    {group.opinions.map((op, i) => (
-                        <div key={i} className={`p-3 rounded-lg border flex flex-col gap-1 ${getJudgmentColor(op.judgment)}`}>
-                            <div className="flex justify-between items-center text-xs opacity-80">
-                                <span className="font-bold uppercase tracking-wide">{op.criticName}</span>
-                                <span className="font-bold capitalize px-1.5 py-0.5 rounded-full bg-white/50">{op.judgment}</span>
+                    {match.opinions.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic text-center">Yorum yok.</p>
+                    ) : (
+                        match.opinions.map((op, i) => (
+                            <div key={i} className="text-xs border-l-2 border-border pl-2 ml-1">
+                                <div className="flex justify-between items-baseline mb-1">
+                                    <span className="font-bold text-foreground">{op.criticName}</span>
+                                    {op.judgment && (
+                                        <span className={`px-1 rounded text-[9px] font-bold uppercase ${op.judgment === 'correct' ? 'text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400' :
+                                            op.judgment === 'incorrect' ? 'text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400' :
+                                                'text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400'
+                                            }`}>{op.judgment}</span>
+                                    )}
+                                </div>
+                                <p className="text-muted-foreground line-clamp-3">"{op.opinion}"</p>
                             </div>
-                            <p className="text-sm font-medium leading-relaxed">"{op.opinion}"</p>
-                        </div>
-                    ))}
+                        ))
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Expandable Section Component
+const ExpandableListSection = ({ groupedOpinions, headerColor }: { groupedOpinions: MatchGroupedOpinions[], headerColor: string }) => {
+    const weeks = groupByWeek(groupedOpinions);
+
+    if (groupedOpinions.length === 0) return <div className="p-8 text-center text-xs text-muted-foreground">Veri bulunamadı.</div>;
+
+    return (
+        <div>
+            {weeks.map((w) => (
+                <div key={w.week} className="border-b border-border last:border-0">
+                    <div className="bg-muted/20 px-3 py-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest sticky top-0 backdrop-blur-sm z-10">
+                        {w.week > 0 ? `${w.week}. HAFTA` : 'GENEL'}
+                    </div>
+                    <div>
+                        {w.matches.map(m => (
+                            <MatchItem key={m.matchId} match={m} headerColor={headerColor} />
+                        ))}
+                    </div>
                 </div>
             ))}
         </div>
+    );
+};
+
+export const TrioSection = ({ groupedOpinions }: { groupedOpinions: MatchGroupedOpinions[] }) => (
+    <WidgetCard title="Trio Yorumları" icon="📺" headerColor="text-blue-500">
+        <ExpandableListSection groupedOpinions={groupedOpinions} headerColor="text-blue-500" />
     </WidgetCard>
 );
 
 export const GeneralCommentsSection = ({ groupedOpinions }: { groupedOpinions: MatchGroupedOpinions[] }) => (
-    <WidgetCard title="Yorumcular Ne Dedi?" icon="🎙️" headerColor="text-purple-600">
-        <div className="space-y-6">
-            {groupedOpinions.length === 0 ? <p className="text-muted-foreground text-sm text-center py-8">Henüz yorum yok.</p> : groupedOpinions.map((group) => (
-                <div key={group.matchId} className="space-y-3">
-                    <Link href={`/matches/${group.matchId}`} className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 uppercase tracking-widest pl-1">
-                        {group.matchName} <span>&rarr;</span>
-                    </Link>
-                    {group.opinions.map((op, i) => (
-                        <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                            <div className="text-xs font-bold text-slate-500 mb-1">{op.criticName}</div>
-                            <p className="text-sm text-slate-800 leading-relaxed">"{op.opinion}"</p>
-                        </div>
-                    ))}
-                </div>
-            ))}
-        </div>
+    <WidgetCard title="Yorumcular" icon="🎙️" headerColor="text-purple-500">
+        <ExpandableListSection groupedOpinions={groupedOpinions} headerColor="text-purple-500" />
     </WidgetCard>
 );
 
 export const PfdkSection = ({ actions, statements }: { actions: DisciplinaryAction[], statements?: Statement[] }) => (
-    <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border h-full flex flex-col overflow-hidden hover:shadow-md transition-all">
-        <div className="p-4 border-b border-border bg-slate-50/50 flex items-center gap-2">
-            <span className="text-xl">⚖️</span>
-            <h3 className="font-bold text-sm uppercase tracking-wider text-red-600">PFDK Sevk ve Kararları</h3>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Official Statements Column */}
-                <div className="space-y-4">
-                    <h4 className="text-xs font-bold text-muted-foreground uppercase border-b pb-1 mb-2">Resmi Kararlar</h4>
-                    {statements && statements.map((st, i) => (
-                        <div key={`st-${i}`} className="bg-red-50/50 p-4 rounded-lg border border-red-100 hover:border-red-200 transition-colors">
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 uppercase tracking-wide">RESMİ</span>
-                                <span className="text-[10px] text-muted-foreground font-mono">{st.date}</span>
-                            </div>
-                            <h4 className="font-bold text-sm text-foreground leading-snug mb-2">{st.title}</h4>
-                            <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{st.content}</p>
+    <WidgetCard title="PFDK & Kararlar" icon="⚖️" headerColor="text-red-500">
+        <div className="p-3 grid gap-6">
+            <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-1">Son Sevkler</h4>
+                {actions.slice(0, 5).map((act, i) => (
+                    <div key={i} className="text-xs">
+                        <div className="flex justify-between font-bold text-foreground">
+                            <span>{act.subject}</span>
+                            <span className="text-[9px] text-muted-foreground">{act.date}</span>
                         </div>
-                    ))}
-                    {(!statements || statements.length === 0) && <p className="text-xs text-slate-400 italic">Resmi karar bulunmuyor.</p>}
-                </div>
-
-                {/* Individual Actions Column */}
-                <div className="space-y-4">
-                    <h4 className="text-xs font-bold text-muted-foreground uppercase border-b pb-1 mb-2">Sevkler</h4>
-                    {actions.map((act, i) => (
-                        <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                            <div className="flex justify-between items-start mb-1">
-                                <span className="font-bold text-slate-900 text-sm">{act.subject}</span>
-                                <span className="text-[10px] text-slate-400 font-mono">{act.date}</span>
-                            </div>
-                            <div className="text-xs text-slate-500 font-medium mb-2 uppercase">{act.teamName}</div>
-                            <p className="text-xs text-slate-600 bg-white p-2 rounded border border-slate-100">"{act.reason}"</p>
-                        </div>
-                    ))}
-                    {actions.length === 0 && <p className="text-xs text-slate-400 italic">Sevk bulunmuyor.</p>}
-                </div>
+                        <div className="text-[10px] text-primary mb-0.5">{act.teamName}</div>
+                        <p className="text-muted-foreground line-clamp-1 italic">"{act.reason}"</p>
+                    </div>
+                ))}
+                {actions.length === 0 && <span className="text-xs text-muted-foreground italic">Kayıt yok.</span>}
             </div>
         </div>
-    </div>
+    </WidgetCard>
 );
 
 export const StatementsSection = ({ statements }: { statements: Statement[] }) => (
-    <WidgetCard title="Kulüp Açıklamaları" icon="📢" headerColor="text-foreground">
-        <div className="space-y-4">
-            {statements.length === 0 ? <p className="text-muted-foreground text-sm text-center py-8">Açıklama yok.</p> : statements.map((st, i) => (
-                <div key={i} className={`p-4 rounded-lg border transition-all hover:translate-x-1 ${st.type === 'tff' ? 'bg-red-50/50 border-red-100' : 'bg-amber-50/50 border-amber-100'}`}>
-                    <div className="flex justify-between items-center mb-2">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${st.type === 'tff' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {st.entity}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground font-mono">{st.date}</span>
+    <WidgetCard title="Açıklamalar" icon="📢" headerColor="text-amber-500">
+        <div className="divide-y divide-border">
+            {statements.map((st, i) => (
+                <div key={i} className="p-3 hover:bg-muted/50 transition-colors block">
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-primary">{st.entity}</span>
+                        <span className="text-[9px] text-muted-foreground">{st.date}</span>
                     </div>
-                    <h4 className="font-bold text-sm text-foreground leading-snug mb-1">{st.title}</h4>
-                    <p className="text-xs text-slate-600 line-clamp-2">{st.content}</p>
+                    <h4 className="font-bold text-xs text-foreground mb-1 line-clamp-1">{st.title}</h4>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{st.content}</p>
                 </div>
             ))}
+            {statements.length === 0 && <div className="p-4 text-center text-xs text-muted-foreground">Açıklama yok.</div>}
         </div>
     </WidgetCard>
 );
 
 export const StandingsSection = ({ standings }: { standings: Standing[] }) => (
-    <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border h-full flex flex-col overflow-hidden hover:shadow-md transition-all">
-        <div className="p-4 border-b border-border bg-slate-50/50 flex items-center gap-2">
+    <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border h-full flex flex-col overflow-hidden">
+        <div className="p-3 border-b border-border bg-muted/40 flex items-center gap-2">
             <span className="text-xl">🏆</span>
-            <h3 className="font-bold text-sm uppercase tracking-wider text-green-700">Puan Durumu</h3>
+            <h3 className="font-black text-xs uppercase tracking-wider text-foreground">Puan Durumu</h3>
         </div>
-        <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-sm text-left border-collapse">
-                <thead className="text-[10px] text-muted-foreground bg-slate-50/80 uppercase tracking-wider sticky top-0 backdrop-blur-sm z-10">
+        <div className="overflow-auto custom-scrollbar flex-1 bg-card">
+            <table className="w-full text-xs text-left whitespace-nowrap">
+                <thead className="text-[10px] font-black text-muted-foreground bg-muted/50 uppercase tracking-wider sticky top-0 z-10 backdrop-blur-md">
                     <tr>
-                        <th className="px-3 py-3 w-8 font-bold text-center">#</th>
-                        <th className="px-3 py-3 font-bold">Takım</th>
-                        <th className="px-1 py-3 text-center w-8" title="Oynanan">O</th>
-                        <th className="px-1 py-3 text-center w-8" title="Averaj">AV</th>
-                        <th className="px-3 py-3 text-center w-10 font-bold" title="Puan">P</th>
+                        <th className="p-2 text-center w-8">#</th>
+                        <th className="p-2">Takım</th>
+                        <th className="p-2 text-center w-6" title="Oynanan">O</th>
+                        <th className="p-2 text-center w-6" title="Galibiyet">G</th>
+                        <th className="p-2 text-center w-6" title="Beraberlik">B</th>
+                        <th className="p-2 text-center w-6" title="Mağlubiyet">M</th>
+                        <th className="p-2 text-center w-6" title="Averaj">Av</th>
+                        <th className="p-2 text-center w-8 font-bold text-foreground" title="Puan">P</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-border font-medium text-xs">
+                <tbody className="divide-y divide-border font-medium">
                     {standings.length === 0 ? (
-                        <tr><td colSpan={5} className="text-center p-8 text-muted-foreground">Veri yok</td></tr>
-                    ) : standings.sort((a, b) => (a.rank || 99) - (b.rank || 99)).slice(0, 10).map((team, i) => ( // Showing top 10 for compactness in widget
-                        <tr key={team.id} className="hover:bg-slate-50 transition-colors group">
-                            <td className={`px-3 py-2.5 text-center font-bold ${i < 3 ? 'text-green-600' : i > 16 ? 'text-red-600' : 'text-slate-500'}`}>
-                                {team.rank || i + 1}
-                            </td>
-                            <td className="px-3 py-2.5 text-foreground group-hover:text-primary transition-colors truncate max-w-[140px]" title={team.teamName}>{team.teamName}</td>
-                            <td className="px-1 py-2.5 text-center text-slate-500">{team.played}</td>
-                            <td className="px-1 py-2.5 text-center text-slate-500">{team.goalDiff}</td>
-                            <td className="px-3 py-2.5 text-center font-bold text-foreground bg-slate-50/50 rounded-sm">{team.points}</td>
+                        <tr><td colSpan={8} className="p-4 text-center text-muted-foreground italic">Veri yok.</td></tr>
+                    ) : standings.sort((a, b) => (a.rank || 99) - (b.rank || 99)).map((team, i) => (
+                        <tr key={team.id} className="hover:bg-muted/50 transition-colors group">
+                            <td className={`p-2 text-center font-bold ${i < 3 ? 'text-emerald-600 dark:text-emerald-400' : i > 16 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>{team.rank || i + 1}</td>
+                            <td className="p-2 text-foreground font-bold truncate max-w-[120px]" title={team.teamName}>{team.teamName}</td>
+                            <td className="p-2 text-center text-muted-foreground">{team.played}</td>
+                            <td className="p-2 text-center text-muted-foreground">{team.won}</td>
+                            <td className="p-2 text-center text-muted-foreground">{team.drawn}</td>
+                            <td className="p-2 text-center text-muted-foreground">{team.lost}</td>
+                            <td className="p-2 text-center text-muted-foreground">{team.goalDiff}</td>
+                            <td className="p-2 text-center font-black text-primary bg-primary/5 rounded">{team.points}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
-            {standings.length > 10 && (
-                <div className="p-2 text-center text-[10px] text-muted-foreground bg-slate-50 border-t border-border">
-                    ...ve {standings.length - 10} takım daha
-                </div>
-            )}
         </div>
     </div>
 );

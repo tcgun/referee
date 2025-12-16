@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firestore } from '@/firebase/admin';
+import { getAdminDb } from '@/firebase/admin';
 
 export async function GET() {
     // Disable debug endpoint in production
@@ -8,6 +8,7 @@ export async function GET() {
     }
 
     try {
+        const firestore = getAdminDb();
         const matchId = 'week1-gfk-gs';
         const docRef = firestore.collection('matches').doc(matchId);
         const docSnap = await docRef.get();
@@ -31,11 +32,11 @@ export async function GET() {
         const isDev = process.env.NODE_ENV === 'development';
         const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
         const errorStack = error instanceof Error ? error.stack : undefined;
-        
+
         console.error('Debug endpoint error:', error);
-        
+
         return NextResponse.json(
-            { 
+            {
                 error: 'Internal Server Error',
                 ...(isDev && { details: errorMessage, stack: errorStack })
             },

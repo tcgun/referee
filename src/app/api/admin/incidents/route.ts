@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { firestore } from '@/firebase/admin';
+import { getAdminDb } from '@/firebase/admin';
 import { verifyAdminKey } from '@/lib/auth';
 import { incidentSchema } from '@/lib/validations';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
+    const firestore = getAdminDb();
     try {
         // Rate limiting: 20 requests per 10 seconds per IP
         const clientIP = getClientIP(request);

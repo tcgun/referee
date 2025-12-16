@@ -816,6 +816,19 @@ export const IncidentForm = ({ apiKey, defaultMatchId, existingIncidents }: Base
                     </select>
                 </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-green-600">Lehe (Takım ID)</label>
+                    <input placeholder="Örn: galatasaray" className="border border-green-200 bg-green-50 p-2 w-full rounded text-gray-900" value={incident.favorOf || ''} onChange={e => setIncident({ ...incident, favorOf: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-red-600">Aleyhe (Takım ID)</label>
+                    <input placeholder="Örn: fenerbahce" className="border border-red-200 bg-red-50 p-2 w-full rounded text-gray-900" value={incident.against || ''} onChange={e => setIncident({ ...incident, against: e.target.value })} />
+                </div>
+            </div>
+
+
             <div className="mt-2">
                 <label className="text-xs font-bold text-gray-500">Verilmesi Gereken Karar (Nihai)</label>
                 <input placeholder="Örn: Net Penaltı, Devam Doğru vb." className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.finalDecision || ''} onChange={e => setIncident({ ...incident, finalDecision: e.target.value })} />
@@ -823,25 +836,27 @@ export const IncidentForm = ({ apiKey, defaultMatchId, existingIncidents }: Base
             <button className="bg-red-600 hover:bg-red-700 text-white p-2 rounded w-full font-medium">Pozisyonu Kaydet</button>
 
             {/* Existing Incidents List */}
-            {existingIncidents && existingIncidents.length > 0 && (
-                <div className="mt-4 border-t pt-4">
-                    <h4 className="font-bold text-gray-700 mb-2">Ekli Pozisyonlar (Düzenlemek için tıkla):</h4>
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {existingIncidents.map((inc: any) => (
-                            <div
-                                key={inc.id}
-                                onClick={() => setIncident(inc)}
-                                className="p-2 border rounded bg-white hover:bg-red-50 cursor-pointer text-sm"
-                            >
-                                <span className="font-bold text-red-600 mr-2">{inc.minute}'</span>
-                                <span className="font-mono text-xs text-gray-400">[{inc.id}]</span>
-                                <p className="truncate text-gray-800">{inc.description}</p>
-                            </div>
-                        ))}
+            {
+                existingIncidents && existingIncidents.length > 0 && (
+                    <div className="mt-4 border-t pt-4">
+                        <h4 className="font-bold text-gray-700 mb-2">Ekli Pozisyonlar (Düzenlemek için tıkla):</h4>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {existingIncidents.map((inc: any) => (
+                                <div
+                                    key={inc.id}
+                                    onClick={() => setIncident(inc)}
+                                    className="p-2 border rounded bg-white hover:bg-red-50 cursor-pointer text-sm"
+                                >
+                                    <span className="font-bold text-red-600 mr-2">{inc.minute}'</span>
+                                    <span className="font-mono text-xs text-gray-400">[{inc.id}]</span>
+                                    <p className="truncate text-gray-800">{inc.description}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
-        </form>
+                )
+            }
+        </form >
     );
 };
 

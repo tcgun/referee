@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firestore } from '@/firebase/admin';
+import { getAdminDb } from '@/firebase/admin';
 import { verifyAdminKey } from '@/lib/auth';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
@@ -10,16 +10,17 @@ export async function POST(request: Request) {
     }
 
     try {
+        const firestore = getAdminDb();
         // Rate limiting: 5 requests per minute per IP (seed is expensive)
         const clientIP = getClientIP(request);
         const rateLimit = checkRateLimit(`seed-api:${clientIP}`, 5, 60000);
         if (!rateLimit.success) {
             return NextResponse.json(
-                { 
-                    error: 'Too many requests', 
+                {
+                    error: 'Too many requests',
                     retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
                 },
-                { 
+                {
                     status: 429,
                     headers: {
                         'X-RateLimit-Limit': rateLimit.limit.toString(),
@@ -141,11 +142,11 @@ export async function POST(request: Request) {
     } catch (error) {
         const isDev = process.env.NODE_ENV === 'development';
         const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-        
+
         console.error('Seed error:', error);
-        
+
         return NextResponse.json(
-            { 
+            {
                 error: 'Internal Server Error',
                 ...(isDev && { details: errorMessage })
             },
