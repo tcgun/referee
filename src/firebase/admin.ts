@@ -121,3 +121,11 @@ export function getAdminDb() {
     throw new Error("Firebase Admin not initialized. Check server logs.");
 }
 
+export function getAdminAuth() {
+    const app = getAdminApp();
+    if (app) {
+        return app.auth();
+    }
+    throw new Error("Firebase Admin not initialized for Auth.");
+}
+

@@ -1,29 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  /* Modern Zinc-based Palette */
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
-  
-  --secondary: #f1f5f9;
-  --secondary-foreground: #1e293b;
-  
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  
-  --radius: 0.75rem;
+  /* Premium Dark Navy/Gold Palette */
+  --background: #020410;
+  /* Deepest Navy/Black */
+  --foreground: #f1f5f9;
+  /* Slate 100 */
+
+  --primary: #fbbf24;
+  /* Amber 400 (Gold) */
+  --primary-foreground: #000000;
+
+  --secondary: #1e293b;
+  /* Slate 800 */
+  --secondary-foreground: #f8fafc;
+
+  --muted: #0f172a;
+  /* Slate 900 */
+  --muted-foreground: #94a3b8;
+  /* Slate 400 */
+
+  --accent: #fbbf24;
+  /* Gold Accent */
+  --accent-foreground: #000000;
+
+  --card: #0b1121;
+  /* Slightly lighter than bg */
+  --card-foreground: #f1f5f9;
+
+  --border: #1e293b;
+  /* Slate 800 */
+  --input: #1e293b;
+
+  --radius: 0.5rem;
 }
 
 @theme inline {
@@ -31,20 +40,31 @@
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --radius-xl: var(--radius);
 }
 
-@media (prefers-color-scheme: dark) {
+/* Force Dark Mode across the app for this premium feel */
+@media (prefers-color-scheme: light) {
   :root {
-    --background: #09090b;
-    --foreground: #fafafa;
-    --primary: #3b82f6;
-    --card: #18181b;
-    --card-foreground: #fafafa;
-    --border: #27272a;
+    --background: #020410;
+    --foreground: #f1f5f9;
+    --primary: #fbbf24;
+    --secondary: #1e293b;
+    --muted: #0f172a;
+    --card: #0b1121;
+    --border: #1e293b;
   }
 }
 

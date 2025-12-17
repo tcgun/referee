@@ -1,55 +1,24 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/firebase/admin';
-import { verifyAdminKey } from '@/lib/auth';
+import { withAdminGuard } from '@/lib/api-wrapper';
 import { incidentSchema } from '@/lib/validations';
-import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
-    const firestore = getAdminDb();
-    try {
-        // Rate limiting: 20 requests per 10 seconds per IP
-        const clientIP = getClientIP(request);
-        const rateLimit = checkRateLimit(`admin-api:${clientIP}`, 20, 10000);
-        if (!rateLimit.success) {
-            return NextResponse.json(
-                {
-                    error: 'Too many requests',
-                    retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
-                },
-                {
-                    status: 429,
-                    headers: {
-                        'X-RateLimit-Limit': rateLimit.limit.toString(),
-                        'X-RateLimit-Remaining': rateLimit.remaining.toString(),
-                        'X-RateLimit-Reset': new Date(rateLimit.resetTime).toISOString(),
-                        'Retry-After': Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString(),
-                    }
-                }
-            );
-        }
+    return withAdminGuard(request, async (req) => {
+        const firestore = getAdminDb();
+        const body = await req.json();
 
-        const authHeader = request.headers.get('x-admin-key');
-        if (!verifyAdminKey(authHeader)) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const body = await request.json();
-
-        // Validate with Zod
-        const validationResult = incidentSchema.safeParse(body);
+        // Allow partial updates
+        const validationResult = incidentSchema.partial().safeParse(body);
         if (!validationResult.success) {
-            return NextResponse.json(
-                {
-                    error: 'Validation failed',
-                    details: validationResult.error.format()
-                },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Validation failed', details: validationResult.error.format() }, { status: 400 });
         }
 
         const data = validationResult.data;
+        if (!data.id || !data.matchId) {
+            return NextResponse.json({ error: 'ID and Match ID are required' }, { status: 400 });
+        }
 
-        // Add to subcollection
         await firestore
             .collection('matches')
             .doc(data.matchId)
@@ -58,18 +27,29 @@ export async function POST(request: Request) {
             .set(data, { merge: true });
 
         return NextResponse.json({ success: true, id: data.id });
-    } catch (error) {
-        const isDev = process.env.NODE_ENV === 'development';
-        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    });
+}
 
-        console.error('Error adding incident:', error);
+export async function DELETE(request: Request) {
+    return withAdminGuard(request, async (req) => {
+        const { searchParams } = new URL(request.url);
+        const matchId = searchParams.get('matchId');
+        const id = searchParams.get('id');
 
-        return NextResponse.json(
-            {
-                error: 'Internal Server Error',
-                ...(isDev && { details: errorMessage })
-            },
-            { status: 500 }
-        );
-    }
+        console.log(`[DELETE INCIDENT] matchId: ${matchId}, id: ${id}`);
+
+        if (!matchId || !id) {
+            return NextResponse.json({ error: 'Match ID and Incident ID are required' }, { status: 400 });
+        }
+
+        const firestore = getAdminDb();
+        await firestore
+            .collection('matches')
+            .doc(matchId)
+            .collection('incidents')
+            .doc(id)
+            .delete();
+
+        return NextResponse.json({ success: true });
+    });
 }

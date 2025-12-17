@@ -12,6 +12,7 @@ export default function Navbar() {
         { href: '/#comments', label: 'YORUMCULAR' },
         { href: '/#pfdk', label: 'PFDK KARARLAR' },
         { href: '/#statements', label: 'AÇIKLAMALAR' },
+        { href: '/referees', label: 'HAKEM İSTATİSTİKLERİ' },
     ];
 
     return (
@@ -32,8 +33,8 @@ export default function Navbar() {
                                 key={link.href}
                                 href={link.href}
                                 className={`px-4 py-2 rounded-md text-[10px] font-bold uppercase tracking-widest transition-colors ${isActive
-                                        ? 'bg-blue-600 text-white'
-                                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
                                     }`}
                             >
                                 {link.label}

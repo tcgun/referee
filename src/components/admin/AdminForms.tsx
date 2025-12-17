@@ -8,12 +8,14 @@ import { useRouter } from 'next/navigation';
 
 interface BaseProps {
     apiKey: string;
+    authToken?: string;
     preloadedMatch?: Match | null;
     defaultMatchId?: string;
     existingIncidents?: any[];
+    onSuccess?: () => void;
 }
 
-export const TeamForm = ({ apiKey }: BaseProps) => {
+export const TeamForm = ({ apiKey, authToken }: BaseProps) => {
     const [team, setTeam] = useState<Partial<Team>>({
         id: '', name: '', logo: '', colors: { primary: '#000000', secondary: '#ffffff', text: '#ffffff' }
     });
@@ -22,7 +24,7 @@ export const TeamForm = ({ apiKey }: BaseProps) => {
         e.preventDefault();
         const res = await fetch('/api/admin/teams', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
             body: JSON.stringify(team),
         });
         if (res.ok) alert('Team Added!');
@@ -50,10 +52,11 @@ export const TeamForm = ({ apiKey }: BaseProps) => {
     );
 };
 
-export const MatchForm = ({ apiKey, preloadedMatch }: BaseProps) => {
+export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
     const router = useRouter();
     const [match, setMatch] = useState<Partial<Match>>({
-        id: '', homeTeamId: '', awayTeamId: '', homeTeamName: '', awayTeamName: '', week: 1, season: '2024-2025', stadium: 'Rams Park', date: new Date().toISOString()
+        id: '', homeTeamId: '', awayTeamId: '', homeTeamName: '', awayTeamName: '', week: 1, season: '2024-2025', stadium: 'Rams Park', date: new Date().toISOString(),
+        status: 'draft'
     });
 
     // Update form when preloaded data changes
@@ -65,7 +68,7 @@ export const MatchForm = ({ apiKey, preloadedMatch }: BaseProps) => {
         e.preventDefault();
         const res = await fetch('/api/admin/matches', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
             body: JSON.stringify(match),
         });
         if (res.ok) alert('Match Added!');
@@ -78,7 +81,7 @@ export const MatchForm = ({ apiKey, preloadedMatch }: BaseProps) => {
         try {
             const res = await fetch('/api/admin/matches', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
+                headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
                 body: JSON.stringify(match),
             });
             if (res.ok) {
@@ -733,12 +736,19 @@ export const MatchForm = ({ apiKey, preloadedMatch }: BaseProps) => {
                 </div>
             </div>
 
+            <button
+                type="button"
+                onClick={() => setMatch({ ...match, status: match.status === 'published' ? 'draft' : 'published' })}
+                className={`mb-2 p-2 rounded w-full font-bold border ${match.status === 'published' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-500 border-gray-300'}`}
+            >
+                {match.status === 'published' ? 'YAYINDA (Published)' : 'TASLAK (Draft)'}
+            </button>
             <button className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded w-full font-medium">Maçı Kaydet</button>
         </form >
     );
 };
 
-export const IncidentForm = ({ apiKey, defaultMatchId, existingIncidents }: BaseProps) => {
+export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncidents, onSuccess }: BaseProps) => {
     const [matchId, setMatchId] = useState('week1-gfk-gs');
     const [incident, setIncident] = useState<Partial<Incident>>({
         id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none'
@@ -753,11 +763,13 @@ export const IncidentForm = ({ apiKey, defaultMatchId, existingIncidents }: Base
         e.preventDefault();
         const res = await fetch('/api/admin/incidents', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
             body: JSON.stringify({ ...incident, matchId }),
         });
-        if (res.ok) alert('Incident Added!');
-        else alert('Error adding incident');
+        if (res.ok) {
+            alert('Incident Added!');
+            if (onSuccess) onSuccess();
+        } else alert('Error adding incident');
     };
 
     const handleLoad = async () => {
@@ -833,7 +845,31 @@ export const IncidentForm = ({ apiKey, defaultMatchId, existingIncidents }: Base
                 <label className="text-xs font-bold text-gray-500">Verilmesi Gereken Karar (Nihai)</label>
                 <input placeholder="Örn: Net Penaltı, Devam Doğru vb." className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.finalDecision || ''} onChange={e => setIncident({ ...incident, finalDecision: e.target.value })} />
             </div>
-            <button className="bg-red-600 hover:bg-red-700 text-white p-2 rounded w-full font-medium">Pozisyonu Kaydet</button>
+            <div className='flex gap-2'>
+                <button type="submit" className="bg-red-600 hover:bg-red-700 text-white p-2 rounded flex-1 font-medium">Pozisyonu Kaydet</button>
+                {incident.id && (
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            if (!confirm('Pozisyonu silmek istediğine emin misin?')) return;
+                            const res = await fetch(`/api/admin/incidents?matchId=${incident.matchId}&id=${incident.id}`, {
+                                method: 'DELETE',
+                                headers: { 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
+                            });
+                            if (res.ok) {
+                                alert('Pozisyon Silindi!');
+                                setIncident({ ...incident, id: '', description: '', refereeDecision: '', finalDecision: '' });
+                                if (onSuccess) onSuccess();
+                            } else {
+                                alert('Silme başarısız!');
+                            }
+                        }}
+                        className="bg-gray-200 hover:bg-gray-300 text-gray-700 p-2 rounded w-16"
+                    >
+                        Sil
+                    </button>
+                )}
+            </div>
 
             {/* Existing Incidents List */}
             {
@@ -860,11 +896,11 @@ export const IncidentForm = ({ apiKey, defaultMatchId, existingIncidents }: Base
     );
 };
 
-export const OpinionForm = ({ apiKey, defaultMatchId, existingIncidents }: BaseProps) => {
+export const OpinionForm = ({ apiKey, authToken, defaultMatchId, existingIncidents, onSuccess }: BaseProps) => {
     const [matchId, setMatchId] = useState('week1-gfk-gs');
     const [incidentId, setIncidentId] = useState('');
     const [opinion, setOpinion] = useState<Partial<Opinion>>({
-        id: '', criticName: 'Deniz Çoban', opinion: '', reasoning: '', judgment: 'correct'
+        id: '', criticName: 'Deniz Çoban', opinion: '', shortOpinion: '', reasoning: '', judgment: 'correct'
     });
 
     if (defaultMatchId && matchId !== defaultMatchId) {
@@ -875,11 +911,13 @@ export const OpinionForm = ({ apiKey, defaultMatchId, existingIncidents }: BaseP
         e.preventDefault();
         const res = await fetch('/api/admin/opinions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
             body: JSON.stringify({ ...opinion, matchId, incidentId }),
         });
-        if (res.ok) alert('Opinion Added!');
-        else alert('Error adding opinion');
+        if (res.ok) {
+            alert('Opinion Added!');
+            if (onSuccess) onSuccess();
+        } else alert('Error adding opinion');
     };
 
     return (
@@ -906,8 +944,33 @@ export const OpinionForm = ({ apiKey, defaultMatchId, existingIncidents }: BaseP
                     <option value="Bülent Yıldırım">Bülent Yıldırım</option>
                 </select>
             </div>
-            <textarea placeholder="Yorum metni..." rows={3} className="border border-gray-300 p-2 w-full rounded text-gray-900" value={opinion.opinion} onChange={e => setOpinion({ ...opinion, opinion: e.target.value })} />
-            <button className="bg-green-600 hover:bg-green-700 text-white p-2 rounded w-full font-medium">Yorumu Kaydet</button>
+            <textarea placeholder="Kısa Yorum (Özet)..." rows={2} className="border border-gray-300 p-2 w-full rounded text-gray-900 mb-2" value={opinion.shortOpinion || ''} onChange={e => setOpinion({ ...opinion, shortOpinion: e.target.value })} />
+            <textarea placeholder="Uzun Yorum (Detaylı)..." rows={4} className="border border-gray-300 p-2 w-full rounded text-gray-900" value={opinion.opinion} onChange={e => setOpinion({ ...opinion, opinion: e.target.value })} />
+            <div className='flex gap-2'>
+                <button type="submit" className="bg-green-600 hover:bg-green-700 text-white p-2 rounded flex-1 font-medium">Yorumu Kaydet</button>
+                {opinion.id && (
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            if (!confirm('Yorumu silmek istediğine emin misin?')) return;
+                            const res = await fetch(`/api/admin/opinions?matchId=${matchId}&incidentId=${incidentId}&id=${opinion.id}`, {
+                                method: 'DELETE',
+                                headers: { 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
+                            });
+                            if (res.ok) {
+                                alert('Yorum Silindi!');
+                                setOpinion({ ...opinion, id: '', opinion: '', reasoning: '' });
+                                if (onSuccess) onSuccess();
+                            } else {
+                                alert('Silme başarısız!');
+                            }
+                        }}
+                        className="bg-gray-200 hover:bg-gray-300 text-gray-700 p-2 rounded w-16"
+                    >
+                        Sil
+                    </button>
+                )}
+            </div>
 
             {/* Existing Opinions List */}
             {existingIncidents && existingIncidents.length > 0 && (

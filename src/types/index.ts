@@ -78,6 +78,7 @@ export interface Match {
     stats?: MatchStats;
     officials?: MatchOfficials;
     lineups?: MatchLineups;
+    status?: 'draft' | 'published';
 }
 
 export type DecisionImpact = 'penalty' | 'red_card' | 'goal' | 'none' | 'unknown';
@@ -100,6 +101,7 @@ export interface Opinion {
     id: string;
     criticName: string; // Changed to string to support general commentators
     opinion: string; // The text of what they said
+    shortOpinion?: string; // Short summary for quick view
     reasoning: string; // Short "Why?"
     judgment: 'correct' | 'incorrect' | 'controversial';
     type?: 'trio' | 'general'; // 'trio' by default

@@ -4,12 +4,17 @@ import { useEffect, useState } from 'react';
 import { collection, getDocs, collectionGroup, query, where, limit, QuerySnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { TrioSection, GeneralCommentsSection, PfdkSection, StatementsSection, StandingsSection } from '@/components/home/DashboardWidgets';
+import { SummaryStatsRow } from '@/components/home/SummaryStatsRow';
 import { Opinion, DisciplinaryAction, Statement, Standing, Match } from '@/types';
 import Link from 'next/link';
 
 interface GroupedOpinion {
   matchId: string;
   matchName: string;
+  week?: number;
+  homeTeam?: string;
+  awayTeam?: string;
+  score?: string;
   opinions: Opinion[];
 }
 
@@ -45,6 +50,10 @@ export default function Home() {
                   const mData = mSnap.data() as Match;
                   // Updated to include Week info per user request
                   groups[mid].matchName = `${mData.week}. Hafta: ${mData.homeTeamName} - ${mData.awayTeamName}`;
+                  groups[mid].week = mData.week;
+                  groups[mid].homeTeam = mData.homeTeamName;
+                  groups[mid].awayTeam = mData.awayTeamName;
+                  groups[mid].score = `${mData.homeScore} - ${mData.awayScore}`;
                 }
               } catch (e) { console.error('Match name fetch err', e) }
             }));
@@ -92,33 +101,26 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-6">
 
         {/* Simple Header instead of Hero */}
-        <header className="flex justify-between items-end border-b border-border pb-4 mb-4">
-          <div>
-            <h1 className="text-3xl font-black tracking-tighter text-foreground">
-              REFEREE<span className="text-primary">LIG</span>
-            </h1>
-            <p className="text-muted-foreground text-xs font-medium tracking-wide mt-1">Süper Lig Hakem Performans & Karar Analiz Platformu</p>
-          </div>
-          <div className="hidden md:block text-right">
-            <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-1 rounded">2024-2025 Sezonu</span>
-          </div>
-        </header>
+
+
+        {/* Summary Widgets */}
+        <SummaryStatsRow />
 
         {/* 4 Main Sections + Standings Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
           {/* Left Area: 4 Widgets (2x2) */}
           <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="h-[450px]">
+            <div id="trio" className="scroll-mt-24 h-[450px]">
               <TrioSection groupedOpinions={trioGrouped} />
             </div>
-            <div className="h-[450px]">
+            <div id="comments" className="scroll-mt-24 h-[450px]">
               <GeneralCommentsSection groupedOpinions={generalGrouped} />
             </div>
-            <div className="h-[450px]">
+            <div id="pfdk" className="scroll-mt-24 h-[450px]">
               <PfdkSection actions={pfdkActions} statements={statements.filter(s => s.title.toLowerCase().includes('pfdk'))} />
             </div>
-            <div className="h-[450px]">
+            <div id="statements" className="scroll-mt-24 h-[450px]">
               <StatementsSection statements={statements.filter(s => !s.title.toLowerCase().includes('pfdk'))} />
             </div>
           </div>

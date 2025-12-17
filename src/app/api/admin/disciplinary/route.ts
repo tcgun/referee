@@ -1,73 +1,24 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/firebase/admin';
-import { verifyAdminKey } from '@/lib/auth';
+import { withAdminGuard } from '@/lib/api-wrapper';
 import { disciplinaryActionSchema } from '@/lib/validations';
-import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: Request) {
-    const firestore = getAdminDb();
-    try {
-        // Rate limiting: 20 requests per 10 seconds per IP
-        const clientIP = getClientIP(request);
-        const rateLimit = checkRateLimit(`admin-api:${clientIP}`, 20, 10000);
-        if (!rateLimit.success) {
-            return NextResponse.json(
-                {
-                    error: 'Too many requests',
-                    retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
-                },
-                {
-                    status: 429,
-                    headers: {
-                        'X-RateLimit-Limit': rateLimit.limit.toString(),
-                        'X-RateLimit-Remaining': rateLimit.remaining.toString(),
-                        'X-RateLimit-Reset': new Date(rateLimit.resetTime).toISOString(),
-                        'Retry-After': Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString(),
-                    }
-                }
-            );
-        }
+    return withAdminGuard(request, async (req) => {
+        const firestore = getAdminDb();
+        const body = await req.json();
 
-        const authHeader = request.headers.get('x-admin-key');
-        if (!verifyAdminKey(authHeader)) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const body = await request.json();
-
-        // Auto-generate ID if missing
-        if (!body.id) {
-            body.id = firestore.collection('disciplinary_actions').doc().id;
-        }
-
-        // Validate with Zod
-        const validationResult = disciplinaryActionSchema.safeParse(body);
+        const validationResult = disciplinaryActionSchema.partial().safeParse(body);
         if (!validationResult.success) {
-            return NextResponse.json(
-                {
-                    error: 'Validation failed',
-                    details: validationResult.error.format()
-                },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Validation failed', details: validationResult.error.format() }, { status: 400 });
         }
 
         const data = validationResult.data;
-        await firestore.collection('disciplinary_actions').doc(data.id).set(data);
+        const id = data.id || uuidv4();
 
-        return NextResponse.json({ success: true, id: data.id });
-    } catch (error) {
-        const isDev = process.env.NODE_ENV === 'development';
-        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+        await firestore.collection('disciplinary_actions').doc(id).set({ ...data, id }, { merge: true });
 
-        console.error('Error adding disciplinary action:', error);
-
-        return NextResponse.json(
-            {
-                error: 'Internal Server Error',
-                ...(isDev && { details: errorMessage })
-            },
-            { status: 500 }
-        );
-    }
+        return NextResponse.json({ success: true, id });
+    });
 }

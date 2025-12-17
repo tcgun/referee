@@ -4,8 +4,14 @@ import { useState, useEffect } from 'react';
 import { TeamForm, MatchForm, IncidentForm, OpinionForm } from '@/components/admin/AdminForms';
 import { StandingForm, StatementForm, DisciplinaryForm } from '@/components/admin/ExtraForms';
 import { Match, Incident, Opinion } from '@/types';
+import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/firebase/client';
 
 export default function AdminPage() {
+    // Auth State (Disabled per user request)
+    // const [user, setUser] = useState<User | null>(null);
+    // const [authToken, setAuthToken] = useState<string>('');
+
     // Use sessionStorage instead of component state for admin key
     // This ensures the key is cleared when the browser tab is closed
     const [apiKey, setApiKey] = useState('');
@@ -18,7 +24,15 @@ export default function AdminPage() {
         if (storedKey) {
             setApiKey(storedKey);
         }
+        // Auth listener removed
     }, []);
+
+    // Refresh token periodically (simplified: just rely on initial fetch or forced refresh if needed, usually onAuthStateChanged handles updates)
+
+    /* 
+    const handleLogin = async () => { ... }
+    const handleLogout = async () => { ... }
+    */
 
     // Save admin key to sessionStorage when it changes
     const handleApiKeyChange = (newKey: string) => {
@@ -43,46 +57,68 @@ export default function AdminPage() {
     const [loadedMatch, setLoadedMatch] = useState<Match | null>(null);
     const [loadedIncidents, setLoadedIncidents] = useState<Array<Incident & { opinions: Opinion[] }>>([]);
 
-    const handleFetchMatch = async () => {
-        if (!targetMatchId) return alert('Lütfen Maç ID girin.');
+    // Persist Match ID and auto-fetch 
+    useEffect(() => {
+        const stored = localStorage.getItem('last_admin_match_id');
+        if (stored) {
+            setTargetMatchId(stored);
+        }
+    }, []);
+
+    // Effect to auto-fetch only if user explicitly requested OR on mount if we had a stored value?
+    // Actually simpler: just load value. User still clicks fetch.
+    // BUT user asked for "yenilediğimde maç verilerini getire tekrar basmam gerekiyor". So we should auto-fetch.
+
+    // Let's create a dedicated fetch wrapper that handles the ID
+    const fetchMatchById = async (id: string, silent = false) => {
+        if (!id) return;
         try {
             const { doc, getDoc, collection, getDocs, query, orderBy } = await import('firebase/firestore');
             const { db } = await import('@/firebase/client');
 
-            // 1. Fetch Match
-            const matchSnap = await getDoc(doc(db, 'matches', targetMatchId));
+            const matchSnap = await getDoc(doc(db, 'matches', id));
 
             if (matchSnap.exists()) {
                 const matchData = matchSnap.data() as Match;
                 setLoadedMatch(matchData);
 
-                // 2. Fetch Incidents
-                const incQ = query(collection(db, 'matches', targetMatchId, 'incidents'), orderBy('minute'));
+                const incQ = query(collection(db, 'matches', id, 'incidents'), orderBy('minute'));
                 const incSnap = await getDocs(incQ);
 
                 const incidentsWithOpinions = await Promise.all(incSnap.docs.map(async (incDoc) => {
                     const incData = incDoc.data() as Incident;
-                    incData.id = incDoc.id; // ensure ID
-
-                    // 3. Fetch Opinions
-                    const opQ = collection(db, 'matches', targetMatchId, 'incidents', incData.id, 'opinions');
+                    incData.id = incDoc.id;
+                    const opQ = collection(db, 'matches', id, 'incidents', incData.id, 'opinions');
                     const opSnap = await getDocs(opQ);
                     const opinions = opSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Opinion[];
-
                     return { ...incData, opinions };
                 }));
 
                 setLoadedIncidents(incidentsWithOpinions);
-                alert('TÜM veriler getirildi! (Maç, Pozisyonlar ve Yorumlar) ✅');
+                if (!silent) alert('Veriler Güncellendi! ✅');
             } else {
-                alert('Maç bulunamadı! ID\'yi kontrol edin.');
-                setLoadedMatch(null);
-                setLoadedIncidents([]);
+                if (!silent) alert('Maç bulunamadı!');
             }
         } catch (error) {
             console.error(error);
-            alert('Veri çekerken hata oluştu.');
+            if (!silent) alert('Hata oluştu.');
         }
+    };
+
+    // Auto-load effect
+    useEffect(() => {
+        const stored = localStorage.getItem('last_admin_match_id');
+        if (stored) {
+            setTargetMatchId(stored);
+            // We can't safely call fetchMatchById here because it might run before state update or dependency issues.
+            // Better to just call it with 'stored' immediately.
+            fetchMatchById(stored, true);
+        }
+    }, []);
+
+    const handleFetchMatch = () => {
+        localStorage.setItem('last_admin_match_id', targetMatchId);
+        fetchMatchById(targetMatchId);
     };
 
     const handleSeed = async () => {
@@ -91,17 +127,22 @@ export default function AdminPage() {
         try {
             const res = await fetch('/api/setup/seed', {
                 method: 'POST',
-                headers: { 'x-admin-key': apiKey }
+                headers: {
+                    'x-admin-key': apiKey,
+                }
             });
             const data = await res.json();
             if (res.ok) alert('Başarılı: ' + data.message);
             else alert('Hata: ' + data.error);
         } catch (e) {
+            console.error(e); // Fixed: was catch(e) but used alert('Bir hata oluştu')
             alert('Bir hata oluştu.');
         } finally {
             setSeeding(false);
         }
     };
+
+    // if (!user) { ... } // Removed login wall
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
@@ -112,24 +153,16 @@ export default function AdminPage() {
                         <span className="text-blue-500">◆</span> Yönetici Paneli
                     </h1>
                     <div className="flex items-center gap-4">
+                        {/* User Info removed */}
+
                         <input
                             type="password"
-                            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 w-48 transition-colors"
+                            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 w-32 transition-colors"
                             value={apiKey}
                             onChange={e => handleApiKeyChange(e.target.value)}
-                            placeholder="ADMIN_KEY..."
+                            placeholder="SECRET_KEY..."
                             autoComplete="off"
                         />
-                        <button
-                            onClick={() => {
-                                handleApiKeyChange('');
-                                alert('Admin key temizlendi. Sekme kapatıldığında otomatik olarak silinir.');
-                            }}
-                            className="text-xs text-slate-400 hover:text-white transition-colors"
-                            title="Admin key'i temizle"
-                        >
-                            ✕
-                        </button>
                         <div className={`w-2 h-2 rounded-full ${apiKey ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-slate-700'}`}></div>
                     </div>
                 </div>
@@ -247,8 +280,8 @@ export default function AdminPage() {
                     {/* INCIDENTS TAB */}
                     {activeTab === 'incidents' && (
                         <div className="grid md:grid-cols-2 gap-8">
-                            <IncidentForm apiKey={apiKey} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} />
-                            <OpinionForm apiKey={apiKey} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} />
+                            <IncidentForm apiKey={apiKey} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
+                            <OpinionForm apiKey={apiKey} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
                         </div>
                     )}
 

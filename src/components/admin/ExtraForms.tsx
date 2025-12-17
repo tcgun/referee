@@ -5,9 +5,10 @@ import { Standing, Statement, DisciplinaryAction } from '@/types';
 
 interface BaseProps {
     apiKey: string;
+    authToken?: string;
 }
 
-export const StandingForm = ({ apiKey }: BaseProps) => {
+export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
     const [standing, setStanding] = useState<Partial<Standing>>({
         id: '', rank: 1, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0
     });
@@ -16,7 +17,7 @@ export const StandingForm = ({ apiKey }: BaseProps) => {
         e.preventDefault();
         const res = await fetch('/api/admin/standings', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
             body: JSON.stringify({ ...standing, teamName: standing.id }),
         });
         if (res.ok) alert('Puan Durumu Eklendi!');
@@ -53,7 +54,7 @@ export const StandingForm = ({ apiKey }: BaseProps) => {
     );
 };
 
-export const StatementForm = ({ apiKey }: BaseProps) => {
+export const StatementForm = ({ apiKey, authToken }: BaseProps) => {
     const [statement, setStatement] = useState<Partial<Statement>>({
         title: '', content: '', entity: '', type: 'tff', date: new Date().toISOString().split('T')[0]
     });
@@ -62,7 +63,7 @@ export const StatementForm = ({ apiKey }: BaseProps) => {
         e.preventDefault();
         const res = await fetch('/api/admin/statements', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
             body: JSON.stringify(statement),
         });
         if (res.ok) alert('Açıklama Eklendi!');
@@ -86,7 +87,7 @@ export const StatementForm = ({ apiKey }: BaseProps) => {
     );
 };
 
-export const DisciplinaryForm = ({ apiKey }: BaseProps) => {
+export const DisciplinaryForm = ({ apiKey, authToken }: BaseProps) => {
     const [action, setAction] = useState<Partial<DisciplinaryAction>>({
         teamName: '', subject: '', reason: '', date: new Date().toISOString().split('T')[0]
     });
@@ -95,7 +96,7 @@ export const DisciplinaryForm = ({ apiKey }: BaseProps) => {
         e.preventDefault();
         const res = await fetch('/api/admin/disciplinary', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey },
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
             body: JSON.stringify(action),
         });
         if (res.ok) alert('PFDK Sevki Eklendi!');

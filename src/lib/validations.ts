@@ -82,6 +82,7 @@ export const matchSchema = z.object({
         homeCoach: z.string().optional(),
         awayCoach: z.string().optional(),
     }).optional(),
+    status: z.enum(['draft', 'published']).optional(),
 });
 
 // Incident Schema
@@ -103,9 +104,11 @@ export const incidentSchema = z.object({
 export const opinionSchema = z.object({
     id: z.string().min(1).max(100),
     matchId: z.string().min(1).max(100),
-    incidentId: z.string().min(1).max(100),
+    incidentId: z.string().min(1).max(100).optional(), // Made optional to support migration to positionId
+    positionId: z.string().min(1).max(100).optional(), // New link
     criticName: z.string().min(1).max(100),
     opinion: z.string().min(1).max(2000),
+    shortOpinion: z.string().max(200).optional(),
     reasoning: z.string().max(500).optional(),
     judgment: z.enum(['correct', 'incorrect', 'controversial']),
     type: z.enum(['trio', 'general']).optional(),
@@ -137,6 +140,17 @@ export const statementSchema = z.object({
     type: z.enum(['tff', 'club']),
 });
 
+// Position Schema
+export const positionSchema = z.object({
+    id: z.string().min(1).max(100),
+    matchId: z.string().min(1).max(100),
+    minute: z.number().int().min(0).max(120),
+    type: z.enum(['penalty', 'red_card', 'yellow_card', 'goal', 'offside', 'foul', 'other']),
+    description: z.string().max(500).optional(),
+    imageUrl: z.string().url().optional().or(z.literal('')),
+    videoUrl: z.string().url().optional().or(z.literal('')),
+});
+
 // Disciplinary Action Schema
 export const disciplinaryActionSchema = z.object({
     id: z.string().min(1).max(100),
@@ -145,4 +159,5 @@ export const disciplinaryActionSchema = z.object({
     reason: z.string().min(1).max(500),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in format YYYY-MM-DD'),
 });
+
 

@@ -24,11 +24,15 @@ const groupByWeek = (matches: MatchGroupedOpinions[]) => {
 interface MatchGroupedOpinions {
     matchId: string;
     matchName: string;
+    week?: number;
+    homeTeam?: string;
+    awayTeam?: string;
+    score?: string;
     opinions: Opinion[];
 }
 
 const WidgetCard = ({ title, icon, children, headerColor = "text-foreground" }: { title: string, icon: string, children: React.ReactNode, headerColor?: string }) => (
-    <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border h-full flex flex-col overflow-hidden">
+    <div className="bg-card backdrop-blur-md text-card-foreground rounded-2xl shadow-lg border border-border h-full flex flex-col overflow-hidden transition-all hover:shadow-xl hover:border-border/50">
         <div className="p-3 border-b border-border bg-muted/30 flex items-center gap-2">
             <span className="text-xl">{icon}</span>
             <h3 className={`font-bold text-xs uppercase tracking-wider ${headerColor}`}>
@@ -41,51 +45,62 @@ const WidgetCard = ({ title, icon, children, headerColor = "text-foreground" }: 
     </div>
 );
 
-// Collapsible Match Item
+// Match Summary Card (Click to Navigate)
 const MatchItem = ({ match, headerColor }: { match: MatchGroupedOpinions, headerColor: string }) => {
-    const [expanded, setExpanded] = useState(false);
-
-    // Clean match name for display (remove week prefix if exists for cleaner look)
-    const displayName = match.matchName.includes(':') ? match.matchName.split(':')[1].trim() : match.matchName;
+    // Calculate Stats
+    const stats = {
+        correct: match.opinions.filter(o => o.judgment === 'correct').length,
+        incorrect: match.opinions.filter(o => o.judgment === 'incorrect').length,
+        controversial: match.opinions.filter(o => o.judgment === 'controversial').length,
+    };
 
     return (
-        <div className="border-b border-border last:border-0">
-            <button
-                onClick={() => setExpanded(!expanded)}
-                className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
-            >
-                <span className="text-xs font-bold text-foreground">{displayName}</span>
-                <span className={`text-xs ${expanded ? headerColor : 'text-muted-foreground'}`}>
-                    {expanded ? '▼' : '▶'}
-                </span>
-            </button>
+        <Link href={`/matches/${match.matchId}`} className="block border-b border-border last:border-0 group">
+            <div className="p-4 hover:bg-muted/30 transition-all flex flex-col gap-3">
 
-            {expanded && (
-                <div className="bg-muted/10 p-3 space-y-3 animate-in slide-in-from-top-2">
-                    <Link href={`/matches/${match.matchId}`} className="block text-center text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary py-2 rounded hover:bg-primary/20 transition-colors mb-2">
-                        Maç Detayına Git &rarr;
-                    </Link>
-                    {match.opinions.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic text-center">Yorum yok.</p>
-                    ) : (
-                        match.opinions.map((op, i) => (
-                            <div key={i} className="text-xs border-l-2 border-border pl-2 ml-1">
-                                <div className="flex justify-between items-baseline mb-1">
-                                    <span className="font-bold text-foreground">{op.criticName}</span>
-                                    {op.judgment && (
-                                        <span className={`px-1 rounded text-[9px] font-bold uppercase ${op.judgment === 'correct' ? 'text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400' :
-                                            op.judgment === 'incorrect' ? 'text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400' :
-                                                'text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400'
-                                            }`}>{op.judgment}</span>
-                                    )}
-                                </div>
-                                <p className="text-muted-foreground line-clamp-3">"{op.opinion}"</p>
-                            </div>
-                        ))
+                {/* Header: Teams & Score */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                        {/* Home */}
+                        <span className="text-sm font-bold text-foreground text-right flex-1 truncate">{match.homeTeam || 'Ev Sahibi'}</span>
+
+                        {/* Score Badge */}
+                        <div className="bg-slate-900 border border-slate-700 px-3 py-1 rounded-md text-sm font-black text-white tracking-widest min-w-[60px] text-center shadow-inner">
+                            {match.score || 'v'}
+                        </div>
+
+                        {/* Away */}
+                        <span className="text-sm font-bold text-foreground text-left flex-1 truncate">{match.awayTeam || 'Deplasman'}</span>
+                    </div>
+                </div>
+
+                {/* Stats Bar */}
+                <div className="flex justify-center gap-2">
+                    {stats.controversial > 0 && (
+                        <div className="flex items-center gap-1 bg-emerald-900/30 border border-emerald-900/50 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-transform group-hover:scale-105">
+                            <span>Tartışmalı</span>
+                            <span className="bg-emerald-500 text-emerald-950 px-1 rounded-[2px] text-[9px]">{stats.controversial}</span>
+                        </div>
+                    )}
+                    {stats.incorrect > 0 && (
+                        <div className="flex items-center gap-1 bg-red-900/30 border border-red-900/50 text-red-400 px-2 py-1 rounded text-[10px] font-bold uppercase transition-transform group-hover:scale-105">
+                            <span>Hatalı</span>
+                            <span className="bg-red-500 text-red-950 px-1 rounded-[2px] text-[9px]">{stats.incorrect}</span>
+                        </div>
+                    )}
+                    {stats.correct > 0 && (
+                        <div className="flex items-center gap-1 bg-blue-900/30 border border-blue-900/50 text-blue-400 px-2 py-1 rounded text-[10px] font-bold uppercase transition-transform group-hover:scale-105">
+                            <span>Doğru</span>
+                            <span className="bg-blue-500 text-blue-950 px-1 rounded-[2px] text-[9px]">{stats.correct}</span>
+                        </div>
+                    )}
+                    {match.opinions.length === 0 && (
+                        <span className="text-[10px] text-muted-foreground italic">Henüz yorum yok</span>
                     )}
                 </div>
-            )}
-        </div>
+
+            </div>
+        </Link>
     );
 };
 
