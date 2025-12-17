@@ -500,9 +500,9 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
     };
 
     return (
-        <div className="rounded-xl overflow-hidden shadow-sm flex bg-[#1e1e1e] border border-border/20">
+        <div className="rounded-xl overflow-hidden shadow-sm flex bg-card border border-border">
             {/* Left Sidebar (Branding + Video) */}
-            <div className="bg-[#C2040E] w-14 md:w-20 shrink-0 flex flex-col items-center justify-center p-2 text-white relative">
+            <div className="bg-red-700 w-14 md:w-20 shrink-0 flex flex-col items-center justify-center p-2 text-white relative">
                 <span className="font-black text-[10px] md:text-sm tracking-tighter">TRIO</span>
 
                 {videoUrl && (
@@ -529,7 +529,7 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
             {/* Right Content */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Red Header Bar (Description) */}
-                <div className="bg-[#E30613] text-white flex items-center h-10 px-3 overflow-hidden">
+                <div className="bg-red-600 text-white flex items-center h-10 px-3 overflow-hidden">
                     <div className="flex-1 flex items-center justify-between min-w-0">
                         <span className="text-[10px] md:text-xs font-bold truncate mr-2 leading-tight py-1">{description || 'Pozisyon Değerlendirmesi'}</span>
                         <span className="text-xs font-black opacity-90">{minute}'</span>
@@ -538,7 +538,7 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
 
                 {/* Info Bar (Referee & VAR) */}
                 {/* Info Bar (Referee, VAR, VAR Result) */}
-                <div className="bg-[#2a2a2a] border-b border-gray-700 px-3 py-1.5 flex justify-between gap-4">
+                <div className="bg-muted/50 border-b border-border px-3 py-1.5 flex justify-between gap-4">
                     {/* Column 1: Referee */}
                     <div className="flex-1 text-center border-r border-gray-600 pr-2">
                         <span className="block text-[8px] text-gray-400 font-bold uppercase mb-0.5">HAKEM</span>
@@ -561,8 +561,8 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                 </div>
 
                 {/* Dark Body Bar (Trio Critics) */}
-                <div className="bg-[#1e1e1e] p-2 flex-1 flex flex-col justify-center">
-                    <div className="grid grid-cols-3 divide-x divide-gray-700">
+                <div className="bg-card p-2 flex-1 flex flex-col justify-center">
+                    <div className="grid grid-cols-3 divide-x divide-border">
                         {critics.map(name => {
                             // Find opinion for this critic (loose match)
                             const op = opinions.find(o => o.criticName.toLowerCase().includes(name.toLowerCase().split(' ')[0].toLowerCase()));
@@ -576,17 +576,17 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
 
                 {/* Footer (Final Decision & Correct Decision) */}
                 {(finalDecision || correctDecision) && (
-                    <div className="bg-[#121212] border-t border-gray-700 px-3 py-2 flex flex-col gap-1">
+                    <div className="bg-muted/30 border-t border-border px-3 py-2 flex flex-col gap-1">
                         {finalDecision && (
                             <div className="flex items-center gap-2">
-                                <span className="shrink-0 text-[9px] font-black text-[#8CC63F] uppercase tracking-wide">NİHAİ KARAR:</span>
-                                <span className="text-[10px] font-bold text-gray-200 uppercase truncate leading-tight">{finalDecision}</span>
+                                <span className="shrink-0 text-[9px] font-black text-green-600 dark:text-green-500 uppercase tracking-wide">NİHAİ KARAR:</span>
+                                <span className="text-[10px] font-bold text-foreground uppercase truncate leading-tight">{finalDecision}</span>
                             </div>
                         )}
                         {correctDecision && (
                             <div className="flex items-center gap-2">
-                                <span className="shrink-0 text-[9px] font-black text-green-500 uppercase tracking-wide">OLMASI GEREKEN:</span>
-                                <span className="text-[10px] font-bold text-green-100 uppercase truncate leading-tight">{correctDecision}</span>
+                                <span className="shrink-0 text-[9px] font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-wide">OLMASI GEREKEN:</span>
+                                <span className="text-[10px] font-bold text-foreground uppercase truncate leading-tight">{correctDecision}</span>
                             </div>
                         )}
                     </div>
@@ -602,7 +602,7 @@ function TrioOpinion({ name, op }: { name: string, op?: Opinion }) {
 
     return (
         <div className="flex flex-col items-center justify-start text-center px-2 py-1 min-h-[80px]">
-            <span className="text-[9px] text-gray-400 font-bold mb-2 uppercase tracking-wider truncate w-full">
+            <span className="text-[9px] text-muted-foreground font-bold mb-2 uppercase tracking-wider truncate w-full">
                 {name.split(' ')[0]} <span className="hidden md:inline">{name.split(' ')[1]}</span>
             </span>
             {op ? (
@@ -611,7 +611,7 @@ function TrioOpinion({ name, op }: { name: string, op?: Opinion }) {
 
                     {/* Short Summary (Top) */}
                     {op.shortOpinion && (
-                        <div className="mt-2 mb-1 text-[10px] text-white font-bold leading-tight">
+                        <div className="mt-2 mb-1 text-[10px] text-foreground font-bold leading-tight">
                             {op.shortOpinion}
                         </div>
                     )}
@@ -619,7 +619,7 @@ function TrioOpinion({ name, op }: { name: string, op?: Opinion }) {
                     {/* Long Opinion (Bottom) */}
                     {op.opinion && (
                         <div className="w-full relative">
-                            <div className={`text-[9px] text-gray-400 leading-snug font-medium opacity-90 transition-all ${expanded ? '' : 'line-clamp-4'} ${!op.shortOpinion ? 'mt-2' : ''}`}>
+                            <div className={`text-[9px] text-muted-foreground leading-snug font-medium opacity-90 transition-all ${expanded ? '' : 'line-clamp-4'} ${!op.shortOpinion ? 'mt-2' : ''}`}>
                                 "{op.opinion}"
                             </div>
                             {isLong && (
@@ -637,7 +637,7 @@ function TrioOpinion({ name, op }: { name: string, op?: Opinion }) {
                     )}
                 </>
             ) : (
-                <span className="text-gray-600 text-[10px]">-</span>
+                <span className="text-muted-foreground text-[10px]">-</span>
             )}
         </div>
     );

@@ -58,8 +58,14 @@ export async function GET() {
 
                 opinionsSnap.forEach(doc => {
                     const op = doc.data() as Opinion;
-                    const incidentId = incDoc.id;
+                    // opinions are now subcollections of incidents, so incidentId is actually the parent doc id (incDoc.id)
+                    // The op object might NOT have incidentId saved if it was migrated or old.
+                    // But we are inside `incidentPromises` loop where we KNOW `incDoc.id`.
+                    // Wait, lines 49-69 are inside `incidentPromises` map loop?
+                    // No, `opinionsSnap.forEach` is inside `incidentPromises`.
+                    const incidentId = incDoc.id; // Correct source of truth is the parent doc we are iterating
 
+                    // We don't need op.incidentId anymore because we are iterating incidents!
                     // Count Controversial
                     if (op.judgment === 'controversial') {
                         if (!viewedIncidents.has(incidentId)) {

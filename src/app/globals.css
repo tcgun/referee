@@ -1,36 +1,34 @@
 @import "tailwindcss";
 
 :root {
-  /* Premium Dark Navy/Gold Palette */
-  --background: #020410;
-  /* Deepest Navy/Black */
-  --foreground: #f1f5f9;
-  /* Slate 100 */
+  /* Softer, Professional Dark Theme (Zinc Palette based) */
+  --background: #09090b;
+  /* Zinc 950 - Softer than pure black */
+  --foreground: #FAFAFA;
+  /* Zinc 50 - Off-white, easier on eyes */
 
-  --primary: #fbbf24;
-  /* Amber 400 (Gold) */
-  --primary-foreground: #000000;
+  --primary: #ffffff;
+  --primary-foreground: #09090b;
 
-  --secondary: #1e293b;
-  /* Slate 800 */
-  --secondary-foreground: #f8fafc;
+  --secondary: #27272a;
+  /* Zinc 800 */
+  --secondary-foreground: #FAFAFA;
 
-  --muted: #0f172a;
-  /* Slate 900 */
-  --muted-foreground: #94a3b8;
-  /* Slate 400 */
+  --muted: #27272a;
+  /* Zinc 800 */
+  --muted-foreground: #a1a1aa;
+  /* Zinc 400 */
 
-  --accent: #fbbf24;
-  /* Gold Accent */
-  --accent-foreground: #000000;
+  --accent: #27272a;
+  --accent-foreground: #FAFAFA;
 
-  --card: #0b1121;
-  /* Slightly lighter than bg */
-  --card-foreground: #f1f5f9;
+  --card: #18181b;
+  /* Zinc 900 */
+  --card-foreground: #FAFAFA;
 
-  --border: #1e293b;
-  /* Slate 800 */
-  --input: #1e293b;
+  --border: #27272a;
+  /* Zinc 800 */
+  --input: #27272a;
 
   --radius: 0.5rem;
 }
@@ -51,20 +49,28 @@
   --color-border: var(--border);
   --color-input: var(--input);
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
 }
 
-/* Force Dark Mode across the app for this premium feel */
+/* Ensure consistent dark mode preference */
 @media (prefers-color-scheme: light) {
   :root {
-    --background: #020410;
-    --foreground: #f1f5f9;
-    --primary: #fbbf24;
-    --secondary: #1e293b;
-    --muted: #0f172a;
-    --card: #0b1121;
-    --border: #1e293b;
+    /* Keep dark mode active even on light preference for consistency, or provide a real light mode?
+      User said "general colors are disturbing". Let's provide a real LIGHT mode for system light preference users,
+      as usually forcing dark mode is what disturbs people who prefer light.
+   */
+    --background: #ffffff;
+    --foreground: #09090b;
+    --primary: #18181b;
+    --primary-foreground: #fafafa;
+    --secondary: #f4f4f5;
+    --muted: #f4f4f5;
+    --muted-foreground: #71717a;
+    --card: #ffffff;
+    --card-foreground: #09090b;
+    --border: #e4e4e7;
+    --input: #e4e4e7;
   }
 }
 
