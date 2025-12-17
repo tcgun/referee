@@ -90,6 +90,8 @@ export interface Incident {
     description: string;
     refereeDecision: string; // Field decision
     varDecision?: string; // VAR intervention details
+    varRecommendation?: 'none' | 'review' | 'monitor_only'; // Structured VAR outcome
+    correctDecision?: string; // What should have been done
     finalDecision: string;
     favorOf?: string; // Team ID
     against?: string; // Team ID
@@ -99,6 +101,9 @@ export interface Incident {
 
 export interface Opinion {
     id: string;
+    matchId: string; // Required link to match
+    incidentId?: string; // Optional link to incident
+    positionId?: string; // Optional link to position
     criticName: string; // Changed to string to support general commentators
     opinion: string; // The text of what they said
     shortOpinion?: string; // Short summary for quick view

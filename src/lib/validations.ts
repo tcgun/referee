@@ -93,6 +93,8 @@ export const incidentSchema = z.object({
     description: z.string().min(1).max(1000),
     refereeDecision: z.string().min(1).max(200),
     varDecision: z.string().max(200).optional(),
+    varRecommendation: z.enum(['none', 'review', 'monitor_only']).optional(), // none: Yok, review: İnceleme Önerisi, monitor_only: Sadece Takip (Opsiyonel)
+    correctDecision: z.string().max(200).optional(), // Hakem ne yapmalıydı?
     finalDecision: z.string().min(1).max(200),
     favorOf: z.string().max(50).optional(),
     against: z.string().max(50).optional(),
@@ -107,8 +109,8 @@ export const opinionSchema = z.object({
     incidentId: z.string().min(1).max(100).optional(), // Made optional to support migration to positionId
     positionId: z.string().min(1).max(100).optional(), // New link
     criticName: z.string().min(1).max(100),
-    opinion: z.string().min(1).max(2000),
-    shortOpinion: z.string().max(200).optional(),
+    opinion: z.string().min(1).max(5000),
+    shortOpinion: z.string().max(500).optional(),
     reasoning: z.string().max(500).optional(),
     judgment: z.enum(['correct', 'incorrect', 'controversial']),
     type: z.enum(['trio', 'general']).optional(),

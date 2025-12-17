@@ -36,37 +36,48 @@ export async function GET() {
         // Limit to recent matches if needed for performance, but for now we process all.
 
         const promises = matches.map(async (match) => {
-            const opinionsSnap = await firestore
+            // Fetch Incidents first
+            const incidentsSnap = await firestore
                 .collection('matches')
                 .doc(match.id)
-                .collection('opinions')
+                .collection('incidents')
                 .get();
 
             let matchControversialCount = 0;
             const viewedIncidents = new Set<string>();
 
-            opinionsSnap.forEach(doc => {
-                const op = doc.data() as Opinion;
-                const incidentId = op.incidentId || 'unknown';
+            // For each incident, fetch opinions
+            const incidentPromises = incidentsSnap.docs.map(async (incDoc) => {
+                const opinionsSnap = await firestore
+                    .collection('matches')
+                    .doc(match.id)
+                    .collection('incidents')
+                    .doc(incDoc.id)
+                    .collection('opinions')
+                    .get();
 
-                // Count Controversial
-                if (op.judgment === 'controversial') {
-                    // We count distinct incidents if possible, or total opinions?
-                    // Previous logic: Count unique incidents that have at least one 'controversial' opinion.
-                    // A bit hard to do perfectly without fetching incidents, but let's assume raw count of controversial opinions is a good enough proxy OR track incident IDs.
-                    if (!viewedIncidents.has(incidentId)) {
-                        matchControversialCount++;
-                        viewedIncidents.add(incidentId);
-                    }
-                }
+                opinionsSnap.forEach(doc => {
+                    const op = doc.data() as Opinion;
+                    const incidentId = incDoc.id;
 
-                // Count Referee Errors
-                if (op.judgment === 'incorrect') {
-                    if (match.referee) {
-                        refereeErrorCounts[match.referee] = (refereeErrorCounts[match.referee] || 0) + 1;
+                    // Count Controversial
+                    if (op.judgment === 'controversial') {
+                        if (!viewedIncidents.has(incidentId)) {
+                            matchControversialCount++;
+                            viewedIncidents.add(incidentId);
+                        }
                     }
-                }
+
+                    // Count Referee Errors
+                    if (op.judgment === 'incorrect') {
+                        if (match.referee) {
+                            refereeErrorCounts[match.referee] = (refereeErrorCounts[match.referee] || 0) + 1;
+                        }
+                    }
+                });
             });
+
+            await Promise.all(incidentPromises);
 
             if (matchControversialCount > maxControversialCount) {
                 maxControversialCount = matchControversialCount;

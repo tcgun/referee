@@ -751,7 +751,14 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
 export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncidents, onSuccess }: BaseProps) => {
     const [matchId, setMatchId] = useState('week1-gfk-gs');
     const [incident, setIncident] = useState<Partial<Incident>>({
-        id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none'
+        id: '',
+        minute: 1,
+        description: '',
+        refereeDecision: '',
+        finalDecision: '',
+        impact: 'none',
+        varRecommendation: 'none',
+        correctDecision: ''
     });
 
     // Sync with global match ID
@@ -768,6 +775,21 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
         });
         if (res.ok) {
             alert('Incident Added!');
+            // Reset form but keep matched matchId
+            setIncident({
+                id: '',
+                minute: 1,
+                description: '',
+                refereeDecision: '',
+                finalDecision: '',
+                impact: 'none',
+                varRecommendation: 'none',
+                correctDecision: '',
+                varDecision: '',
+                favorOf: '',
+                against: '',
+                videoUrl: ''
+            });
             if (onSuccess) onSuccess();
         } else alert('Error adding incident');
     };
@@ -808,14 +830,26 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
                         <option value="Faul">Faul</option>
                         <option value="Gol">Gol</option>
                         <option value="Ofsayt">Ofsayt</option>
-                        <option value="Taç / Korner">Taç / Korner</option>
+                        <option value="Taç">Taç</option>
+                        <option value="Korner">Korner</option>
                         <option value="Sarı Kart">Sarı Kart</option>
+                        <option value="Sarı Kart Verilmedi">Sarı Kart Verilmedi</option>
                         <option value="Kırmızı Kart">Kırmızı Kart</option>
+                        <option value="Kırmızı Kart Verilmedi">Kırmızı Kart Verilmedi</option>
                         <option value="Penaltı">Penaltı</option>
+                        <option value="Penaltı İptal">Penaltı İptal</option>
                     </select>
                 </div>
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500">VAR Kararı</label>
+                    <label className="text-xs font-bold text-gray-500">VAR Önerisi (Yeni)</label>
+                    <select className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.varRecommendation || 'none'} onChange={e => setIncident({ ...incident, varRecommendation: e.target.value as any })}>
+                        <option value="none">İnceleme Önerisi Yok</option>
+                        <option value="review">İnceleme Önerisi</option>
+                        <option value="monitor_only">Sadece Takip</option>
+                    </select>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-500">VAR Sonucu</label>
                     <select className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.varDecision || ''} onChange={e => setIncident({ ...incident, varDecision: e.target.value })}>
                         <option value="">(Yok/Seçiniz)</option>
                         <option value="Müdahale Yok">Müdahale Yok</option>
@@ -824,8 +858,14 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
                         <option value="Gol Onay">Gol Onay</option>
                         <option value="Penaltı Verildi">Penaltı Verildi</option>
                         <option value="Penaltı İptal">Penaltı İptal</option>
-                        <option value="Kart Değişimi">Kart Değişimi</option>
+                        <option value="Kırmızı Kart">Kırmızı Kart</option>
+                        <option value="Kart İptal">Kart İptal</option>
+                        <option value="Ofsayt">Ofsayt</option>
                     </select>
+                </div>
+                <div className="col-span-2 space-y-1">
+                    <label className="text-xs font-bold text-green-700">Hakem Ne Yapmalıydı?</label>
+                    <input placeholder="Örn: Net Penaltı, Devam Kararı Doğru" className="border border-green-300 bg-green-50 p-2 w-full rounded text-gray-900 placeholder-green-700" value={incident.correctDecision || ''} onChange={e => setIncident({ ...incident, correctDecision: e.target.value })} />
                 </div>
             </div>
 
@@ -916,8 +956,22 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, existingInciden
         });
         if (res.ok) {
             alert('Opinion Added!');
+            // Reset fields
+            setOpinion({
+                id: '',
+                criticName: opinion.criticName || 'Deniz Çoban', // Keep name for convenience
+                opinion: '',
+                shortOpinion: '',
+                reasoning: '',
+                judgment: 'correct',
+                type: 'trio'
+            });
+            // We keep matchId and incidentId for convenience of adding multiple opinions to same incident
             if (onSuccess) onSuccess();
-        } else alert('Error adding opinion');
+        } else {
+            const errData = await res.json();
+            alert(`Error adding opinion: ${errData.error} - ${JSON.stringify(errData.details || '')}`);
+        }
     };
 
     return (
@@ -925,7 +979,21 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, existingInciden
             <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Yorum Ekle (Opinion)</h3>
             <div className="grid grid-cols-2 gap-2">
                 <input placeholder="Match ID" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={matchId} onChange={e => setMatchId(e.target.value)} required />
-                <input placeholder="Incident ID" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incidentId} onChange={e => setIncidentId(e.target.value)} required />
+                <div className="flex flex-col">
+                    <select
+                        className="border border-gray-300 p-2 w-full rounded text-gray-900"
+                        value={incidentId}
+                        onChange={e => setIncidentId(e.target.value)}
+                        required
+                    >
+                        <option value="">(Pozisyon Seçiniz)</option>
+                        {existingIncidents && existingIncidents.map((inc: any) => (
+                            <option key={inc.id} value={inc.id}>
+                                {inc.minute}' - {inc.id} - {inc.description?.substring(0, 30)}...
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
                 <input placeholder="Yorum ID" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={opinion.id} onChange={e => setOpinion({ ...opinion, id: e.target.value })} required />
@@ -981,7 +1049,7 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, existingInciden
                             (inc.opinions || []).map((op: any) => ({ ...op, incidentData: inc }))
                         ).map((op: any) => (
                             <div
-                                key={op.id}
+                                key={`${op.incidentData.id}-${op.id}`}
                                 onClick={() => {
                                     setIncidentId(op.incidentData.id);
                                     setOpinion(op);

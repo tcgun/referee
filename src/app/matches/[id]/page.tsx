@@ -386,7 +386,9 @@ export default function MatchPage() {
                                             videoUrl={inc.videoUrl}
                                             refereeDecision={inc.refereeDecision}
                                             varDecision={inc.varDecision}
+                                            varRecommendation={inc.varRecommendation}
                                             finalDecision={inc.finalDecision}
+                                            correctDecision={inc.correctDecision}
                                         />
                                     </div>
                                 </div>
@@ -476,17 +478,26 @@ function CommentItem({ opinion, shortOpinion, criticName, judgment }: { opinion:
     );
 }
 
-function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, varDecision, finalDecision }: {
+function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, varDecision, varRecommendation, finalDecision, correctDecision }: {
     opinions: Opinion[],
     description: string,
     minute: number,
     videoUrl?: string,
     refereeDecision?: string,
     varDecision?: string,
-    finalDecision?: string
+    varRecommendation?: string,
+    finalDecision?: string,
+    correctDecision?: string
 }) {
     // Expected Critics Order
     const critics = ['Bülent Yıldırım', 'Deniz Çoban', 'Bahattin Duran'];
+
+    // Map varRecommendation to Display Text
+    const varRecMap: Record<string, string> = {
+        'review': 'İNCELEME ÖNERİSİ',
+        'none': 'İNCELEME ÖNERİSİ YOK',
+        'monitor_only': 'SADECE TAKİP'
+    };
 
     return (
         <div className="rounded-xl overflow-hidden shadow-sm flex bg-[#1e1e1e] border border-border/20">
@@ -526,17 +537,27 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                 </div>
 
                 {/* Info Bar (Referee & VAR) */}
+                {/* Info Bar (Referee, VAR, VAR Result) */}
                 <div className="bg-[#2a2a2a] border-b border-gray-700 px-3 py-1.5 flex justify-between gap-4">
-                    <div className="flex-1 text-center border-r border-gray-600 last:border-0 pr-2">
+                    {/* Column 1: Referee */}
+                    <div className="flex-1 text-center border-r border-gray-600 pr-2">
                         <span className="block text-[8px] text-gray-400 font-bold uppercase mb-0.5">HAKEM</span>
                         <span className="block text-[10px] text-gray-100 font-bold leading-none truncate">{refereeDecision || '-'}</span>
                     </div>
-                    {varDecision && (
-                        <div className="flex-1 text-center pl-2">
-                            <span className="block text-[8px] text-blue-400 font-bold uppercase mb-0.5">VAR</span>
-                            <span className="block text-[10px] text-blue-100 font-bold leading-none truncate">{varDecision}</span>
-                        </div>
-                    )}
+
+                    {/* Column 2: VAR Recommendation */}
+                    <div className="flex-1 text-center border-r border-gray-600 px-2">
+                        <span className="block text-[8px] text-blue-400 font-bold uppercase mb-0.5">VAR</span>
+                        <span className="block text-[10px] text-blue-100 font-bold leading-none truncate">
+                            {varRecommendation ? (varRecMap[varRecommendation] || varRecommendation) : '-'}
+                        </span>
+                    </div>
+
+                    {/* Column 3: VAR Result */}
+                    <div className="flex-1 text-center pl-2">
+                        <span className="block text-[8px] text-purple-400 font-bold uppercase mb-0.5">VAR SONUCU</span>
+                        <span className="block text-[10px] text-purple-100 font-bold leading-none truncate">{varDecision || '-'}</span>
+                    </div>
                 </div>
 
                 {/* Dark Body Bar (Trio Critics) */}
@@ -553,13 +574,21 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                     </div>
                 </div>
 
-                {/* Footer (Final Decision) */}
-                {finalDecision && (
-                    <div className="bg-[#121212] border-t border-gray-700 px-3 py-2">
-                        <div className="flex items-center gap-2">
-                            <span className="shrink-0 text-[9px] font-black text-[#8CC63F] uppercase tracking-wide">NİHAİ KARAR:</span>
-                            <span className="text-[10px] font-bold text-gray-200 uppercase truncate leading-tight">{finalDecision}</span>
-                        </div>
+                {/* Footer (Final Decision & Correct Decision) */}
+                {(finalDecision || correctDecision) && (
+                    <div className="bg-[#121212] border-t border-gray-700 px-3 py-2 flex flex-col gap-1">
+                        {finalDecision && (
+                            <div className="flex items-center gap-2">
+                                <span className="shrink-0 text-[9px] font-black text-[#8CC63F] uppercase tracking-wide">NİHAİ KARAR:</span>
+                                <span className="text-[10px] font-bold text-gray-200 uppercase truncate leading-tight">{finalDecision}</span>
+                            </div>
+                        )}
+                        {correctDecision && (
+                            <div className="flex items-center gap-2">
+                                <span className="shrink-0 text-[9px] font-black text-green-500 uppercase tracking-wide">OLMASI GEREKEN:</span>
+                                <span className="text-[10px] font-bold text-green-100 uppercase truncate leading-tight">{correctDecision}</span>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
