@@ -16,6 +16,7 @@ interface GroupedOpinion {
   awayTeam?: string;
   score?: string;
   opinions: Opinion[];
+  againstCount?: number;
 }
 
 export default function Home() {
@@ -35,27 +36,43 @@ export default function Home() {
           for (const d of querySnapshot.docs) {
             const matchId = d.ref.path.split('/')[1];
             if (!groups[matchId]) {
-              groups[matchId] = { matchId, matchName: 'Yükleniyor...', opinions: [] };
+              groups[matchId] = { matchId, matchName: 'Yükleniyor...', opinions: [], againstCount: 0 };
             }
             const opinionData = d.data() as Opinion;
             groups[matchId].opinions.push(opinionData);
           }
           const matchIds = Object.keys(groups);
           if (matchIds.length > 0) {
-            const { doc, getDoc } = await import('firebase/firestore');
+            const { doc, getDoc, collection, getDocs } = await import('firebase/firestore');
             await Promise.all(matchIds.map(async (mid) => {
               try {
+                // 1. Fetch Match Basic Info
                 const mSnap = await getDoc(doc(db, 'matches', mid));
                 if (mSnap.exists()) {
                   const mData = mSnap.data() as Match;
-                  // Updated to include Week info per user request
                   groups[mid].matchName = `${mData.week}. Hafta: ${mData.homeTeamName} - ${mData.awayTeamName}`;
                   groups[mid].week = mData.week;
                   groups[mid].homeTeam = mData.homeTeamName;
                   groups[mid].awayTeam = mData.awayTeamName;
-                  groups[mid].score = `${mData.homeScore} - ${mData.awayScore}`;
+
+                  // Fix: Handle scores properly
+                  const hScore = mData.homeScore !== undefined ? mData.homeScore : '-';
+                  const aScore = mData.awayScore !== undefined ? mData.awayScore : '-';
+                  groups[mid].score = (hScore !== '-' || aScore !== '-') ? `${hScore} - ${aScore}` : (mData.score || 'v');
                 }
-              } catch (e) { console.error('Match name fetch err', e) }
+
+                // 2. Fetch Incidents to count "Aleyhe" (Incorrect judgments)
+                // A position is "against" if any critic in Trio says it's 'incorrect'
+                const incSnap = await getDocs(collection(db, 'matches', mid, 'incidents'));
+                let againstCount = 0;
+                for (const incDoc of incSnap.docs) {
+                  const opsSnap = await getDocs(collection(db, 'matches', mid, 'incidents', incDoc.id, 'opinions'));
+                  const hasIncorrect = opsSnap.docs.some(o => o.data().judgment === 'incorrect');
+                  if (hasIncorrect) againstCount++;
+                }
+                groups[mid].againstCount = againstCount;
+
+              } catch (e) { console.error('Match data fetch err', e) }
             }));
           }
           return Object.values(groups);

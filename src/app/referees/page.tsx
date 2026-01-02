@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { PageShell } from '@/components/ui/PageShell'; // Wait, PageShell was deleted in revert. I need to make a simple layout wrapper or just use standard div.
 // Revert deleted standard UI components, so I'll write raw Tailwind.
 
 interface RefereeStat {

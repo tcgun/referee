@@ -43,3 +43,18 @@ export function getTeamName(teamId: string) {
     const team = SUPER_LIG_TEAMS[teamId] || SUPER_LIG_TEAMS['default'];
     return team.name;
 }
+
+export function resolveTeamId(input: string): string | null {
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const search = normalize(input);
+
+    if (!search) return null;
+
+    for (const [id, data] of Object.entries(SUPER_LIG_TEAMS)) {
+        if (id === 'default') continue;
+        if (normalize(id).includes(search) || normalize(data.name).includes(search)) {
+            return id;
+        }
+    }
+    return null;
+}

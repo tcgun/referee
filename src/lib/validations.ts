@@ -82,6 +82,18 @@ export const matchSchema = z.object({
         homeCoach: z.string().optional(),
         awayCoach: z.string().optional(),
     }).optional(),
+    refereeStats: z.object({
+        ballInPlayTime: z.string().min(1).max(20),
+        fouls: z.number().int().min(0),
+        yellowCards: z.number().int().min(0),
+        redCards: z.number().int().min(0),
+        incorrectDecisions: z.number().int().min(0),
+        errorsFavoringHome: z.number().int().min(0),
+        errorsFavoringAway: z.number().int().min(0),
+        homeErrors: z.array(z.string()).optional(),
+        awayErrors: z.array(z.string()).optional(),
+        performanceNotes: z.array(z.string()).optional(),
+    }).optional(),
     status: z.enum(['draft', 'published']).optional(),
 });
 
@@ -89,7 +101,7 @@ export const matchSchema = z.object({
 export const incidentSchema = z.object({
     id: z.string().min(1).max(100),
     matchId: z.string().min(1).max(100),
-    minute: z.number().int().min(0).max(120),
+    minute: z.union([z.number().int().min(0).max(120), z.string().regex(/^\d{1,3}(\+\d{1,2})?$/)]),
     description: z.string().min(1).max(1000),
     refereeDecision: z.string().min(1).max(200),
     varDecision: z.string().max(200).optional(),
@@ -109,7 +121,7 @@ export const opinionSchema = z.object({
     incidentId: z.string().min(1).max(100).optional(), // Made optional to support migration to positionId
     positionId: z.string().min(1).max(100).optional(), // New link
     criticName: z.string().min(1).max(100),
-    opinion: z.string().min(1).max(5000),
+    opinion: z.string().max(5000).optional().or(z.literal('')),
     shortOpinion: z.string().max(500).optional(),
     reasoning: z.string().max(500).optional(),
     judgment: z.enum(['correct', 'incorrect', 'controversial']),
@@ -146,7 +158,7 @@ export const statementSchema = z.object({
 export const positionSchema = z.object({
     id: z.string().min(1).max(100),
     matchId: z.string().min(1).max(100),
-    minute: z.number().int().min(0).max(120),
+    minute: z.union([z.number().int().min(0).max(120), z.string().regex(/^\d{1,3}(\+\d{1,2})?$/)]),
     type: z.enum(['penalty', 'red_card', 'yellow_card', 'goal', 'offside', 'foul', 'other']),
     description: z.string().max(500).optional(),
     imageUrl: z.string().url().optional().or(z.literal('')),
@@ -156,10 +168,11 @@ export const positionSchema = z.object({
 // Disciplinary Action Schema
 export const disciplinaryActionSchema = z.object({
     id: z.string().min(1).max(100),
-    teamName: z.string().min(1).max(100),
+    teamName: z.string().max(100).optional().or(z.literal('')),
     subject: z.string().min(1).max(100),
-    reason: z.string().min(1).max(500),
+    reason: z.string().min(1).max(5000),
+    matchId: z.string().max(100).optional(),
+    type: z.enum(['pfdk', 'performance', 'penalty']).optional(),
+    penalty: z.string().max(200).optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in format YYYY-MM-DD'),
 });
-
-

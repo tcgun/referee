@@ -2,10 +2,32 @@
 
 import { useState, useEffect } from 'react';
 import { TeamForm, MatchForm, IncidentForm, OpinionForm } from '@/components/admin/AdminForms';
-import { StandingForm, StatementForm, DisciplinaryForm } from '@/components/admin/ExtraForms';
-import { Match, Incident, Opinion } from '@/types';
+import { StandingForm, StatementForm, DisciplinaryForm, DisciplinaryList, RefereeStatsForm } from '@/components/admin/ExtraForms';
+import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/firebase/client';
+
+// Wrapper for Disciplinary Section to share state
+const DisciplinaryWrapper = ({ apiKey }: { apiKey: string }) => {
+    const [editingItem, setEditingItem] = useState<DisciplinaryAction | null>(null);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+    return (
+        <>
+            <DisciplinaryForm
+                apiKey={apiKey}
+                editItem={editingItem}
+                onCancelEdit={() => setEditingItem(null)}
+                onSuccess={() => setRefreshTrigger(prev => prev + 1)}
+            />
+            <DisciplinaryList
+                apiKey={apiKey}
+                onEdit={setEditingItem}
+                refreshTrigger={refreshTrigger}
+            />
+        </>
+    );
+};
 
 export default function AdminPage() {
     // Auth State (Disabled per user request)
@@ -287,10 +309,11 @@ export default function AdminPage() {
 
                     {/* EXTRAS TAB */}
                     {activeTab === 'extras' && (
-                        <div className="grid md:grid-cols-3 gap-6">
+                        <div className="grid md:grid-cols-2 gap-6">
                             <StandingForm apiKey={apiKey} />
                             <StatementForm apiKey={apiKey} />
-                            <DisciplinaryForm apiKey={apiKey} />
+                            <DisciplinaryWrapper apiKey={apiKey} />
+                            <RefereeStatsForm apiKey={apiKey} />
                         </div>
                     )}
 

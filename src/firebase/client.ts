@@ -19,6 +19,7 @@ if (!firebaseConfig.projectId) {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
-const auth = getAuth(app);
+// const auth = getAuth(app); // Disabled as per user request (no-auth first)
+const auth = null as any;
 
 export { db, auth };

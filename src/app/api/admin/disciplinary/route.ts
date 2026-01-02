@@ -22,3 +22,22 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, id });
     });
 }
+
+export async function PUT(request: Request) {
+    return POST(request);
+}
+
+export async function DELETE(request: Request) {
+    return withAdminGuard(request, async (req) => {
+        const firestore = getAdminDb();
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get('id');
+
+        if (!id) {
+            return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+        }
+
+        await firestore.collection('disciplinary_actions').doc(id).delete();
+        return NextResponse.json({ success: true });
+    });
+}

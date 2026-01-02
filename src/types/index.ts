@@ -75,10 +75,26 @@ export interface Match {
     referee: string;
     varReferee: string;
     score?: string; // Optional, initially 0-0 or null
+    homeScore?: number;
+    awayScore?: number;
     stats?: MatchStats;
     officials?: MatchOfficials;
     lineups?: MatchLineups;
     status?: 'draft' | 'published';
+    refereeStats?: RefereeStats;
+}
+
+export interface RefereeStats {
+    ballInPlayTime: string; // "54:30"
+    fouls: number;
+    yellowCards: number;
+    redCards: number;
+    incorrectDecisions: number;
+    errorsFavoringHome: number;
+    errorsFavoringAway: number;
+    homeErrors?: string[];
+    awayErrors?: string[];
+    performanceNotes?: string[];
 }
 
 export type DecisionImpact = 'penalty' | 'red_card' | 'goal' | 'none' | 'unknown';
@@ -86,7 +102,7 @@ export type DecisionImpact = 'penalty' | 'red_card' | 'goal' | 'none' | 'unknown
 export interface Incident {
     id: string; // Document ID
     matchId: string;
-    minute: number;
+    minute: number | string;
     description: string;
     refereeDecision: string; // Field decision
     varDecision?: string; // VAR intervention details
@@ -138,8 +154,11 @@ export interface Statement {
 
 export interface DisciplinaryAction {
     id: string;
-    teamName: string;
+    teamName?: string;
     subject: string; // Player or Official Name
     reason: string;
+    matchId?: string; // Optional link to a match
+    type?: 'pfdk' | 'performance'; // 'pfdk' is default
+    penalty?: string; // Short summary
     date: string;
 }

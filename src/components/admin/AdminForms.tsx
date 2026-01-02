@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Team, Match, MatchStats, Incident, Opinion } from '@/types';
+import { resolveTeamId, getTeamName } from '@/lib/teams';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { useRouter } from 'next/navigation';
@@ -64,12 +65,31 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
         setMatch(preloadedMatch);
     }
 
+    // Helper to sync officials lists to specific fields
+    const prepareMatchForSave = (m: Partial<Match>) => {
+        const payload = { ...m };
+        if (payload.officials) {
+            // Sync Referees
+            const refs = payload.officials.referees || [];
+            if (refs[0]) payload.referee = refs[0];
+            payload.officials.assistants = refs.slice(1, 3).filter(Boolean); // Index 1, 2 -> Assistants
+            if (refs[3]) payload.officials.fourthOfficial = refs[3]; // Index 3 -> 4th Official
+
+            // Sync VAR
+            const vars = payload.officials.varReferees || [];
+            if (vars[0]) payload.varReferee = vars[0];
+            payload.officials.avarReferees = vars.slice(1).filter(Boolean); // Index 1+ -> AVARs
+        }
+        return payload;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const payload = prepareMatchForSave(match);
         const res = await fetch('/api/admin/matches', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
-            body: JSON.stringify(match),
+            body: JSON.stringify(payload),
         });
         if (res.ok) alert('Match Added!');
         else alert('Error adding match');
@@ -79,10 +99,11 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
         if (!match.id) return alert('Lütfen önce aşağıdaki kutucuktan bir Maç ID (örn: week1-gfk-gs) giriniz.');
 
         try {
+            const payload = prepareMatchForSave(match);
             const res = await fetch('/api/admin/matches', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
-                body: JSON.stringify(match),
+                body: JSON.stringify(payload),
             });
             if (res.ok) {
                 alert('Veriler başarıyla kaydedildi! ✅');
@@ -442,13 +463,56 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                 <input placeholder="Maç ID (örn: week1-gfk-gs)" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={match.id} onChange={e => setMatch({ ...match, id: e.target.value })} required />
                 <button type="button" onClick={handleLoad} className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded text-gray-700 font-bold">Getir</button>
             </div>
+            {/* Auto-Resolve Helper */}
             <div className="grid grid-cols-2 gap-2">
-                <input placeholder="Ev Sahibi ID" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={match.homeTeamId} onChange={e => setMatch({ ...match, homeTeamId: e.target.value })} required />
-                <input placeholder="Ev Sahibi Adı" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={match.homeTeamName} onChange={e => setMatch({ ...match, homeTeamName: e.target.value })} />
+                <input
+                    placeholder="Ev Sahibi ID"
+                    className="border border-gray-300 p-2 w-full rounded text-gray-900"
+                    value={match.homeTeamId}
+                    onChange={e => setMatch({ ...match, homeTeamId: e.target.value })}
+                    onBlur={() => {
+                        if (!match.homeTeamId) return;
+                        const rid = resolveTeamId(match.homeTeamId);
+                        if (rid) setMatch(prev => ({ ...prev, homeTeamId: rid, homeTeamName: getTeamName(rid) }));
+                    }}
+                    required
+                />
+                <input
+                    placeholder="Ev Sahibi Adı"
+                    className="border border-gray-300 p-2 w-full rounded text-gray-900"
+                    value={match.homeTeamName}
+                    onChange={e => setMatch({ ...match, homeTeamName: e.target.value })}
+                    onBlur={() => {
+                        if (!match.homeTeamName) return;
+                        const rid = resolveTeamId(match.homeTeamName);
+                        if (rid) setMatch(prev => ({ ...prev, homeTeamId: rid, homeTeamName: getTeamName(rid) }));
+                    }}
+                />
             </div>
             <div className="grid grid-cols-2 gap-2">
-                <input placeholder="Deplasman ID" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={match.awayTeamId} onChange={e => setMatch({ ...match, awayTeamId: e.target.value })} required />
-                <input placeholder="Deplasman Adı" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={match.awayTeamName} onChange={e => setMatch({ ...match, awayTeamName: e.target.value })} />
+                <input
+                    placeholder="Deplasman ID"
+                    className="border border-gray-300 p-2 w-full rounded text-gray-900"
+                    value={match.awayTeamId}
+                    onChange={e => setMatch({ ...match, awayTeamId: e.target.value })}
+                    onBlur={() => {
+                        if (!match.awayTeamId) return;
+                        const rid = resolveTeamId(match.awayTeamId);
+                        if (rid) setMatch(prev => ({ ...prev, awayTeamId: rid, awayTeamName: getTeamName(rid) }));
+                    }}
+                    required
+                />
+                <input
+                    placeholder="Deplasman Adı"
+                    className="border border-gray-300 p-2 w-full rounded text-gray-900"
+                    value={match.awayTeamName}
+                    onChange={e => setMatch({ ...match, awayTeamName: e.target.value })}
+                    onBlur={() => {
+                        if (!match.awayTeamName) return;
+                        const rid = resolveTeamId(match.awayTeamName);
+                        if (rid) setMatch(prev => ({ ...prev, awayTeamId: rid, awayTeamName: getTeamName(rid) }));
+                    }}
+                />
             </div>
 
 
@@ -583,6 +647,45 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                         <input type="number" step="0.01" placeholder="Dep Kırmızı" className="border p-2 rounded bg-red-50"
                             value={match.stats?.awayRedCards ?? ''}
                             onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayRedCards: e.target.value === '' ? undefined : e.target.value as any } })}
+                        />
+                    </div>
+
+                    {/* Big Chances */}
+                    <div className="grid grid-cols-3 gap-2 items-center">
+                        <input type="number" step="1" placeholder="Ev Net Gol" className="border p-2 rounded"
+                            value={match.stats?.homeBigChances ?? ''}
+                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeBigChances: e.target.value === '' ? undefined : e.target.value as any } })}
+                        />
+                        <span className="text-center text-xs font-bold uppercase">Net Gol Şansı</span>
+                        <input type="number" step="1" placeholder="Dep Net Gol" className="border p-2 rounded"
+                            value={match.stats?.awayBigChances ?? ''}
+                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayBigChances: e.target.value === '' ? undefined : e.target.value as any } })}
+                        />
+                    </div>
+
+                    {/* Offsides */}
+                    <div className="grid grid-cols-3 gap-2 items-center">
+                        <input type="number" step="1" placeholder="Ev Ofsayt" className="border p-2 rounded"
+                            value={match.stats?.homeOffsides ?? ''}
+                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeOffsides: e.target.value === '' ? undefined : e.target.value as any } })}
+                        />
+                        <span className="text-center text-xs font-bold uppercase">Ofsayt</span>
+                        <input type="number" step="1" placeholder="Dep Ofsayt" className="border p-2 rounded"
+                            value={match.stats?.awayOffsides ?? ''}
+                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayOffsides: e.target.value === '' ? undefined : e.target.value as any } })}
+                        />
+                    </div>
+
+                    {/* Saves */}
+                    <div className="grid grid-cols-3 gap-2 items-center">
+                        <input type="number" step="1" placeholder="Ev Kurtarış" className="border p-2 rounded"
+                            value={match.stats?.homeSaves ?? ''}
+                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeSaves: e.target.value === '' ? undefined : e.target.value as any } })}
+                        />
+                        <span className="text-center text-xs font-bold uppercase">Kurtarış</span>
+                        <input type="number" step="1" placeholder="Dep Kurtarış" className="border p-2 rounded"
+                            value={match.stats?.awaySaves ?? ''}
+                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awaySaves: e.target.value === '' ? undefined : e.target.value as any } })}
                         />
                     </div>
                 </div>
@@ -743,7 +846,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
             >
                 {match.status === 'published' ? 'YAYINDA (Published)' : 'TASLAK (Draft)'}
             </button>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded w-full font-medium">Maçı Kaydet</button>
+            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded w-full font-medium">Maçı Kaydet</button>
         </form >
     );
 };
@@ -815,7 +918,7 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
             <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Pozisyon Ekle (Incident)</h3>
             <input placeholder="Hangi Maç ID?" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={matchId} onChange={e => setMatchId(e.target.value)} required />
             <div className="flex gap-2">
-                <input type="number" placeholder="Dk" className="border border-gray-300 p-2 w-24 rounded text-gray-900" value={incident.minute || ''} onChange={e => setIncident({ ...incident, minute: e.target.value ? parseInt(e.target.value) : 0 })} />
+                <input type="text" placeholder="Dk (örn: 45+2)" className="border border-gray-300 p-2 w-24 rounded text-gray-900" value={incident.minute || ''} onChange={e => setIncident({ ...incident, minute: e.target.value })} />
                 <input placeholder="Pozisyon ID (örn: inc1)" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.id} onChange={e => setIncident({ ...incident, id: e.target.value })} required />
                 <button type="button" onClick={handleLoad} className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded text-gray-700 font-bold whitespace-nowrap">Getir</button>
             </div>
@@ -987,7 +1090,7 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, existingInciden
                         required
                     >
                         <option value="">(Pozisyon Seçiniz)</option>
-                        {existingIncidents && existingIncidents.map((inc: any) => (
+                        {existingIncidents && [...existingIncidents].sort((a: any, b: any) => a.id.localeCompare(b.id, undefined, { numeric: true })).map((inc: any) => (
                             <option key={inc.id} value={inc.id}>
                                 {inc.minute}' - {inc.id} - {inc.description?.substring(0, 30)}...
                             </option>
@@ -1001,6 +1104,33 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, existingInciden
                     <option value="trio">Trio Yorumu</option>
                     <option value="general">Genel Yorumcu</option>
                 </select>
+            </div>
+            {/* Manual Judgment Selection */}
+            <div className="mb-2">
+                <label className="text-xs font-bold text-gray-500 block mb-1">Karar Durumu (Görsel İçin)</label>
+                <div className="flex gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setOpinion({ ...opinion, judgment: 'correct' })}
+                        className={`flex-1 p-2 rounded border text-sm font-bold flex items-center justify-center gap-2 ${opinion.judgment === 'correct' ? 'bg-green-100 border-green-500 text-green-700 ring-2 ring-green-500/20' : 'bg-white border-gray-300 text-gray-400 hover:bg-gray-50'}`}
+                    >
+                        <span>✅</span> Doğru
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setOpinion({ ...opinion, judgment: 'incorrect' })}
+                        className={`flex-1 p-2 rounded border text-sm font-bold flex items-center justify-center gap-2 ${opinion.judgment === 'incorrect' ? 'bg-red-100 border-red-500 text-red-700 ring-2 ring-red-500/20' : 'bg-white border-gray-300 text-gray-400 hover:bg-gray-50'}`}
+                    >
+                        <span>❌</span> Hatalı
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setOpinion({ ...opinion, judgment: 'controversial' })}
+                        className={`flex-1 p-2 rounded border text-sm font-bold flex items-center justify-center gap-2 ${opinion.judgment === 'controversial' ? 'bg-amber-100 border-amber-500 text-amber-700 ring-2 ring-amber-500/20' : 'bg-white border-gray-300 text-gray-400 hover:bg-gray-50'}`}
+                    >
+                        <span>⚠️</span> Tartışmalı
+                    </button>
+                </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
                 <input placeholder="Yorumcu İsmi" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={opinion.criticName} onChange={e => setOpinion({ ...opinion, criticName: e.target.value })} required />

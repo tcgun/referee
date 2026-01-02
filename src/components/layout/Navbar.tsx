@@ -8,6 +8,7 @@ export default function Navbar() {
 
     const links = [
         { href: '/', label: 'ANA SAYFA' },
+        { href: '/matches', label: 'MAÇLAR' },
         { href: '/#trio', label: 'TRİO YORUMLARI' }, // Using hash links for now since they are currently widgets on home
         { href: '/#comments', label: 'YORUMCULAR' },
         { href: '/#pfdk', label: 'PFDK KARARLAR' },

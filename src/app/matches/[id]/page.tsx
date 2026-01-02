@@ -5,7 +5,7 @@ import { doc, getDoc, collection, getDocs, orderBy, query } from 'firebase/fires
 import { db } from '@/firebase/client';
 import { Match, Incident, Opinion, DisciplinaryAction, Player } from '@/types';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useSearchParams, useParams } from 'next/navigation';
 import { getTeamColors } from '@/lib/teams';
 
 interface IncidentWithOpinions extends Incident {
@@ -29,12 +29,28 @@ const STAT_LABELS = [
 
 export default function MatchPage() {
     const params = useParams();
+    const searchParams = useSearchParams();
     const matchId = params.id as string;
     const [match, setMatch] = useState<Match | null>(null);
     const [incidents, setIncidents] = useState<IncidentWithOpinions[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'summary' | 'lineups' | 'pfdk' | null>(null);
+
+    // Initialize tab from URL or null
+    const [activeTab, setActiveTab] = useState<'summary' | 'lineups' | 'pfdk' | 'performance' | null>(() => {
+        const tab = searchParams.get('tab');
+        return (tab === 'pfdk' || tab === 'performance' || tab === 'lineups' || tab === 'summary') ? tab : null;
+    });
+
+    const homeTeam = match ? { colors: getTeamColors(match.homeTeamId) } : null;
+    const awayTeam = match ? { colors: getTeamColors(match.awayTeamId) } : null;
+
     const [disciplinary, setDisciplinary] = useState<DisciplinaryAction[]>([]);
+
+
+    // Scroll to top when tab changes or loads
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [activeTab]);
 
     useEffect(() => {
         async function fetchData() {
@@ -61,19 +77,37 @@ export default function MatchPage() {
                     incidentsList.push({ ...incData, opinions });
                 }));
 
-                incidentsList.sort((a, b) => a.minute - b.minute);
+                const parseMinute = (min: number | string): number => {
+                    if (typeof min === 'number') return min;
+                    if (typeof min === 'string' && min.includes('+')) {
+                        const [base, extra] = min.split('+').map(Number);
+                        return base + (extra / 100);
+                    }
+                    return parseFloat(min as string) || 0;
+                };
+
+                incidentsList.sort((a, b) => parseMinute(a.minute) - parseMinute(b.minute));
                 setIncidents(incidentsList);
 
-                // Fetch PFDK
-                const pfdkQ = collection(db, 'disciplinary');
+                // Fetch PFDK & Performance
+                const pfdkQ = collection(db, 'disciplinary_actions');
                 const pfdkSnap = await getDocs(pfdkQ);
-                const pfdkList = pfdkSnap.docs
-                    .map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction))
-                    .filter(d => matchData && (
+                const allDisciplinary = pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction));
+
+                // Filter and Split
+                const relevantActions = allDisciplinary.filter(d => {
+                    // Specific Match Link
+                    if (d.matchId === matchId) return true;
+                    // Legacy Team Name Link (only for PFDK usually, but keep for robustness)
+                    if (matchData && (
                         (d.teamName && matchData.homeTeamName && d.teamName.toLowerCase().includes(matchData.homeTeamName.toLowerCase())) ||
                         (d.teamName && matchData.awayTeamName && d.teamName.toLowerCase().includes(matchData.awayTeamName.toLowerCase()))
-                    ));
-                setDisciplinary(pfdkList);
+                    )) return true;
+                    return false;
+                });
+
+                setDisciplinary(relevantActions.filter(d => d.type !== 'performance'));
+
             } catch (err) {
                 console.error(err);
             } finally {
@@ -135,15 +169,15 @@ export default function MatchPage() {
                             </div>
 
                             {/* TABS (Moved Here) */}
-                            <div className="flex gap-1 bg-muted/30 p-1 rounded-lg">
-                                {['summary', 'lineups', 'pfdk'].map((tab) => (
+                            <div className="flex gap-1 bg-muted/30 p-1 rounded-lg overflow-x-auto max-w-full">
+                                {['summary', 'lineups', 'pfdk', 'performance'].map((tab) => (
                                     <button
                                         key={tab}
                                         onClick={() => setActiveTab(activeTab === tab ? null : tab as any)}
-                                        className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/50'
+                                        className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/50'
                                             }`}
                                     >
-                                        {tab === 'summary' ? 'İSTATİSTİK' : tab === 'lineups' ? 'KADRO' : 'PFDK'}
+                                        {tab === 'summary' ? 'İSTATİSTİK' : tab === 'lineups' ? 'KADRO' : tab === 'pfdk' ? 'PFDK' : 'HAKEM PERFORMANSI'}
                                     </button>
                                 ))}
                             </div>
@@ -166,249 +200,307 @@ export default function MatchPage() {
                 <div className="w-full">
                     {activeTab === 'summary' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* OFFICIALS (Categorized List) */}
-                            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-                                <div className="p-3 bg-muted/30 border-b border-border text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                                    <span>🏁</span> Hakem Kadrosu
-                                </div>
-                                <div className="p-4 space-y-6">
-
-                                    {/* 1. HAKEMLER */}
-                                    <div>
-                                        <h4 className="text-[10px] font-black text-primary uppercase tracking-widest mb-2 border-b border-border/50 pb-1">Hakemler</h4>
-                                        <div className="grid grid-cols-2 gap-y-3 gap-x-2">
-                                            {/* Main Referee */}
-                                            {(match?.referee || match?.officials?.referees?.[0]) && (
-                                                <OfficialItem label="Orta Hakem" name={match.referee || match.officials?.referees?.[0]} />
-                                            )}
-
-                                            {/* Assistants */}
-                                            {match?.officials?.referees && match.officials.referees.length > 1 ? (
-                                                <>
-                                                    {match.officials.referees[1] && <OfficialItem label="1. Yrd. Hakem" name={match.officials.referees[1]} />}
-                                                    {match.officials.referees[2] && <OfficialItem label="2. Yrd. Hakem" name={match.officials.referees[2]} />}
-                                                </>
-                                            ) : (
-                                                match?.officials?.assistants?.map((ast, i) => (
-                                                    <OfficialItem key={`ast-${i}`} label={`${i + 1}. Yrd. Hakem`} name={ast} />
-                                                ))
-                                            )}
-
-                                            {/* 4th Official */}
-                                            {(match?.officials?.referees?.[3] || match?.officials?.fourthOfficial) && (
-                                                <OfficialItem label="4. Hakem" name={match.officials?.referees?.[3] || match.officials?.fourthOfficial} />
-                                            )}
-                                        </div>
+                            {/* OFFICIALS CARD */}
+                            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm h-fit">
+                                <div className="bg-muted/30 px-4 py-2 border-b border-border flex items-center justify-between">
+                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-foreground">HAKEM KADROSU</h3>
+                                    <div className="text-[9px] font-bold text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
+                                        OFFICIALS
                                     </div>
+                                </div>
+                                <div className="divide-y divide-border/50">
+                                    <OfficialItem role="HAKEM" name={match.referee || match.officials?.referees?.[0]} />
+                                    {(match.officials?.assistants?.length ? match.officials.assistants : match.officials?.referees?.slice(1, 3))?.map((asst, i) => (
+                                        <OfficialItem key={`asst-${i}`} role={`YARDIMCI ${i + 1}`} name={asst} />
+                                    ))}
+                                    <OfficialItem role="4. HAKEM" name={match.officials?.fourthOfficial || match.officials?.referees?.[3]} />
 
-                                    {/* 2. VAR EKİBİ */}
-                                    {(match?.officials?.varReferees?.[0] || match?.officials?.avarReferees?.length) && (
-                                        <div>
-                                            <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2 border-b border-border/50 pb-1">VAR Ekibi</h4>
-                                            <div className="grid grid-cols-2 gap-y-3 gap-x-2">
-                                                {/* VAR */}
-                                                {(match?.officials?.varReferees?.[0] || match?.varReferee) && (
-                                                    <OfficialItem label="VAR" name={match.officials?.varReferees?.[0] || match.varReferee} highlight />
-                                                )}
+                                    {/* VAR Section */}
+                                    <OfficialItem role="VAR" name={match.varReferee || match.officials?.varReferees?.[0]} />
+                                    {(match.officials?.avarReferees?.length ? match.officials.avarReferees : match.officials?.varReferees?.slice(1))?.map((avar, i) => (
+                                        <OfficialItem key={`avar-${i}`} role="AVAR" name={avar} />
+                                    ))}
 
-                                                {/* AVARs */}
-                                                {match?.officials?.varReferees && match.officials.varReferees.length > 1 ? (
-                                                    match.officials.varReferees.slice(1).map((avar, i) => (
-                                                        <OfficialItem key={`avar-${i}`} label={match.officials!.varReferees.length > 2 ? `AVAR ${i + 1}` : "AVAR"} name={avar} />
-                                                    ))
-                                                ) : (
-                                                    match?.officials?.avarReferees?.map((avar, i) => (
-                                                        <OfficialItem key={`avar-${i}`} label={match.officials!.avarReferees!.length > 1 ? `AVAR ${i + 1}` : "AVAR"} name={avar} />
-                                                    ))
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* 3. GÖZLEMCİLER */}
-                                    {match?.officials?.observers && match.officials.observers.length > 0 && (
-                                        <div>
-                                            <h4 className="text-[10px] font-black text-purple-500 uppercase tracking-widest mb-2 border-b border-border/50 pb-1">Gözlemciler</h4>
-                                            <div className="grid grid-cols-1 gap-2">
-                                                {match.officials.observers.map((obs, i) => (
-                                                    <OfficialItem key={`obs-${i}`} label={`Gözlemci ${match.officials!.observers.length > 1 ? i + 1 : ''}`} name={obs} />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* 4. TEMSİLCİLER */}
-                                    {match?.officials?.representatives && match.officials.representatives.length > 0 && (
-                                        <div>
-                                            <h4 className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2 border-b border-border/50 pb-1">Temsilciler</h4>
-                                            <div className="grid grid-cols-1 gap-2">
-                                                {match.officials.representatives.map((rep, i) => (
-                                                    <OfficialItem key={`rep-${i}`} label={`Temsilci ${match.officials!.representatives.length > 1 ? i + 1 : ''}`} name={rep} />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
+                                    {/* Observers & Representatives */}
+                                    {match.officials?.observers?.map((obs, i) => (
+                                        <OfficialItem key={`obs-${i}`} role="GÖZLEMCİ" name={obs} />
+                                    ))}
+                                    {match.officials?.representatives?.map((rep, i) => (
+                                        <OfficialItem key={`rep-${i}`} role="TEMSİLCİ" name={rep} />
+                                    ))}
                                 </div>
                             </div>
 
-                            {/* STATS */}
-                            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-                                <div className="p-3 bg-muted/30 border-b border-border text-[10px] font-black text-muted-foreground uppercase tracking-wider flex justify-between items-center">
-                                    <span>📊 Maç İstatistikleri</span>
-                                    <div className='flex gap-1'>
-                                        <div title={match.homeTeamName} className='w-2 h-2 rounded-full' style={{ background: homeColors.primary }}></div>
-                                        <div title={match.awayTeamName} className='w-2 h-2 rounded-full' style={{ background: awayColors.primary }}></div>
+                            {/* MATCH STATS (General) */}
+                            {match.stats && (
+                                <div className="space-y-4">
+                                    <div className="bg-card border border-border rounded-xl p-4">
+                                        <h3 className="text-xs font-bold text-center mb-4 uppercase text-foreground">Maç İstatistikleri</h3>
+                                        <div className="space-y-3">
+                                            <StatBar label="Topla Oynama" home={match.stats.homePossession || 50} away={match.stats.awayPossession || 50} homeColor={homeTeam?.colors?.primary} awayColor={awayTeam?.colors?.primary} suffix="%" />
+                                            <StatBar label="Toplam Şut" home={match.stats.homeShots || 0} away={match.stats.awayShots || 0} homeColor={homeTeam?.colors?.primary} awayColor={awayTeam?.colors?.primary} />
+                                            <StatBar label="İsabetli Şut" home={match.stats.homeShotsOnTarget || 0} away={match.stats.awayShotsOnTarget || 0} homeColor={homeTeam?.colors?.primary} awayColor={awayTeam?.colors?.primary} />
+                                            <StatBar label="Net Gol Şansı" home={match.stats.homeBigChances || 0} away={match.stats.awayBigChances || 0} homeColor={homeTeam?.colors?.primary} awayColor={awayTeam?.colors?.primary} />
+                                            <StatBar label="Köşe Vuruşu" home={match.stats.homeCorners || 0} away={match.stats.awayCorners || 0} homeColor={homeTeam?.colors?.primary} awayColor={awayTeam?.colors?.primary} />
+                                            <StatBar label="Ofsayt" home={match.stats.homeOffsides || 0} away={match.stats.awayOffsides || 0} homeColor={homeTeam?.colors?.primary} awayColor={awayTeam?.colors?.primary} />
+                                            <StatBar label="Kurtarış" home={match.stats.homeSaves || 0} away={match.stats.awaySaves || 0} homeColor={homeTeam?.colors?.primary} awayColor={awayTeam?.colors?.primary} />
+                                            <StatBar label="Faul" home={match.stats.homeFouls || 0} away={match.stats.awayFouls || 0} homeColor={homeTeam?.colors?.primary} awayColor={awayTeam?.colors?.primary} />
+                                            <StatBar label="Sarı Kart" home={match.stats.homeYellowCards || 0} away={match.stats.awayYellowCards || 0} homeColor={homeTeam?.colors?.primary} awayColor={awayTeam?.colors?.primary} />
+                                            <StatBar label="Kırmızı Kart" home={match.stats.homeRedCards || 0} away={match.stats.awayRedCards || 0} homeColor={homeTeam?.colors?.primary} awayColor={awayTeam?.colors?.primary} />
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="p-4 space-y-4">
-                                    {STAT_LABELS.map((stat) => {
-                                        const hVal = getStatValue('home', stat.key);
-                                        const aVal = getStatValue('away', stat.key);
-                                        const total = hVal + aVal;
-                                        const hPercent = total > 0 ? (hVal / total) * 100 : 50;
-
-                                        if (hVal === 0 && aVal === 0) return null;
-
-                                        return (
-                                            <div key={stat.key} className="text-xs">
-                                                <div className="flex justify-between items-end mb-1 font-mono font-bold">
-                                                    <span className="text-lg text-gray-600 dark:text-gray-300">{hVal}{stat.suffix}</span>
-                                                    <span className="text-[9px] text-muted-foreground font-sans uppercase tracking-tight mb-1">{stat.label}</span>
-                                                    <span className="text-lg text-gray-600 dark:text-gray-300">{aVal}{stat.suffix}</span>
-                                                </div>
-                                                <div className="w-full bg-muted rounded-full h-1.5 flex overflow-hidden">
-                                                    <div className="h-full transition-all duration-500 bg-gray-500 dark:bg-gray-400" style={{ width: `${hPercent}%` }}></div>
-                                                    <div className="h-full transition-all duration-500 bg-gray-300 dark:bg-gray-600" style={{ width: `${100 - hPercent}%` }}></div>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
+                            )}
                         </div>
                     )}
 
+                    {/* LINEUPS TAB */}
                     {activeTab === 'lineups' && match?.lineups && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Home Team Lineup */}
-                            <div className="bg-card border border-border rounded-xl p-3">
-                                <h4 className="text-[10px] font-black uppercase text-muted-foreground mb-3 text-center border-b border-border pb-1">{match.homeTeamName}</h4>
-                                <ul className="space-y-1">
-                                    {match.lineups.home?.map(p => (
-                                        <li key={p.number} className="text-[10px] flex gap-2">
-                                            <span className="font-mono text-muted-foreground w-4 text-right">{p.number}</span>
-                                            <span className="font-bold text-foreground truncate">{p.name}</span>
-                                        </li>
+                            <div className="bg-card border border-border rounded-xl p-4">
+                                <h3 className="text-sm font-bold text-center mb-4 uppercase text-foreground">Ev Sahibi</h3>
+                                <div className="space-y-1">
+                                    {match.lineups.home?.map((player, i) => (
+                                        <div key={i} className="flex gap-2 text-xs py-1 border-b border-border/50">
+                                            <span className="font-mono text-muted-foreground px-1">{player.number}</span>
+                                            <span className="font-bold">{player.name}</span>
+                                        </div>
                                     ))}
-                                </ul>
-                                <div className="mt-3 pt-2 border-t border-border">
-                                    <span className="block text-[9px] font-black uppercase text-muted-foreground mb-1">Yedekler</span>
-                                    <div className="text-[9px] text-muted-foreground leading-relaxed">
-                                        {match.lineups.homeSubs?.map(s => s.name).join(', ')}
-                                    </div>
+                                    {match.lineups.homeSubs && match.lineups.homeSubs.length > 0 && (
+                                        <>
+                                            <div className="mt-4 mb-2 text-xs font-black text-muted-foreground uppercase text-center border-b border-border/30 pb-1">Yedekler</div>
+                                            {match.lineups.homeSubs.map((player, i) => (
+                                                <div key={`sub-${i}`} className="flex gap-2 text-xs py-1 border-b border-border/50 text-muted-foreground">
+                                                    <span className="font-mono px-1">{player.number}</span>
+                                                    <span>{player.name}</span>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
                                 </div>
                             </div>
-
-                            {/* Away Team Lineup */}
-                            <div className="bg-card border border-border rounded-xl p-3">
-                                <h4 className="text-[10px] font-black uppercase text-muted-foreground mb-3 text-center border-b border-border pb-1">{match.awayTeamName}</h4>
-                                <ul className="space-y-1">
-                                    {match.lineups.away?.map(p => (
-                                        <li key={p.number} className="text-[10px] flex gap-2">
-                                            <span className="font-mono text-muted-foreground w-4 text-right">{p.number}</span>
-                                            <span className="font-bold text-foreground truncate">{p.name}</span>
-                                        </li>
+                            <div className="bg-card border border-border rounded-xl p-4">
+                                <h3 className="text-sm font-bold text-center mb-4 uppercase text-foreground">Deplasman</h3>
+                                <div className="space-y-1">
+                                    {match.lineups.away?.map((player, i) => (
+                                        <div key={i} className="flex gap-2 text-xs py-1 border-b border-border/50">
+                                            <span className="font-mono text-muted-foreground px-1">{player.number}</span>
+                                            <span className="font-bold">{player.name}</span>
+                                        </div>
                                     ))}
-                                </ul>
-                                <div className="mt-3 pt-2 border-t border-border">
-                                    <span className="block text-[9px] font-black uppercase text-muted-foreground mb-1">Yedekler</span>
-                                    <div className="text-[9px] text-muted-foreground leading-relaxed">
-                                        {match.lineups.awaySubs?.map(s => s.name).join(', ')}
-                                    </div>
+                                    {match.lineups.awaySubs && match.lineups.awaySubs.length > 0 && (
+                                        <>
+                                            <div className="mt-4 mb-2 text-xs font-black text-muted-foreground uppercase text-center border-b border-border/30 pb-1">Yedekler</div>
+                                            {match.lineups.awaySubs.map((player, i) => (
+                                                <div key={`sub-${i}`} className="flex gap-2 text-xs py-1 border-b border-border/50 text-muted-foreground">
+                                                    <span className="font-mono px-1">{player.number}</span>
+                                                    <span>{player.name}</span>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     )}
 
+                    {/* PFDK TAB */}
                     {activeTab === 'pfdk' && (
-                        <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-                            <h4 className='text-[10px] font-black uppercase text-muted-foreground mb-2'>PFDK Kararları</h4>
-                            {disciplinary.length === 0 ? <p className='text-xs italic text-muted-foreground'>Kayıt yok.</p> : disciplinary.map(d => (
-                                <div key={d.id} className='bg-muted/10 p-2 rounded border border-border text-xs'>
-                                    <div className='font-bold text-foreground mb-1'>{d.subject} <span className='text-[9px] text-muted-foreground font-medium'>({d.teamName})</span></div>
-                                    <div className='text-muted-foreground italic'>"{d.reason}"</div>
+                        <div className="space-y-4">
+                            {disciplinary.length === 0 ? (
+                                <div className="text-center py-10 bg-muted/20 rounded-xl border border-dashed border-border">
+                                    <span className="text-muted-foreground text-sm font-medium">Bu maç için PFDK kararı bulunmuyor.</span>
                                 </div>
-                            ))}
+                            ) : (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {disciplinary.map((action) => (
+                                        <div key={action.id} className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-start">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${action.teamName ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-700'
+                                                        }`}>
+                                                        {action.teamName || 'Genel'}
+                                                    </span>
+                                                    <h4 className="font-bold text-sm text-foreground">{action.subject}</h4>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground leading-relaxed">{action.reason}</p>
+                                            </div>
+                                            <div className="shrink-0">
+                                                <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 px-3 py-2 rounded text-center min-w-[100px]">
+                                                    <span className="block text-[9px] font-bold text-red-500 uppercase">CEZA</span>
+                                                    <span className="block text-sm font-black text-red-700 dark:text-red-400">{action.penalty}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
-                </div>
 
-                {/* INCIDENTS (Full Width - Always Visible) */}
-                <div className="space-y-4">
-                    {incidents.length === 0 ? (
-                        <div className="bg-card border border-dashed border-border rounded-xl p-12 text-center text-muted-foreground font-bold text-sm">
-                            Henüz pozisyon girişi yapılmamış.
-                        </div>
-                    ) : (
-                        incidents.map((inc) => (
-                            <div key={inc.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
-
-                                {/* HEADER: Lehe/Aleyhe */}
-                                {(inc.favorOf || inc.against) && (
-                                    <div className="flex text-[10px] font-black uppercase tracking-widest text-white">
-                                        {inc.favorOf && (
-                                            <div className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-500 p-1.5 text-center">
-                                                LEHE: {getTeamName(inc.favorOf)}
-                                            </div>
-                                        )}
-                                        {inc.against && (
-                                            <div className="flex-1 bg-gradient-to-r from-red-600 to-red-500 p-1.5 text-center">
-                                                ALEYHE: {getTeamName(inc.against)}
-                                            </div>
-                                        )}
+                    {/* PERFORMANCE TAB */}
+                    {activeTab === 'performance' && (
+                        <div className="space-y-6">
+                            {/* REFEREE STATS (Moved from Summary) */}
+                            {match.refereeStats && (
+                                <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-5 text-white shadow-lg overflow-hidden relative">
+                                    <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none">
+                                        <svg className="w-24 h-24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" /></svg>
                                     </div>
-                                )}
 
-                                <div className="flex gap-2 p-1">
-                                    {/* Minute */}
-                                    <div className="shrink-0 flex items-center pl-2">
-                                        <div className="w-10 h-10 rounded-lg bg-foreground text-background flex items-center justify-center font-black text-sm shadow-md">
-                                            {inc.minute}'
+                                    <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
+                                        <div>
+                                            <h3 className="font-black text-lg tracking-tight">HAKEM PERFORMANS KARTI</h3>
+                                            <div className="text-[10px] text-gray-400 font-mono tracking-widest uppercase">MATCH REFEREE REPORT</div>
+                                        </div>
+                                        <div className="text-3xl font-black font-mono tracking-tighter bg-white/10 px-3 py-1 rounded">
+                                            {(10 - (match.refereeStats.incorrectDecisions * 0.5)).toFixed(1)}
                                         </div>
                                     </div>
 
-                                    <div className="flex-1">
-                                        <TrioGrid
-                                            opinions={inc.opinions.filter(o => o.type === 'trio' || !o.type)}
-                                            description={inc.description}
-                                            minute={inc.minute}
-                                            videoUrl={inc.videoUrl}
-                                            refereeDecision={inc.refereeDecision}
-                                            varDecision={inc.varDecision}
-                                            varRecommendation={inc.varRecommendation}
-                                            finalDecision={inc.finalDecision}
-                                            correctDecision={inc.correctDecision}
-                                        />
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                        <div className="bg-white/5 rounded p-3 text-center border border-white/10">
+                                            <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">OYUN SÜRESİ</div>
+                                            <div className="text-xl font-mono font-bold">{match.refereeStats.ballInPlayTime}</div>
+                                        </div>
+                                        <div className="bg-white/5 rounded p-3 text-center border border-white/10">
+                                            <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">FAUL</div>
+                                            <div className="text-xl font-mono font-bold">{match.refereeStats.fouls}</div>
+                                        </div>
+                                        <div className="bg-white/5 rounded p-3 text-center border border-white/10">
+                                            <div className="text-[10px] text-yellow-400 font-black uppercase tracking-widest mb-1">SARI KART</div>
+                                            <div className="text-xl font-mono font-bold text-yellow-400">{match.refereeStats.yellowCards}</div>
+                                        </div>
+                                        <div className="bg-white/5 rounded p-3 text-center border border-white/10">
+                                            <div className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-1">KIRMIZI KART</div>
+                                            <div className="text-xl font-mono font-bold text-red-500">{match.refereeStats.redCards}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Error Analysis */}
+                                    <div className="bg-black/20 rounded-lg p-4 border border-white/5">
+                                        <h4 className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">HATA ANALİZİ</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Home Errors */}
+                                            <div>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="text-[10px] font-black text-gray-400 uppercase">EV SAHİBİ LEHİNE</span>
+                                                    <span className="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded">
+                                                        {match.refereeStats.errorsFavoringHome} HATA
+                                                    </span>
+                                                </div>
+                                                {match.refereeStats.homeErrors && match.refereeStats.homeErrors.length > 0 ? (
+                                                    <ul className="space-y-1.5">
+                                                        {match.refereeStats.homeErrors.map((err, i) => {
+                                                            const parts = err.match(/^(\d+'?)\s+(.*)$/);
+                                                            const minute = parts ? parts[1] : null;
+                                                            const text = parts ? parts[2].toLocaleUpperCase('tr-TR') : err.toLocaleUpperCase('tr-TR');
+                                                            return (
+                                                                <li key={i} className="text-[10px] text-gray-300 bg-white/5 px-2 py-1.5 rounded border-l-2 border-red-500/50 flex items-start gap-2">
+                                                                    <span className="mt-1 w-1 h-1 rounded-full bg-red-400 shrink-0" />
+                                                                    <span>
+                                                                        {minute && <span className="font-mono font-bold text-red-400 mr-1">{minute}</span>}
+                                                                        <span className="opacity-90">{text}</span>
+                                                                    </span>
+                                                                </li>
+                                                            );
+                                                        })}
+                                                    </ul>
+                                                ) : (
+                                                    <div className="text-[10px] text-gray-600 italic">Kayıt bulunmuyor.</div>
+                                                )}
+                                            </div>
+
+                                            {/* Away Errors */}
+                                            <div>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="text-[10px] font-black text-gray-400 uppercase">DEPLASMAN LEHİNE</span>
+                                                    <span className="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded">
+                                                        {match.refereeStats.errorsFavoringAway} HATA
+                                                    </span>
+                                                </div>
+                                                {match.refereeStats.awayErrors && match.refereeStats.awayErrors.length > 0 ? (
+                                                    <ul className="space-y-1.5">
+                                                        {match.refereeStats.awayErrors.map((err, i) => {
+                                                            const parts = err.match(/^(\d+'?)\s+(.*)$/);
+                                                            const minute = parts ? parts[1] : null;
+                                                            const text = parts ? parts[2].toLocaleUpperCase('tr-TR') : err.toLocaleUpperCase('tr-TR');
+                                                            return (
+                                                                <li key={i} className="text-[10px] text-gray-300 bg-white/5 px-2 py-1.5 rounded border-l-2 border-red-500/50 flex items-start gap-2">
+                                                                    <span className="mt-1 w-1 h-1 rounded-full bg-red-400 shrink-0" />
+                                                                    <span>
+                                                                        {minute && <span className="font-mono font-bold text-red-400 mr-1">{minute}</span>}
+                                                                        <span className="opacity-90">{text}</span>
+                                                                    </span>
+                                                                </li>
+                                                            );
+                                                        })}
+                                                    </ul>
+                                                ) : (
+                                                    <div className="text-[10px] text-gray-600 italic">Kayıt bulunmuyor.</div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))
+                            )}
+
+                            {/* Existing Performance Notes (Disciplinary Actions type='performance') */}
+                            {/* Performance Notes */}
+                            {/* Performance Notes */}
+                            {match.refereeStats?.performanceNotes && match.refereeStats.performanceNotes.length > 0 && (
+                                <div className="space-y-4">
+                                    {match.refereeStats.performanceNotes.map((note, i) => (
+                                        <div key={i} className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                                            <h4 className="font-black text-sm text-foreground uppercase tracking-tight mb-2 flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                                MAÇ NOTLARI
+                                            </h4>
+                                            <p className="text-xs text-foreground/90 font-medium leading-relaxed">
+                                                {note.toLocaleUpperCase('tr-TR')}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {(!match.refereeStats || (!match.refereeStats.performanceNotes?.length && !match.refereeStats.homeErrors?.length && !match.refereeStats.awayErrors?.length)) && (
+                                <div className="text-center py-10 bg-muted/20 rounded-xl border border-dashed border-border">
+                                    <span className="text-muted-foreground text-sm font-medium">Hakem performans verisi bulunmuyor.</span>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
 
+                {/* INCIDENTS LIST */}
+                <div className="space-y-4">
+                    {incidents.map((incident) => (
+                        <TrioGrid
+                            key={incident.id}
+                            minute={incident.minute}
+                            description={incident.description}
+                            videoUrl={incident.videoUrl}
+                            opinions={incident.opinions || []}
+                            refereeDecision={incident.refereeDecision}
+                            varDecision={incident.varDecision}
+                            varRecommendation={incident.varRecommendation}
+                            finalDecision={incident.finalDecision}
+                            correctDecision={incident.correctDecision}
+                        />
+                    ))}
+                </div>
             </div>
-
         </div>
     );
 }
 
 // Compact Components
-function OfficialItem({ label, name, highlight }: { label: string, name?: string, highlight?: boolean }) {
+function OfficialItem({ label, name, highlight, role }: { label?: string, role?: string, name?: string, highlight?: boolean }) {
     if (!name) return null;
     return (
         <div className="flex flex-col">
-            <span className={`text-[9px] font-bold uppercase ${highlight ? 'text-blue-500' : 'text-muted-foreground'}`}>{label}</span>
+            <span className={`text-[9px] font-bold uppercase ${highlight ? 'text-blue-500' : 'text-muted-foreground'}`}>{label || role}</span>
             <span className="text-xs font-bold text-foreground truncate" title={name}>{name}</span>
         </div>
     )
@@ -481,7 +573,7 @@ function CommentItem({ opinion, shortOpinion, criticName, judgment }: { opinion:
 function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, varDecision, varRecommendation, finalDecision, correctDecision }: {
     opinions: Opinion[],
     description: string,
-    minute: number,
+    minute: number | string,
     videoUrl?: string,
     refereeDecision?: string,
     varDecision?: string,
@@ -503,6 +595,11 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
         <div className="rounded-xl overflow-hidden shadow-sm flex bg-card border border-border">
             {/* Left Sidebar (Branding + Video) */}
             <div className="bg-red-700 w-14 md:w-20 shrink-0 flex flex-col items-center justify-center p-2 text-white relative">
+                {varRecommendation === 'review' && (
+                    <span className="font-black text-[8px] md:text-[9px] tracking-tight text-white text-center leading-tight mb-1 border-b border-white/40 pb-1">
+                        VAR<br />MÜDAHALESİ
+                    </span>
+                )}
                 <span className="font-black text-[10px] md:text-sm tracking-tighter">TRIO</span>
 
                 {videoUrl && (
@@ -665,5 +762,27 @@ function TrioIcon({ judgment }: { judgment: string }) {
             <path d="M12 9V14" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M12 17.01L12.01 16.9989" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
+    );
+}
+
+function StatBar({ label, home, away, homeColor, awayColor, suffix = '' }: { label: string, home: number | string, away: number | string, homeColor?: string, awayColor?: string, suffix?: string }) {
+    const hVal = typeof home === 'number' ? home : parseFloat(home as string) || 0;
+    const aVal = typeof away === 'number' ? away : parseFloat(away as string) || 0;
+    const total = hVal + aVal;
+    const hPercent = total > 0 ? (hVal / total) * 100 : 50;
+    const aPercent = total > 0 ? (aVal / total) * 100 : 50;
+
+    return (
+        <div className="text-xs">
+            <div className="flex justify-between mb-1 font-bold">
+                <span>{home}{suffix}</span>
+                <span className="text-muted-foreground uppercase text-[10px] tracking-widest">{label}</span>
+                <span>{away}{suffix}</span>
+            </div>
+            <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
+                <div style={{ width: `${hPercent}%`, backgroundColor: homeColor || '#3b82f6' }} />
+                <div style={{ width: `${aPercent}%`, backgroundColor: awayColor || '#ef4444' }} />
+            </div>
+        </div>
     );
 }
