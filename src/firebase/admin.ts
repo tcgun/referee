@@ -67,7 +67,7 @@ const formatPrivateKey = (key: string): string => {
 
 let adminApp: admin.app.App | undefined;
 
-function getAdminApp() {
+export function getAdminApp() {
     if (adminApp) return adminApp;
 
     if (admin.apps.length > 0) {
