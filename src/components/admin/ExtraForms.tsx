@@ -12,6 +12,24 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
     const [standing, setStanding] = useState<Partial<Standing>>({
         id: '', rank: 1, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0
     });
+    const [standings, setStandings] = useState<Standing[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    const fetchStandings = async () => {
+        try {
+            const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
+            const { db } = await import('@/firebase/client');
+            const q = query(collection(db, 'standings'), orderBy('rank', 'asc'));
+            const snap = await getDocs(q);
+            setStandings(snap.docs.map(d => ({ ...d.data(), id: d.id } as Standing)));
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    useEffect(() => {
+        fetchStandings();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -20,37 +38,103 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
             headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
             body: JSON.stringify({ ...standing, teamName: standing.id }),
         });
-        if (res.ok) alert('Puan Durumu Eklendi!');
+        if (res.ok) {
+            alert('Puan Durumu Güncellendi!');
+            fetchStandings();
+            setStanding({ id: '', rank: (standing.rank || 0) + 1, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0 });
+        }
         else alert('Hata oluştu');
     };
 
+    const handleEdit = (s: Standing) => {
+        setStanding(s);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Silmek istediğinize emin misiniz?')) return;
+        try {
+            const res = await fetch(`/api/admin/standings?id=${id}`, {
+                method: 'DELETE',
+                headers: { 'x-admin-key': apiKey }
+            });
+            if (res.ok) {
+                alert('Silindi');
+                fetchStandings();
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
     return (
-        <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm">
-            <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Puan Durumu Ekle</h3>
-            <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-500">Takım Kodu (ID)</label>
-                <input placeholder="örn: galatasaray" className="border border-gray-300 p-2 w-full rounded" value={standing.id} onChange={e => setStanding({ ...standing, id: e.target.value })} required />
+        <div className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm">
+                <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Puan Durumu Ekle / Düzenle</h3>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-500">Takım Kodu (ID)</label>
+                        <input placeholder="örn: galatasaray" className="border border-gray-300 p-2 w-full rounded" value={standing.id} onChange={e => setStanding({ ...standing, id: e.target.value })} required />
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-500">Sıralama (Rank)</label>
+                        <input type="number" placeholder="Kaçıncı sırada?" className="border border-gray-300 p-2 w-full rounded" value={standing.rank || ''} onChange={e => setStanding({ ...standing, rank: +e.target.value })} />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3 pt-2">
+                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">O</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.played || ''} onChange={e => setStanding({ ...standing, played: +e.target.value })} /></div>
+                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">G</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.won || ''} onChange={e => setStanding({ ...standing, won: +e.target.value })} /></div>
+                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">B</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.drawn || ''} onChange={e => setStanding({ ...standing, drawn: +e.target.value })} /></div>
+                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">M</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.lost || ''} onChange={e => setStanding({ ...standing, lost: +e.target.value })} /></div>
+
+                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">AG</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalsFor || ''} onChange={e => setStanding({ ...standing, goalsFor: +e.target.value })} /></div>
+                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">YG</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalsAgainst || ''} onChange={e => setStanding({ ...standing, goalsAgainst: +e.target.value })} /></div>
+                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">AV</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalDiff || ''} onChange={e => setStanding({ ...standing, goalDiff: +e.target.value })} /></div>
+                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">P</span><input type="number" className="border p-2 rounded w-full text-center font-black bg-gray-50" value={standing.points || ''} onChange={e => setStanding({ ...standing, points: +e.target.value })} /></div>
+                </div>
+
+                <div className="flex gap-2">
+                    <button type="submit" className="flex-1 bg-purple-600 text-white p-2 rounded font-bold hover:bg-purple-700">Kaydet</button>
+                    {standing.id && (
+                        <button type="button" onClick={() => setStanding({ id: '', rank: standings.length + 1 })} className="bg-gray-200 text-gray-700 px-4 rounded font-bold">Yeni</button>
+                    )}
+                </div>
+            </form>
+
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                    <h4 className="font-bold text-xs uppercase text-slate-700">Mevcut Puan Durumu (İlk 4 Ağırlıklı)</h4>
+                    <span className="text-[10px] text-slate-500">{standings.length} Takım</span>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-[11px] text-left">
+                        <thead className="bg-slate-50 text-slate-500 uppercase font-black">
+                            <tr>
+                                <th className="px-3 py-2">Sıra</th>
+                                <th className="px-3 py-2">Takım</th>
+                                <th className="px-3 py-2">P</th>
+                                <th className="px-3 py-2 text-right">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {standings.map((s, idx) => (
+                                <tr key={s.id} className={idx < 4 ? 'bg-blue-50/30' : ''}>
+                                    <td className="px-3 py-2 font-bold">{s.rank}.</td>
+                                    <td className="px-3 py-2 font-medium uppercase">{s.id}</td>
+                                    <td className="px-3 py-2 font-bold text-blue-700">{s.points}</td>
+                                    <td className="px-3 py-2 text-right space-x-2">
+                                        <button onClick={() => handleEdit(s)} className="text-blue-600 hover:text-blue-800 font-bold">Düz</button>
+                                        <button onClick={() => handleDelete(s.id)} className="text-red-500 hover:text-red-700 font-bold">Sil</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-
-            <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-500">Sıralama (Rank)</label>
-                <input type="number" placeholder="Kaçıncı sırada?" className="border border-gray-300 p-2 w-full rounded" value={standing.rank || ''} onChange={e => setStanding({ ...standing, rank: +e.target.value })} />
-            </div>
-
-            <div className="grid grid-cols-4 gap-3 pt-2">
-                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">O</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.played || ''} onChange={e => setStanding({ ...standing, played: +e.target.value })} /></div>
-                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">G</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.won || ''} onChange={e => setStanding({ ...standing, won: +e.target.value })} /></div>
-                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">B</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.drawn || ''} onChange={e => setStanding({ ...standing, drawn: +e.target.value })} /></div>
-                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">M</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.lost || ''} onChange={e => setStanding({ ...standing, lost: +e.target.value })} /></div>
-
-                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">AG</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalsFor || ''} onChange={e => setStanding({ ...standing, goalsFor: +e.target.value })} /></div>
-                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">YG</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalsAgainst || ''} onChange={e => setStanding({ ...standing, goalsAgainst: +e.target.value })} /></div>
-                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">AV</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalDiff || ''} onChange={e => setStanding({ ...standing, goalDiff: +e.target.value })} /></div>
-                <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">P</span><input type="number" className="border p-2 rounded w-full text-center font-black bg-gray-50" value={standing.points || ''} onChange={e => setStanding({ ...standing, points: +e.target.value })} /></div>
-            </div>
-
-            <button className="bg-purple-600 text-white p-2 rounded w-full">Kaydet</button>
-        </form>
+        </div>
     );
 };
 
@@ -244,7 +328,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
 };
 
 // Internal Match Selector Component
-const MatchSelect = ({ value, onChange }: { value: string, onChange: (val: string) => void }) => {
+export const MatchSelect = ({ value, onChange, className = "" }: { value: string, onChange: (val: string) => void, className?: string }) => {
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -268,7 +352,7 @@ const MatchSelect = ({ value, onChange }: { value: string, onChange: (val: strin
 
     return (
         <select
-            className="border border-gray-300 p-2 w-full rounded font-mono text-sm"
+            className={`border border-gray-300 p-2 w-full rounded font-mono text-sm ${className}`}
             value={value}
             onChange={e => onChange(e.target.value)}
             disabled={loading}

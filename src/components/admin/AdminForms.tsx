@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Team, Match, MatchStats, Incident, Opinion } from '@/types';
 import { resolveTeamId, getTeamName } from '@/lib/teams';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { useRouter } from 'next/navigation';
+import { MatchSelect } from './ExtraForms';
 
 interface BaseProps {
     apiKey: string;
@@ -55,15 +56,49 @@ export const TeamForm = ({ apiKey, authToken }: BaseProps) => {
 
 export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
     const router = useRouter();
-    const [match, setMatch] = useState<Partial<Match>>({
-        id: '', homeTeamId: '', awayTeamId: '', homeTeamName: '', awayTeamName: '', week: 1, season: '2024-2025', stadium: 'Rams Park', date: new Date().toISOString(),
-        status: 'draft'
-    });
+    const [match, setMatch] = useState<Partial<Match>>({ id: '', week: 1, date: new Date().toISOString(), status: 'draft' });
+    const [originalId, setOriginalId] = useState<string>('');
+    const [localDate, setLocalDate] = useState('');
+
+    // Local states for raw paste data
+    const [tffRaw, setTffRaw] = useState('');
+    const [lineupRaw, setLineupRaw] = useState('');
+    const [statsRaw, setStatsRaw] = useState('');
+
+    useEffect(() => {
+        if (match.date) {
+            const d = new Date(match.date);
+            if (!isNaN(d.getTime())) {
+                // Ensure we display in Istanbul time (TRT)
+                const formatter = new Intl.DateTimeFormat('tr-TR', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit',
+                    timeZone: 'Europe/Istanbul'
+                });
+                // toLocaleString returns "dd.mm.yyyy hh:mm"
+                // formatter.format(d) might return "08.08.2025 21:30"
+                setLocalDate(formatter.format(d));
+            }
+        } else {
+            setLocalDate('');
+        }
+    }, [match.date]);
 
     // Update form when preloaded data changes
     if (preloadedMatch && match.id !== preloadedMatch.id) {
         setMatch(preloadedMatch);
     }
+
+    const updateStat = (key: string, val: string) => {
+        const num = val === '' ? undefined : Number(val);
+        setMatch(prev => ({
+            ...prev,
+            stats: {
+                ...(prev.stats || {}),
+                [key]: num
+            }
+        }));
+    };
 
     // Helper to sync officials lists to specific fields
     const prepareMatchForSave = (m: Partial<Match>) => {
@@ -80,6 +115,20 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
             if (vars[0]) payload.varReferee = vars[0];
             payload.officials.avarReferees = vars.slice(1).filter(Boolean); // Index 1+ -> AVARs
         }
+
+        // Force convert all stats to numbers
+        if (payload.stats) {
+            const cleanStats: any = {};
+            Object.entries(payload.stats).forEach(([key, val]) => {
+                if (val === '' || val === null || val === undefined) {
+                    cleanStats[key] = undefined;
+                } else {
+                    cleanStats[key] = Number(val);
+                }
+            });
+            payload.stats = cleanStats;
+        }
+
         return payload;
     };
 
@@ -91,12 +140,16 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
             headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
             body: JSON.stringify(payload),
         });
-        if (res.ok) alert('Match Added!');
-        else alert('Error adding match');
+        if (res.ok) {
+            alert('Maç Başarıyla Kaydedildi! ✅');
+        } else {
+            const err = await res.json();
+            alert(`Hata: ${err.error}\n${JSON.stringify(err.details || '', null, 2)}`);
+        }
     };
 
     const handleQuickSave = async () => {
-        if (!match.id) return alert('Lütfen önce aşağıdaki kutucuktan bir Maç ID (örn: week1-gfk-gs) giriniz.');
+        if (!match.id) return alert('Lütfen önce Maç ID giriniz.');
 
         try {
             const payload = prepareMatchForSave(match);
@@ -108,23 +161,98 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
             if (res.ok) {
                 alert('Veriler başarıyla kaydedildi! ✅');
             } else {
-                alert('Kaydederken hata oluştu.');
+                const err = await res.json();
+                alert(`Kaydetme Hatası: ${err.error}\n${JSON.stringify(err.details || '', null, 2)}`);
             }
         } catch (error) {
             console.error(error);
-            alert('Bağlantı hatası.');
+            alert('Ağ hatası oluştu');
         }
     };
 
     const handleLoad = async () => {
         if (!match.id) return alert('Lütfen Maç ID giriniz');
+        const targetId = match.id.trim();
         try {
-            const snap = await getDoc(doc(db, 'matches', match.id));
-            if (snap.exists()) {
-                setMatch(snap.data() as Match);
-                alert('Maç verisi yüklendi!');
+            const res = await fetch(`/api/admin/matches?id=${targetId}`, {
+                method: 'GET',
+                headers: { 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setMatch(data);
+                setOriginalId(data.id);
+
+                // --- Reconstruct Raw Paste Data ---
+
+                // 1. TFF Raw
+                let tff = '';
+                if (data.date) {
+                    const d = new Date(data.date);
+                    tff += `${d.toLocaleDateString('tr-TR')} - ${d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}\n`;
+                }
+                if (data.stadium) tff += `${data.stadium}\n`;
+                if (data.officials) {
+                    const { referees, varReferees, observers, representatives } = data.officials;
+                    if (referees?.[0]) tff += `${referees[0]} (Hakem)\n`;
+                    if (referees?.[1]) tff += `${referees[1]} (1. Yardımcı Hakem)\n`;
+                    if (referees?.[2]) tff += `${referees[2]} (2. Yardımcı Hakem)\n`;
+                    if (referees?.[3]) tff += `${referees[3]} (Dördüncü Hakem)\n`;
+                    if (varReferees?.length) {
+                        tff += `${varReferees[0]} (VAR)\n`;
+                        varReferees.slice(1).forEach((v: string) => tff += `${v} (AVAR)\n`);
+                    }
+                    observers?.forEach((o: string) => tff += `${o} (Gözlemci)\n`);
+                    representatives?.forEach((r: string) => tff += `${r} (Temsilci)\n`);
+                }
+                setTffRaw(tff);
+
+                // 2. Lineup Raw
+                let lineup = '';
+                if (data.lineups) {
+                    const { home, away, homeSubs, awaySubs, homeCoach, awayCoach } = data.lineups;
+                    const maxXI = Math.max(home?.length || 0, away?.length || 0);
+                    for (let i = 0; i < maxXI; i++) {
+                        const h = home?.[i];
+                        const a = away?.[i];
+                        lineup += `${h?.number || ''} ${h?.name || ''} ${a?.name || ''} ${a?.number || ''}\n`;
+                    }
+                    if (homeSubs?.length || awaySubs?.length) {
+                        lineup += "Yedekler\n";
+                        const maxSubs = Math.max(homeSubs?.length || 0, awaySubs?.length || 0);
+                        for (let i = 0; i < maxSubs; i++) {
+                            const h = homeSubs?.[i];
+                            const a = awaySubs?.[i];
+                            lineup += `${h?.number || ''} ${h?.name || ''} ${a?.name || ''} ${a?.number || ''}\n`;
+                        }
+                    }
+                    if (homeCoach || awayCoach) {
+                        lineup += `Teknik Sorumlusu\n${homeCoach || ''} ${awayCoach || ''}\n`;
+                    }
+                }
+                setLineupRaw(lineup);
+
+                // 3. Stats Raw
+                let stats = '';
+                if (data.stats) {
+                    const m = {
+                        'Topla Oynama': 'Possession', 'Toplam Şut': 'Shots', 'Kaleyi Bulan Şut': 'ShotsOnTarget',
+                        'Net Gol Şansı': 'BigChances', 'Köşe Vuruşu': 'Corners', 'Ofsayt': 'Offsides',
+                        'Kurtarışlar': 'Saves', 'Fauller': 'Fouls', 'Sarı Kart': 'YellowCards', 'Kırmızı Kart': 'RedCards'
+                    };
+                    Object.entries(m).forEach(([label, key]) => {
+                        const h = (data.stats as any)[`home${key}`];
+                        const a = (data.stats as any)[`away${key}`];
+                        if (h !== undefined || a !== undefined) {
+                            stats += `${label}\n${h ?? ''}\n${a ?? ''}\n`;
+                        }
+                    });
+                }
+                setStatsRaw(stats);
+
+                alert('Maç yüklendi!');
             } else {
-                alert('Maç bulunamadı.');
+                alert(`"${targetId}" ID'li maç bulunamadı. (Uzunluk: ${targetId.length})`);
             }
         } catch (e) {
             console.error(e);
@@ -132,9 +260,306 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
         }
     };
 
+    const handleRenameMatch = async () => {
+        if (!originalId) return alert('Önce düzenlemek istediğiniz maçı "Getir" butonuyla yükleyiniz.');
+        if (!match.id || match.id === originalId) return alert('Lütfen ID alanına YENİ bir ID giriniz.');
+
+        if (!confirm(`Eski ID: ${originalId}\nYeni ID: ${match.id}\n\nBu işlem maçı ve ona bağlı TÜM verileri (olaylar, yorumlar, pfdk sevkleri) yeni ID'ye taşıyacaktır. Emin misiniz?`)) return;
+
+        try {
+            const res = await fetch(`/api/admin/matches/rename`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-key': apiKey,
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                },
+                body: JSON.stringify({ oldId: originalId, newId: match.id })
+            });
+            if (res.ok) {
+                alert('Maç ID başarıyla değiştirildi! 🚀');
+                setOriginalId(match.id as string);
+                // Refresh list if external component depends on it, but reload is safest
+                window.location.reload();
+            } else {
+                const err = await res.json();
+                alert(`İşlem Hatası: ${err.error}\n${err.details || ''}`);
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Ağ hatası oluştu');
+        }
+    };
+
+    const handleAutoFillFromId = () => {
+        const idInput = (match.id || '').toLowerCase().trim();
+        if (!idInput) return;
+
+        // Supported patterns: weekN-home-away or home-away
+        const parts = idInput.split('-');
+        if (parts.length < 2) return;
+
+        let weekVal = match.week;
+        let homeStr = '';
+        let awayStr = '';
+        let isWeekPrefixed = false;
+
+        if (parts[0].startsWith('week')) {
+            const possibleWeek = parseInt(parts[0].replace('week', ''));
+            if (!isNaN(possibleWeek)) weekVal = possibleWeek;
+            homeStr = parts[1];
+            awayStr = parts[2] || '';
+            isWeekPrefixed = true;
+        } else {
+            homeStr = parts[0];
+            awayStr = parts[1] || '';
+        }
+
+        const updates: any = { week: weekVal };
+        let finalHomeId = homeStr;
+        let finalAwayId = awayStr;
+
+        if (homeStr) {
+            const hId = resolveTeamId(homeStr);
+            if (hId) {
+                updates.homeTeamId = hId;
+                updates.homeTeamName = getTeamName(hId);
+                finalHomeId = hId;
+            }
+        }
+
+        if (awayStr) {
+            const aId = resolveTeamId(awayStr);
+            if (aId) {
+                updates.awayTeamId = aId;
+                updates.awayTeamName = getTeamName(aId);
+                finalAwayId = aId;
+            }
+        }
+
+        // Reconstruct ID using long names if resolved
+        let finalId = isWeekPrefixed ? `week${weekVal}` : '';
+        if (finalHomeId) finalId += (finalId ? '-' : '') + finalHomeId;
+        if (finalAwayId) finalId += (finalId ? '-' : '') + finalAwayId;
+
+        updates.id = finalId;
+
+        setMatch(prev => ({ ...prev, ...updates }));
+    };
+
+    const handleDeleteMatch = async () => {
+        if (!match.id) return alert('Silmek için bir maç seçiniz.');
+        if (!confirm(`${match.id} ID'li maçı TAMAMEN silmek istediğinize emin misiniz? Bu işlem geri alınamaz!`)) return;
+
+        try {
+            const res = await fetch(`/api/admin/matches?id=${match.id}`, {
+                method: 'DELETE',
+                headers: { 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
+            });
+            if (res.ok) {
+                alert('Maç başarıyla silindi! 🗑️');
+                setMatch({
+                    id: '', homeTeamId: '', awayTeamId: '', homeTeamName: '', awayTeamName: '', week: 1, season: '2024-2025', stadium: 'Rams Park', date: new Date().toISOString(),
+                    status: 'draft'
+                });
+                // Simple way to refresh the select list
+                window.location.reload();
+            } else {
+                const err = await res.json();
+                alert(`Silme Hatası: ${err.error}`);
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Ağ hatası oluştu');
+        }
+    };
+
     return (
         <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm">
             <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Maç Ekle / Düzenle</h3>
+
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+                <div className="flex gap-2">
+                    <div className="flex-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Mevcut Maç Seçiniz</label>
+                        <MatchSelect value={match.id || ''} onChange={val => setMatch({ ...match, id: val })} />
+                    </div>
+                    <div className="flex items-end gap-2">
+                        <button type="button" onClick={handleLoad} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold text-sm shadow-sm transition-all h-[38px]">Getir</button>
+                        <button type="button" onClick={handleRenameMatch} className="bg-orange-50 text-orange-600 px-4 py-2 rounded font-bold text-sm border border-orange-200 hover:bg-orange-100 transition-all h-[38px]">ID Değiştir</button>
+                        <button type="button" onClick={handleDeleteMatch} className="bg-red-50 text-red-600 px-4 py-2 rounded font-bold text-sm border border-red-200 hover:bg-red-100 transition-all h-[38px]">Sil</button>
+                        <button type="button" onClick={() => { setMatch({ id: '', week: 1, date: new Date().toISOString(), status: 'draft' }); setOriginalId(''); setTffRaw(''); setLineupRaw(''); setStatsRaw(''); }} className="bg-white text-slate-600 px-4 py-2 rounded font-bold text-sm border border-slate-200 hover:bg-slate-50 transition-all h-[38px]">Yeni</button>
+                    </div>
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Maç Kayıt ID (week1-takim-takim)</label>
+                    <input
+                        placeholder="Örn: week1-gs-fb"
+                        className="w-full border border-slate-300 p-2 rounded text-sm font-mono bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        value={match.id || ''}
+                        onChange={e => {
+                            let val = e.target.value;
+                            // Auto-expand w[digit] -> week[digit]
+                            // Examples: 'w1' -> 'week1', 'w12' -> 'week12'
+                            if (/^w\d/.test(val) && !val.startsWith('week')) {
+                                val = val.replace(/^w(\d+)/, 'week$1');
+                            }
+
+                            // Auto-update Week field if ID starts with weekN
+                            let nextWeek = match.week;
+                            const weekMatch = val.match(/^week(\d+)/);
+                            if (weekMatch) {
+                                nextWeek = parseInt(weekMatch[1]);
+                            }
+
+                            setMatch({ ...match, id: val, week: nextWeek });
+                        }}
+                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAutoFillFromId())}
+                    />
+                    <p className="text-[9px] text-slate-400 italic">Enter'a basınca takımları otomatik tanır. {match.id?.includes('ı') || match.id?.includes('ğ') || match.id?.includes('ü') || match.id?.includes('ş') || match.id?.includes('ö') || match.id?.includes('ç') ? <span className="text-red-500 font-bold">Uyarı: Türkçe karakter kullanmayınız!</span> : 'Mevcut ID formatı uygun.'}</p>
+                </div>
+
+                {/* Team & Date Info pushed to top group */}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Ev Sahibi</label>
+                        <div className="flex flex-col gap-1">
+                            <input
+                                placeholder="ID (örn: gs)"
+                                className="border border-slate-200 p-2 w-full rounded text-sm bg-white"
+                                value={match.homeTeamId || ''}
+                                onChange={e => setMatch({ ...match, homeTeamId: e.target.value })}
+                                onBlur={() => {
+                                    if (!match.homeTeamId) return;
+                                    const rid = resolveTeamId(match.homeTeamId);
+                                    if (rid) setMatch(prev => ({ ...prev, homeTeamId: rid, homeTeamName: getTeamName(rid) }));
+                                }}
+                            />
+                            <input
+                                placeholder="Adı (örn: Galatasaray)"
+                                className="border border-slate-200 p-2 w-full rounded text-xs bg-slate-50"
+                                value={match.homeTeamName || ''}
+                                onChange={e => setMatch({ ...match, homeTeamName: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Deplasman</label>
+                        <div className="flex flex-col gap-1">
+                            <input
+                                placeholder="ID (örn: fb)"
+                                className="border border-slate-200 p-2 w-full rounded text-sm bg-white"
+                                value={match.awayTeamId || ''}
+                                onChange={e => setMatch({ ...match, awayTeamId: e.target.value })}
+                                onBlur={() => {
+                                    if (!match.awayTeamId) return;
+                                    const rid = resolveTeamId(match.awayTeamId);
+                                    if (rid) setMatch(prev => ({ ...prev, awayTeamId: rid, awayTeamName: getTeamName(rid) }));
+                                }}
+                            />
+                            <input
+                                placeholder="Adı (örn: Fenerbahçe)"
+                                className="border border-slate-200 p-2 w-full rounded text-xs bg-slate-50"
+                                value={match.awayTeamName || ''}
+                                onChange={e => setMatch({ ...match, awayTeamName: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Hafta</label>
+                        <input type="text" className="border border-slate-200 p-2 w-full rounded font-bold bg-white text-sm" value={match.week || 1} onChange={e => {
+                            const val = e.target.value;
+                            const num = parseInt(val);
+                            setMatch({ ...match, week: isNaN(num) ? val as any : num });
+                        }} />
+                    </div>
+
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Tarih (GG.AA.YYYY SS:DD)</label>
+                        <input type="text"
+                            placeholder="GG.AA.YYYY SS:DD"
+                            className="border border-slate-200 p-2 w-full rounded text-sm bg-white font-mono"
+                            value={localDate}
+                            onChange={() => { }} // Controlled via onKeyDown for masking
+                            onKeyDown={e => {
+                                if (['Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) return;
+                                e.preventDefault();
+                                const input = e.currentTarget;
+                                let start = input.selectionStart || 0;
+                                let end = input.selectionEnd || 0;
+                                let currentStr = localDate || "00.00.0000 00:00";
+                                if (e.key === 'Backspace') {
+                                    let pos = start;
+                                    if (start === end) pos = Math.max(0, start - 1);
+
+                                    // Map of fixed characters in "DD.MM.YYYY HH:MM"
+                                    const mask = "__.__.____ __:__";
+                                    const fixedIndices = [2, 5, 10, 13];
+
+                                    if (pos >= 0) {
+                                        let newStr = currentStr.split('');
+                                        // If position is a fixed character, jump back to the previous digit
+                                        while (pos >= 0 && fixedIndices.includes(pos)) {
+                                            pos--;
+                                        }
+
+                                        if (pos >= 0) {
+                                            newStr[pos] = '0';
+                                            const finalStr = newStr.join('');
+                                            setLocalDate(finalStr);
+
+                                            const parsed = finalStr.match(/^(\d{2})\.(\d{2})\.(\d{4})\s(\d{2}):(\d{2})$/);
+                                            if (parsed) {
+                                                const [, d, m, y, h, min] = parsed;
+                                                const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), parseInt(h), parseInt(min));
+                                                if (!isNaN(dateObj.getTime())) setMatch(prev => ({ ...prev, date: dateObj.toISOString() }));
+                                            }
+                                            setTimeout(() => { input.selectionStart = input.selectionEnd = pos; }, 0);
+                                        }
+                                    }
+                                    return;
+                                }
+                                if (/\d/.test(e.key)) {
+                                    let pos = start;
+                                    const fixedIndices = [2, 5, 10, 13];
+
+                                    // Skip fixed characters
+                                    while (pos < currentStr.length && fixedIndices.includes(pos)) {
+                                        pos++;
+                                    }
+
+                                    if (pos < currentStr.length) {
+                                        let newStr = currentStr.split('');
+                                        newStr[pos] = e.key;
+                                        const finalStr = newStr.join('');
+                                        setLocalDate(finalStr);
+
+                                        const parsed = finalStr.match(/^(\d{2})\.(\d{2})\.(\d{4})\s(\d{2}):(\d{2})$/);
+                                        if (parsed) {
+                                            const [, d, m, y, h, min] = parsed;
+                                            const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), parseInt(h), parseInt(min));
+                                            if (!isNaN(dateObj.getTime())) setMatch(prev => ({ ...prev, date: dateObj.toISOString() }));
+                                        }
+
+                                        let nextPos = pos + 1;
+                                        while (nextPos < currentStr.length && fixedIndices.includes(nextPos)) {
+                                            nextPos++;
+                                        }
+                                        setTimeout(() => { input.selectionStart = input.selectionEnd = nextPos; }, 0);
+                                    }
+                                }
+                            }}
+                        />
+                    </div>
+                </div>
+            </div>
 
             {/* Smart Paste Section */}
             <div className="bg-blue-50 p-3 rounded mb-4 border border-blue-100">
@@ -142,8 +567,10 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                 <textarea
                     className="w-full text-xs p-2 border rounded h-24 font-mono text-gray-700"
                     placeholder="TFF sayfasından maç detaylarını kopyalayıp buraya yapıştırın..."
+                    value={tffRaw}
                     onChange={(e) => {
                         const text = e.target.value;
+                        setTffRaw(text);
                         if (!text.trim()) return;
 
                         const newMatch = { ...match };
@@ -172,9 +599,14 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                                     }
                                 }
                             }
-                            // Stadium Detection (Heuristic: Ends with STADYUMU or contains STADI)
-                            else if (line.includes('STADYUMU') || line.includes('STADI') || line.includes('PARK')) {
-                                newMatch.stadium = line.split('-')[0].trim(); // Take part before '-' if exists
+                            // Stadium Detection (Heuristic: Ends with STADYUMU/STADI/PARK/ARENA or contains " - " separator for City)
+                            else if (line.includes('STADYUMU') || line.includes('STADI') || line.includes('PARK') || line.includes('ARENA') || (line.includes(' - ') && !line.match(/\d{1,2}\.\d{1,2}\./))) {
+                                if (line.includes(' - ')) {
+                                    // TFF format: "VENUE NAME - CITY - DISTRICT" -> Take first part
+                                    newMatch.stadium = line.split(' - ')[0].trim();
+                                } else {
+                                    newMatch.stadium = line.split('-')[0].trim();
+                                }
                             }
                             // Officials Parsing
                             else if (line.includes('(Hakem)')) {
@@ -205,6 +637,41 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                             }
                         });
 
+                        // --- REFORMAT TO CLEAN STRUCTURE (Per User Request) ---
+                        // Only reformat if we have at least partial data to avoid overwriting user typing too aggressively
+                        if (newMatch.date || newMatch.stadium || newMatch.referee) {
+                            let cleanText = '';
+
+                            // 1. Date (DD.MM.YYYY - HH:MM)
+                            if (newMatch.date) {
+                                const d = new Date(newMatch.date);
+                                const fDay = String(d.getDate()).padStart(2, '0');
+                                const fMonth = String(d.getMonth() + 1).padStart(2, '0');
+                                const fYear = d.getFullYear();
+                                const fHour = String(d.getHours()).padStart(2, '0');
+                                const fMin = String(d.getMinutes()).padStart(2, '0');
+                                cleanText += `${fDay}.${fMonth}.${fYear} - ${fHour}:${fMin}\n`;
+                            }
+
+                            // 2. Stadium
+                            if (newMatch.stadium) cleanText += `${newMatch.stadium}\n`;
+
+                            // 3. Officials
+                            if (newMatch.officials) {
+                                const { referees, varReferees, observers, representatives } = newMatch.officials;
+                                if (referees[0]) cleanText += `${referees[0]} (Hakem)\n`;
+                                if (referees[1]) cleanText += `${referees[1]} (1. Yardımcı Hakem)\n`;
+                                if (referees[2]) cleanText += `${referees[2]} (2. Yardımcı Hakem)\n`;
+                                if (referees[3]) cleanText += `${referees[3]} (Dördüncü Hakem)\n`;
+
+                                varReferees.forEach((v, i) => cleanText += `${v} ${i === 0 ? '(VAR)' : '(AVAR)'}\n`);
+                                observers.forEach(o => cleanText += `${o} (Gözlemci)\n`);
+                                representatives.forEach(r => cleanText += `${r} (Temsilci)\n`);
+                            }
+
+                            setTffRaw(cleanText.trim());
+                        }
+
                         setMatch(newMatch);
                     }}
                 />
@@ -215,12 +682,14 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
 
             {/* Lineup Paste Section */}
             <div className="bg-green-50 p-3 rounded mb-4 border border-green-100">
-                <h4 className="font-bold text-xs text-green-800 mb-1 uppercase">Kadro Girişi (Mackolik/TFF Kopyala-Yapıştır)</h4>
+                <h4 className="font-bold text-xs text-green-800 mb-1 uppercase">Kadro Girişi (Beinsport Kopyala-Yapıştır)</h4>
                 <textarea
                     className="w-full text-xs p-2 border rounded h-24 font-mono text-gray-700"
                     placeholder="Kadro listesini yapıştırın (Numara - İsim - İsim - Numara formatında)..."
+                    value={lineupRaw}
                     onChange={(e) => {
                         const text = e.target.value;
+                        setLineupRaw(text);
                         if (!text.trim()) return;
 
                         const newMatch = { ...match };
@@ -370,87 +839,101 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                 </button>
             </div>
 
-            {/* Stats Paste Section */}
+
+
+
+            {/* Stats Paste Section moved here, right above manual stats */}
             <div className="bg-orange-50 p-3 rounded mb-4 border border-orange-100">
-                <h4 className="font-bold text-xs text-orange-800 mb-1 uppercase">İstatistik Girişi (Mackolik Kopyala-Yapıştır)</h4>
+                <h4 className="font-bold text-xs text-orange-800 mb-1 uppercase">İstatistik Girişi (TFF Kopyala-Yapıştır)</h4>
                 <textarea
                     className="w-full text-xs p-2 border rounded h-24 font-mono text-gray-700"
                     placeholder="İstatistikleri yapıştırın (Topla Oynama, Şut vb)..."
+                    value={statsRaw}
                     onChange={(e) => {
                         const text = e.target.value;
+                        setStatsRaw(text);
                         if (!text.trim()) return;
 
                         const newMatch = { ...match };
                         if (!newMatch.stats) newMatch.stats = {} as MatchStats;
 
+                        // Normalize text for easier parsing: remove labels' colons and trim
                         const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-
-                        // Map labels to keys (Using specific string union for keys we care about to likely avoid full MatchStats keyof complexity)
                         const map: Record<string, string> = {
-                            'Topla Oynama': 'Possession',
-                            'Toplam Şut': 'Shots',
-                            'Kaleyi Bulan Şut': 'ShotsOnTarget',
-                            'İsabetli Şut': 'ShotsOnTarget',
-                            'Net Gol Şansı': 'BigChances',
-                            'Köşe Vuruşu': 'Corners',
-                            'Ofsayt': 'Offsides',
-                            'Kurtarışlar': 'Saves',
-                            'Kurtarış': 'Saves',
-                            'Fauller': 'Fouls',
-                            'Faul': 'Fouls',
-                            'Sarı Kart': 'YellowCards',
-                            'Kırmızı Kart': 'RedCards'
+                            'Topla Oynama': 'Possession', 'Toplam Şut': 'Shots', 'Kaleyi Bulan Şut': 'ShotsOnTarget',
+                            'İsabetli Şut': 'ShotsOnTarget', 'Net Gol Şansı': 'BigChances', 'Köşe Vuruşu': 'Corners',
+                            'Ofsayt': 'Offsides', 'Kurtarışlar': 'Saves', 'Kurtarış': 'Saves', 'Fauller': 'Fouls',
+                            'Faul': 'Fouls', 'Sarı Kart': 'YellowCards', 'Kırmızı Kart': 'RedCards'
                         };
-
-                        // Store values in arrays [homeVal, awayVal]
-                        // Since we don't know if Home is first or Away is first from just the text, 
-                        // we usually assume Home Block then Away Block if sequential, or Interleaved?
-                        // The user example had:
-                        // Block 1 (Home) ... Block 2 (Away)
-                        // This means we will encounter "Topla Oynama" twice.
-                        // 1st time -> Home, 2nd time -> Away.
 
                         const values: Record<string, string[]> = {};
 
+                        // Robust multi-format parser
                         for (let i = 0; i < lines.length; i++) {
-                            const line = lines[i].replace(':', ''); // Remove colon if present
-
-                            // Check if line matches a known key
+                            const line = lines[i];
+                            // Check if line starts with any of our map labels (ignoring trailing colons)
                             let matchedKey: string | undefined;
-                            // Check exact match or starts with
                             for (const k in map) {
-                                if (line.startsWith(k)) matchedKey = k;
+                                // Clear label from possible colon etc for comparison
+                                const cleanLine = line.split(':')[0].trim();
+                                if (cleanLine === k) {
+                                    matchedKey = k;
+                                    break;
+                                }
                             }
 
                             if (matchedKey) {
-                                // Value is likely on the next line
-                                const valLine = lines[i + 1];
-                                if (valLine) {
-                                    const cleanVal = valLine.replace('%', '').trim();
+                                // The value could be on the same line (after :) or on the next lines
+                                let val = '';
+                                if (line.includes(':')) {
+                                    val = line.split(':')[1].trim();
+                                }
+
+                                // If no value after colon, check next lines until we hit another label or end
+                                if (!val) {
+                                    let j = i + 1;
+                                    while (j < lines.length) {
+                                        const nextLine = lines[j];
+                                        // If next line is another label, stop
+                                        let isNextLabel = false;
+                                        for (const k2 in map) { if (nextLine.startsWith(k2)) { isNextLabel = true; break; } }
+                                        if (isNextLabel) break;
+
+                                        // Otherwise, if it has any characters, take it as value and stop
+                                        if (nextLine.trim()) {
+                                            val = nextLine.trim();
+                                            break;
+                                        }
+                                        j++;
+                                    }
+                                }
+
+                                if (val) {
+                                    const cleanVal = val.replace('%', '').trim();
                                     if (!values[matchedKey]) values[matchedKey] = [];
                                     values[matchedKey].push(cleanVal);
                                 }
                             }
                         }
 
-                        // Now assign to match.stats
+                        // Assign values: 1st time seen -> Home, 2nd time seen -> Away
                         const statKeys = Object.keys(map);
                         statKeys.forEach(k => {
                             const internalKey = map[k];
-                            // internalKey e.g. 'Possession' -> 'homePossession', 'awayPossession'
-                            // Typescript key for MatchStats is camelCase like homePossession
-
                             const vals = values[k];
+
+                            const parseVal = (v: string) => {
+                                if (internalKey === 'Possession') return parseFloat(v);
+                                return parseInt(v);
+                            };
+
                             if (vals && vals.length >= 2) {
-                                // Assume 0 is Home, 1 is Away based on typical copy order
-                                (newMatch.stats as any)[`home${internalKey}`] = vals[0];
-                                (newMatch.stats as any)[`away${internalKey}`] = vals[1];
+                                (newMatch.stats as any)[`home${internalKey}`] = parseVal(vals[0]);
+                                (newMatch.stats as any)[`away${internalKey}`] = parseVal(vals[1]);
                             } else if (vals && vals.length === 1) {
-                                // Maybe only one side parsed?
-                                (newMatch.stats as any)[`home${internalKey}`] = vals[0];
+                                (newMatch.stats as any)[`home${internalKey}`] = parseVal(vals[0]);
                             }
                         });
-
                         setMatch(newMatch);
                     }}
                 />
@@ -459,194 +942,45 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                 </button>
             </div>
 
-            <div className="flex gap-2">
-                <input placeholder="Maç ID (örn: week1-gfk-gs)" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={match.id} onChange={e => setMatch({ ...match, id: e.target.value })} required />
-                <button type="button" onClick={handleLoad} className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded text-gray-700 font-bold">Getir</button>
-            </div>
-            {/* Auto-Resolve Helper */}
-            <div className="grid grid-cols-2 gap-2">
-                <input
-                    placeholder="Ev Sahibi ID"
-                    className="border border-gray-300 p-2 w-full rounded text-gray-900"
-                    value={match.homeTeamId}
-                    onChange={e => setMatch({ ...match, homeTeamId: e.target.value })}
-                    onBlur={() => {
-                        if (!match.homeTeamId) return;
-                        const rid = resolveTeamId(match.homeTeamId);
-                        if (rid) setMatch(prev => ({ ...prev, homeTeamId: rid, homeTeamName: getTeamName(rid) }));
-                    }}
-                    required
-                />
-                <input
-                    placeholder="Ev Sahibi Adı"
-                    className="border border-gray-300 p-2 w-full rounded text-gray-900"
-                    value={match.homeTeamName}
-                    onChange={e => setMatch({ ...match, homeTeamName: e.target.value })}
-                    onBlur={() => {
-                        if (!match.homeTeamName) return;
-                        const rid = resolveTeamId(match.homeTeamName);
-                        if (rid) setMatch(prev => ({ ...prev, homeTeamId: rid, homeTeamName: getTeamName(rid) }));
-                    }}
-                />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-                <input
-                    placeholder="Deplasman ID"
-                    className="border border-gray-300 p-2 w-full rounded text-gray-900"
-                    value={match.awayTeamId}
-                    onChange={e => setMatch({ ...match, awayTeamId: e.target.value })}
-                    onBlur={() => {
-                        if (!match.awayTeamId) return;
-                        const rid = resolveTeamId(match.awayTeamId);
-                        if (rid) setMatch(prev => ({ ...prev, awayTeamId: rid, awayTeamName: getTeamName(rid) }));
-                    }}
-                    required
-                />
-                <input
-                    placeholder="Deplasman Adı"
-                    className="border border-gray-300 p-2 w-full rounded text-gray-900"
-                    value={match.awayTeamName}
-                    onChange={e => setMatch({ ...match, awayTeamName: e.target.value })}
-                    onBlur={() => {
-                        if (!match.awayTeamName) return;
-                        const rid = resolveTeamId(match.awayTeamName);
-                        if (rid) setMatch(prev => ({ ...prev, awayTeamId: rid, awayTeamName: getTeamName(rid) }));
-                    }}
-                />
-            </div>
-
-
-            {/* Stats & Officials Expansion */}
             <div className="border-t pt-2 mt-2">
                 <h4 className="font-bold text-sm text-gray-600 mb-1">Maç İstatistikleri</h4>
                 <div className="space-y-2 text-sm">
                     {/* Possession */}
                     <div className="grid grid-cols-3 gap-2 items-center">
-                        <input type="number" step="0.01" placeholder="Ev Topla Oyn" className="border p-2 rounded"
+                        <input type="number" step="0.1" placeholder="Ev Topla Oyn" className="border p-2 rounded"
                             value={match.stats?.homePossession ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homePossession: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('homePossession', e.target.value)}
                         />
                         <span className="text-center text-xs font-bold uppercase">Topla Oynama</span>
-                        <input type="number" step="0.01" placeholder="Dep Topla Oyn" className="border p-2 rounded"
+                        <input type="number" step="0.1" placeholder="Dep Topla Oyn" className="border p-2 rounded"
                             value={match.stats?.awayPossession ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayPossession: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('awayPossession', e.target.value)}
                         />
                     </div>
 
                     {/* Shots */}
                     <div className="grid grid-cols-3 gap-2 items-center">
-                        <input type="number" step="0.01" placeholder="Ev Şut" className="border p-2 rounded"
+                        <input type="number" step="1" placeholder="Ev Şut" className="border p-2 rounded"
                             value={match.stats?.homeShots ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeShots: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('homeShots', e.target.value)}
                         />
                         <span className="text-center text-xs font-bold uppercase">Toplam Şut</span>
-                        <input type="number" step="0.01" placeholder="Dep Şut" className="border p-2 rounded"
+                        <input type="number" step="1" placeholder="Dep Şut" className="border p-2 rounded"
                             value={match.stats?.awayShots ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayShots: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('awayShots', e.target.value)}
                         />
                     </div>
 
                     {/* Shots on Target */}
                     <div className="grid grid-cols-3 gap-2 items-center">
-                        <input type="number" step="0.01" placeholder="Ev İsabetli" className="border p-2 rounded"
+                        <input type="number" step="1" placeholder="Ev İsabetli" className="border p-2 rounded"
                             value={match.stats?.homeShotsOnTarget ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeShotsOnTarget: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('homeShotsOnTarget', e.target.value)}
                         />
                         <span className="text-center text-xs font-bold uppercase">İsabetli Şut</span>
-                        <input type="number" step="0.01" placeholder="Dep İsabetli" className="border p-2 rounded"
+                        <input type="number" step="1" placeholder="Dep İsabetli" className="border p-2 rounded"
                             value={match.stats?.awayShotsOnTarget ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayShotsOnTarget: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                    </div>
-
-                    {/* Big Chances */}
-                    <div className="grid grid-cols-3 gap-2 items-center">
-                        <input type="number" step="0.01" placeholder="Ev Net Gol" className="border p-2 rounded"
-                            value={match.stats?.homeBigChances ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeBigChances: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                        <span className="text-center text-xs font-bold uppercase">Net Gol Şansı</span>
-                        <input type="number" step="0.01" placeholder="Dep Net Gol" className="border p-2 rounded"
-                            value={match.stats?.awayBigChances ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayBigChances: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                    </div>
-
-                    {/* Corners */}
-                    <div className="grid grid-cols-3 gap-2 items-center">
-                        <input type="number" step="0.01" placeholder="Ev Korner" className="border p-2 rounded"
-                            value={match.stats?.homeCorners ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeCorners: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                        <span className="text-center text-xs font-bold uppercase">Köşe Vuruşu</span>
-                        <input type="number" step="0.01" placeholder="Dep Korner" className="border p-2 rounded"
-                            value={match.stats?.awayCorners ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayCorners: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                    </div>
-
-                    {/* Offsides */}
-                    <div className="grid grid-cols-3 gap-2 items-center">
-                        <input type="number" step="0.01" placeholder="Ev Ofsayt" className="border p-2 rounded"
-                            value={match.stats?.homeOffsides ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeOffsides: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                        <span className="text-center text-xs font-bold uppercase">Ofsayt</span>
-                        <input type="number" step="0.01" placeholder="Dep Ofsayt" className="border p-2 rounded"
-                            value={match.stats?.awayOffsides ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayOffsides: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                    </div>
-
-                    {/* Saves */}
-                    <div className="grid grid-cols-3 gap-2 items-center">
-                        <input type="number" step="0.01" placeholder="Ev Kurtarış" className="border p-2 rounded"
-                            value={match.stats?.homeSaves ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeSaves: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                        <span className="text-center text-xs font-bold uppercase">Kurtarış</span>
-                        <input type="number" step="0.01" placeholder="Dep Kurtarış" className="border p-2 rounded"
-                            value={match.stats?.awaySaves ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awaySaves: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                    </div>
-
-                    {/* Fouls */}
-                    <div className="grid grid-cols-3 gap-2 items-center">
-                        <input type="number" step="0.01" placeholder="Ev Faul" className="border p-2 rounded"
-                            value={match.stats?.homeFouls ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeFouls: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                        <span className="text-center text-xs font-bold uppercase">Faul</span>
-                        <input type="number" step="0.01" placeholder="Dep Faul" className="border p-2 rounded"
-                            value={match.stats?.awayFouls ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayFouls: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                    </div>
-
-                    {/* Yellow Cards */}
-                    <div className="grid grid-cols-3 gap-2 items-center">
-                        <input type="number" step="0.01" placeholder="Ev Sarı" className="border p-2 rounded bg-yellow-50"
-                            value={match.stats?.homeYellowCards ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeYellowCards: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                        <span className="text-center text-xs font-bold uppercase">Sarı Kart</span>
-                        <input type="number" step="0.01" placeholder="Dep Sarı" className="border p-2 rounded bg-yellow-50"
-                            value={match.stats?.awayYellowCards ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayYellowCards: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                    </div>
-
-                    {/* Red Cards */}
-                    <div className="grid grid-cols-3 gap-2 items-center">
-                        <input type="number" step="0.01" placeholder="Ev Kırmızı" className="border p-2 rounded bg-red-50"
-                            value={match.stats?.homeRedCards ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeRedCards: e.target.value === '' ? undefined : e.target.value as any } })}
-                        />
-                        <span className="text-center text-xs font-bold uppercase">Kırmızı Kart</span>
-                        <input type="number" step="0.01" placeholder="Dep Kırmızı" className="border p-2 rounded bg-red-50"
-                            value={match.stats?.awayRedCards ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayRedCards: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('awayShotsOnTarget', e.target.value)}
                         />
                     </div>
 
@@ -654,12 +988,25 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                     <div className="grid grid-cols-3 gap-2 items-center">
                         <input type="number" step="1" placeholder="Ev Net Gol" className="border p-2 rounded"
                             value={match.stats?.homeBigChances ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeBigChances: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('homeBigChances', e.target.value)}
                         />
                         <span className="text-center text-xs font-bold uppercase">Net Gol Şansı</span>
                         <input type="number" step="1" placeholder="Dep Net Gol" className="border p-2 rounded"
                             value={match.stats?.awayBigChances ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayBigChances: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('awayBigChances', e.target.value)}
+                        />
+                    </div>
+
+                    {/* Corners */}
+                    <div className="grid grid-cols-3 gap-2 items-center">
+                        <input type="number" step="1" placeholder="Ev Korner" className="border p-2 rounded"
+                            value={match.stats?.homeCorners ?? ''}
+                            onChange={e => updateStat('homeCorners', e.target.value)}
+                        />
+                        <span className="text-center text-xs font-bold uppercase">Köşe Vuruşu</span>
+                        <input type="number" step="1" placeholder="Dep Korner" className="border p-2 rounded"
+                            value={match.stats?.awayCorners ?? ''}
+                            onChange={e => updateStat('awayCorners', e.target.value)}
                         />
                     </div>
 
@@ -667,12 +1014,12 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                     <div className="grid grid-cols-3 gap-2 items-center">
                         <input type="number" step="1" placeholder="Ev Ofsayt" className="border p-2 rounded"
                             value={match.stats?.homeOffsides ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeOffsides: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('homeOffsides', e.target.value)}
                         />
                         <span className="text-center text-xs font-bold uppercase">Ofsayt</span>
                         <input type="number" step="1" placeholder="Dep Ofsayt" className="border p-2 rounded"
                             value={match.stats?.awayOffsides ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awayOffsides: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('awayOffsides', e.target.value)}
                         />
                     </div>
 
@@ -680,18 +1027,58 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                     <div className="grid grid-cols-3 gap-2 items-center">
                         <input type="number" step="1" placeholder="Ev Kurtarış" className="border p-2 rounded"
                             value={match.stats?.homeSaves ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, homeSaves: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('homeSaves', e.target.value)}
                         />
                         <span className="text-center text-xs font-bold uppercase">Kurtarış</span>
                         <input type="number" step="1" placeholder="Dep Kurtarış" className="border p-2 rounded"
                             value={match.stats?.awaySaves ?? ''}
-                            onChange={e => setMatch({ ...match, stats: { ...match.stats!, awaySaves: e.target.value === '' ? undefined : e.target.value as any } })}
+                            onChange={e => updateStat('awaySaves', e.target.value)}
+                        />
+                    </div>
+
+                    {/* Fouls */}
+                    <div className="grid grid-cols-3 gap-2 items-center">
+                        <input type="number" step="1" placeholder="Ev Faul" className="border p-2 rounded"
+                            value={match.stats?.homeFouls ?? ''}
+                            onChange={e => updateStat('homeFouls', e.target.value)}
+                        />
+                        <span className="text-center text-xs font-bold uppercase">Faul</span>
+                        <input type="number" step="1" placeholder="Dep Faul" className="border p-2 rounded"
+                            value={match.stats?.awayFouls ?? ''}
+                            onChange={e => updateStat('awayFouls', e.target.value)}
+                        />
+                    </div>
+
+                    {/* Yellow Cards */}
+                    <div className="grid grid-cols-3 gap-2 items-center">
+                        <input type="number" step="1" placeholder="Ev Sarı" className="border p-2 rounded bg-yellow-50"
+                            value={match.stats?.homeYellowCards ?? ''}
+                            onChange={e => updateStat('homeYellowCards', e.target.value)}
+                        />
+                        <span className="text-center text-xs font-bold uppercase">Sarı Kart</span>
+                        <input type="number" step="1" placeholder="Dep Sarı" className="border p-2 rounded bg-yellow-50"
+                            value={match.stats?.awayYellowCards ?? ''}
+                            onChange={e => updateStat('awayYellowCards', e.target.value)}
+                        />
+                    </div>
+
+                    {/* Red Cards */}
+                    <div className="grid grid-cols-3 gap-2 items-center">
+                        <input type="number" step="1" placeholder="Ev Kırmızı" className="border p-2 rounded bg-red-50"
+                            value={match.stats?.homeRedCards ?? ''}
+                            onChange={e => updateStat('homeRedCards', e.target.value)}
+                        />
+                        <span className="text-center text-xs font-bold uppercase">Kırmızı Kart</span>
+                        <input type="number" step="1" placeholder="Dep Kırmızı" className="border p-2 rounded bg-red-50"
+                            value={match.stats?.awayRedCards ?? ''}
+                            onChange={e => updateStat('awayRedCards', e.target.value)}
                         />
                     </div>
                 </div>
             </div>
 
             <div className="border-t pt-2 mt-2">
+
                 <h4 className="font-bold text-sm text-gray-600 mb-2">Hakemler ve Görevliler</h4>
 
                 {/* Helper Component for List Management */}
@@ -837,6 +1224,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                         </div>
                     ))}
                 </div>
+
             </div>
 
             <button
@@ -847,7 +1235,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                 {match.status === 'published' ? 'YAYINDA (Published)' : 'TASLAK (Draft)'}
             </button>
             <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded w-full font-medium">Maçı Kaydet</button>
-        </form >
+        </form>
     );
 };
 
@@ -1035,7 +1423,7 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
                     </div>
                 )
             }
-        </form >
+        </form>
     );
 };
 

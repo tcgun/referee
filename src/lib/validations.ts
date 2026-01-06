@@ -22,7 +22,6 @@ export const matchSchema = z.object({
     date: z.string().or(z.date()).transform((val) => {
         if (val instanceof Date) return val.toISOString();
         if (typeof val === 'string') {
-            // Try to parse as ISO date, if fails return as-is
             const parsed = new Date(val);
             return isNaN(parsed.getTime()) ? val : parsed.toISOString();
         }

@@ -26,14 +26,14 @@ const groupByWeek = (matches: MatchGroupedOpinions[]) => {
 const WidgetCard = ({ title, icon, children, headerColor = "text-foreground" }: { title: string, icon: string, children: React.ReactNode, headerColor?: string }) => (
     <div className="bg-card backdrop-blur-md text-card-foreground rounded-2xl shadow-lg border border-border h-full flex flex-col overflow-hidden transition-all hover:shadow-xl hover:border-border/50">
         <div className="p-3 border-b border-border bg-muted/30 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <Link href={title === 'Trio Yorumları' ? '/trio' : title === 'Yorumcular' ? '/critics' : title === 'PFDK & Kararlar' ? '/pfdk' : title === 'Açıklamalar' ? '/statements' : '#'} className="flex items-center gap-2 hover:opacity-75 transition-opacity">
                 <span className="text-xl">{icon}</span>
                 <h3 className={`font-bold text-xs uppercase tracking-wider ${headerColor}`}>
                     {title}
                 </h3>
-            </div>
-            {(title === 'Trio Yorumları' || title === 'Yorumcular') && (
-                <Link href="/matches" className="text-[9px] font-black text-primary hover:underline tracking-tighter">
+            </Link>
+            {(title === 'Trio Yorumları' || title === 'Yorumcular' || title === 'PFDK & Kararlar' || title === 'Açıklamalar') && (
+                <Link href={title === 'Trio Yorumları' ? '/trio' : title === 'Yorumcular' ? '/critics' : title === 'PFDK & Kararlar' ? '/pfdk' : '/statements'} className="text-[9px] font-black text-primary hover:underline tracking-tighter">
                     TÜMÜNÜ GÖR
                 </Link>
             )}

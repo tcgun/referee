@@ -10,12 +10,12 @@ export interface Team {
 }
 
 export interface MatchStats {
-    homePossession: number;
-    awayPossession: number;
-    homeShots: number;
-    awayShots: number;
-    homeShotsOnTarget: number;
-    awayShotsOnTarget: number;
+    homePossession?: number;
+    awayPossession?: number;
+    homeShots?: number;
+    awayShots?: number;
+    homeShotsOnTarget?: number;
+    awayShotsOnTarget?: number;
     homeBlockedShots?: number;
     awayBlockedShots?: number;
     homePasses?: number;
@@ -24,18 +24,18 @@ export interface MatchStats {
     awayPassAccuracy?: number;
     homeBigChances?: number;
     awayBigChances?: number;
-    homeCorners: number;
-    awayCorners: number;
-    homeOffsides: number;
-    awayOffsides: number;
-    homeSaves: number;
-    awaySaves: number;
-    homeFouls: number;
-    awayFouls: number;
-    homeYellowCards: number;
-    awayYellowCards: number;
-    homeRedCards: number;
-    awayRedCards: number;
+    homeCorners?: number;
+    awayCorners?: number;
+    homeOffsides?: number;
+    awayOffsides?: number;
+    homeSaves?: number;
+    awaySaves?: number;
+    homeFouls?: number;
+    awayFouls?: number;
+    homeYellowCards?: number;
+    awayYellowCards?: number;
+    homeRedCards?: number;
+    awayRedCards?: number;
 }
 
 export interface MatchOfficials {
@@ -79,6 +79,13 @@ export interface Match {
     awayScore?: number;
     stats?: MatchStats;
     officials?: MatchOfficials;
+    representatives?: {
+        observer?: string;
+        rep1?: string;
+        rep2?: string;
+        rep3?: string;
+        [key: string]: string | undefined;
+    };
     lineups?: MatchLineups;
     status?: 'draft' | 'published';
     refereeStats?: RefereeStats;

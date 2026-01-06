@@ -75,7 +75,7 @@ export default function Home() {
               } catch (e) { console.error('Match data fetch err', e) }
             }));
           }
-          return Object.values(groups);
+          return Object.values(groups).sort((a, b) => (b.week || 0) - (a.week || 0));
         };
 
         const trioQ = query(collectionGroup(db, 'opinions'), where('type', '==', 'trio'), limit(20));

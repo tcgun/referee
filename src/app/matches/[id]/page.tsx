@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { Match, Incident, Opinion, DisciplinaryAction, Player } from '@/types';
 import Link from 'next/link';
@@ -89,23 +89,12 @@ export default function MatchPage() {
                 incidentsList.sort((a, b) => parseMinute(a.minute) - parseMinute(b.minute));
                 setIncidents(incidentsList);
 
-                // Fetch PFDK & Performance
-                const pfdkQ = collection(db, 'disciplinary_actions');
+                // Fetch PFDK & Performance (Strictly filtered by matchId)
+                const pfdkQ = query(collection(db, 'disciplinary_actions'), where('matchId', '==', matchId));
                 const pfdkSnap = await getDocs(pfdkQ);
-                const allDisciplinary = pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction));
+                const relevantActions = pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction));
 
-                // Filter and Split
-                const relevantActions = allDisciplinary.filter(d => {
-                    // Specific Match Link
-                    if (d.matchId === matchId) return true;
-                    // Legacy Team Name Link (only for PFDK usually, but keep for robustness)
-                    if (matchData && (
-                        (d.teamName && matchData.homeTeamName && d.teamName.toLowerCase().includes(matchData.homeTeamName.toLowerCase())) ||
-                        (d.teamName && matchData.awayTeamName && d.teamName.toLowerCase().includes(matchData.awayTeamName.toLowerCase()))
-                    )) return true;
-                    return false;
-                });
-
+                // Split into PFDK and Performance (using type field)
                 setDisciplinary(relevantActions.filter(d => d.type !== 'performance'));
 
             } catch (err) {
@@ -164,9 +153,15 @@ export default function MatchPage() {
                             <div className="text-4xl md:text-6xl font-black font-mono tracking-tighter text-foreground px-4 py-1">
                                 {match.score || '0-0'}
                             </div>
-                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/50 px-2 py-0.5 rounded mb-4">
-                                {match.date ? new Date(match.date).toLocaleDateString('tr-TR') : '-'}
+                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/50 px-2 py-0.5 rounded mb-1">
+                                {match.date ? new Date(match.date).toLocaleString('tr-TR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' }) : '-'}
                             </div>
+                            {match.stadium && (
+                                <div className="text-[9px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-4 flex items-center gap-1">
+                                    <svg className="w-3 h-3 text-muted-foreground/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V7l8-4 8 4v14" /></svg>
+                                    {match.stadium}
+                                </div>
+                            )}
 
                             {/* TABS (Moved Here) */}
                             <div className="flex gap-1 bg-muted/30 p-1 rounded-lg overflow-x-auto max-w-full">
@@ -277,6 +272,12 @@ export default function MatchPage() {
                                             ))}
                                         </>
                                     )}
+                                    {match.lineups.homeCoach && (
+                                        <div className="mt-4 pt-4 border-t border-border/20 text-center">
+                                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">TEKNİK DİREKTÖR</div>
+                                            <div className="text-sm font-bold text-foreground uppercase">{match.lineups.homeCoach}</div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="bg-card border border-border rounded-xl p-4">
@@ -298,6 +299,12 @@ export default function MatchPage() {
                                                 </div>
                                             ))}
                                         </>
+                                    )}
+                                    {match.lineups.awayCoach && (
+                                        <div className="mt-4 pt-4 border-t border-border/20 text-center">
+                                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">TEKNİK DİREKTÖR</div>
+                                            <div className="text-sm font-bold text-foreground uppercase">{match.lineups.awayCoach}</div>
+                                        </div>
                                     )}
                                 </div>
                             </div>

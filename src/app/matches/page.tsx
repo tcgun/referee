@@ -28,8 +28,8 @@ export default function MatchesListingPage() {
         async function fetchMatches() {
             try {
                 setLoading(true);
-                // 1. Fetch Matches
-                const matchesQ = query(collection(db, 'matches'), orderBy('week', 'desc'), limit(50));
+                // 1. Fetch Matches - Order by week desc
+                const matchesQ = query(collection(db, 'matches'), orderBy('week', 'desc'));
                 const matchesSnap = await getDocs(matchesQ);
 
                 const matchesData = await Promise.all(matchesSnap.docs.map(async (mDoc) => {

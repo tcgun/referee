@@ -50,24 +50,6 @@ export const MatchItem = ({ match, headerColor }: { match: MatchGroupedOpinions,
                             <span className="bg-red-600 text-white px-1.5 rounded-[2px] text-[9px]">{match.againstCount}</span>
                         </div>
                     )}
-                    {stats.controversial > 0 && (
-                        <div className="flex items-center gap-1 bg-emerald-900/30 border border-emerald-900/50 text-emerald-400 px-2 py-1 rounded text-[10px] font-bold uppercase transition-transform group-hover:scale-105">
-                            <span>Tartışmalı</span>
-                            <span className="bg-emerald-500 text-emerald-950 px-1 rounded-[2px] text-[9px]">{stats.controversial}</span>
-                        </div>
-                    )}
-                    {stats.incorrect > 0 && (
-                        <div className="flex items-center gap-1 bg-red-900/30 border border-red-900/50 text-red-400 px-2 py-1 rounded text-[10px] font-bold uppercase transition-transform group-hover:scale-105">
-                            <span>Hatalı Karar</span>
-                            <span className="bg-red-500 text-red-950 px-1 rounded-[2px] text-[9px]">{stats.incorrect}</span>
-                        </div>
-                    )}
-                    {stats.correct > 0 && (
-                        <div className="flex items-center gap-1 bg-blue-900/30 border border-blue-900/50 text-blue-400 px-2 py-1 rounded text-[10px] font-bold uppercase transition-transform group-hover:scale-105">
-                            <span>Doğru Karar</span>
-                            <span className="bg-blue-500 text-blue-950 px-1 rounded-[2px] text-[9px]">{stats.correct}</span>
-                        </div>
-                    )}
                     {match.opinions.length === 0 && (
                         <span className="text-[10px] text-muted-foreground italic">Henüz yorum yok</span>
                     )}

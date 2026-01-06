@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { TeamForm, MatchForm, IncidentForm, OpinionForm } from '@/components/admin/AdminForms';
-import { StandingForm, StatementForm, DisciplinaryForm, DisciplinaryList, RefereeStatsForm } from '@/components/admin/ExtraForms';
+import { StandingForm, StatementForm, DisciplinaryForm, DisciplinaryList, RefereeStatsForm, MatchSelect } from '@/components/admin/ExtraForms';
 import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/firebase/client';
@@ -56,7 +56,6 @@ export default function AdminPage() {
     const handleLogout = async () => { ... }
     */
 
-    // Save admin key to sessionStorage when it changes
     const handleApiKeyChange = (newKey: string) => {
         setApiKey(newKey);
         if (newKey) {
@@ -75,17 +74,19 @@ export default function AdminPage() {
     }, []);
 
     // Central Data Management
-    const [targetMatchId, setTargetMatchId] = useState('week1-gfk-gs');
+    const [targetMatchId, setTargetMatchId] = useState('');
     const [loadedMatch, setLoadedMatch] = useState<Match | null>(null);
     const [loadedIncidents, setLoadedIncidents] = useState<Array<Incident & { opinions: Opinion[] }>>([]);
 
-    // Persist Match ID and auto-fetch 
+    // Persist Match ID removed from mount to ensure it starts empty as requested ("dolu gelmesin")
+    /*
     useEffect(() => {
         const stored = localStorage.getItem('last_admin_match_id');
         if (stored) {
             setTargetMatchId(stored);
         }
     }, []);
+    */
 
     // Effect to auto-fetch only if user explicitly requested OR on mount if we had a stored value?
     // Actually simpler: just load value. User still clicks fetch.
@@ -127,16 +128,16 @@ export default function AdminPage() {
         }
     };
 
-    // Auto-load effect
+    // Auto-load effect removed as per "açılınca dolu gelmesin" request
+    /*
     useEffect(() => {
         const stored = localStorage.getItem('last_admin_match_id');
         if (stored) {
             setTargetMatchId(stored);
-            // We can't safely call fetchMatchById here because it might run before state update or dependency issues.
-            // Better to just call it with 'stored' immediately.
             fetchMatchById(stored, true);
         }
     }, []);
+    */
 
     const handleFetchMatch = () => {
         localStorage.setItem('last_admin_match_id', targetMatchId);
@@ -235,67 +236,49 @@ export default function AdminPage() {
 
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-                    {/* SETUP TAB */}
+                    {/* KURULUM & VERİ TAB */}
                     {activeTab === 'setup' && (
-                        <div className="max-w-xl mx-auto space-y-6">
-                            {/* Match Fetcher Card */}
-                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                                    <h3 className="font-bold text-sm uppercase text-slate-700">Aktif Maç Yönetimi</h3>
-                                    <p className="text-xs text-slate-500 mt-1">Düzenlemek istediğiniz maçı seçin.</p>
-                                </div>
-                                <div className="p-6">
-                                    <div className="flex gap-3">
-                                        <input
-                                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
-                                            value={targetMatchId}
-                                            onChange={e => setTargetMatchId(e.target.value)}
-                                            placeholder="Maç ID (örn: week1-gfk-gs)"
-                                        />
-                                        <button onClick={handleFetchMatch} className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-all active:scale-95 shadow-sm hover:shadow">
-                                            Getir
-                                        </button>
+                        <div className="space-y-8">
+                            <div className="grid md:grid-cols-2 gap-8">
+                                {/* Match Fetcher Card */}
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-fit">
+                                    <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                                        <h3 className="font-bold text-sm uppercase text-slate-700">Aktif Maç Yönetimi</h3>
+                                        <p className="text-xs text-slate-500 mt-1">Düzenlemek istediğiniz maçı seçin.</p>
                                     </div>
-                                    {loadedMatch && (
-                                        <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-lg flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold">✓</div>
-                                            <div>
-                                                <p className="text-xs font-bold text-green-800">Maç Yüklendi</p>
-                                                <p className="text-[10px] text-green-600 font-mono">{loadedMatch.homeTeamName} vs {loadedMatch.awayTeamName}</p>
+                                    <div className="p-6">
+                                        <div className="flex gap-3">
+                                            <div className="flex-1">
+                                                <MatchSelect value={targetMatchId} onChange={setTargetMatchId} />
                                             </div>
+                                            <button onClick={handleFetchMatch} className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-all active:scale-95 shadow-sm hover:shadow">
+                                                Getir
+                                            </button>
                                         </div>
-                                    )}
+                                        {loadedMatch && (
+                                            <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-lg flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold">✓</div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-green-800">Maç Yüklendi</p>
+                                                    <p className="text-[10px] text-green-600 font-mono">{loadedMatch.homeTeamName} vs {loadedMatch.awayTeamName}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
+
+                                <TeamForm apiKey={apiKey} />
                             </div>
 
-                            {/* Seeder Card */}
-                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                                    <div>
-                                        <h3 className="font-bold text-sm uppercase text-slate-700">Demo Veri</h3>
-                                        <p className="text-xs text-slate-500 mt-1">Sistemi test verileriyle doldur.</p>
-                                    </div>
-                                    <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded uppercase">Dikkat</span>
-                                </div>
-                                <div className="p-6 text-center">
-                                    <button
-                                        onClick={handleSeed}
-                                        disabled={seeding || !apiKey}
-                                        className="w-full bg-slate-900 text-white px-6 py-3 rounded-lg text-sm font-bold hover:bg-slate-800 disabled:opacity-50 transition-all shadow-sm"
-                                    >
-                                        {seeding ? 'Yükleniyor...' : 'Örnek Maç Verisini Yükle'}
-                                    </button>
-                                    <p className="text-[10px] text-slate-400 mt-3">Gaziantep FK - Galatasaray maçı verilerini sıfırlar ve yeniden yükler.</p>
-                                </div>
-                            </div>
+                            <MatchForm apiKey={apiKey} preloadedMatch={loadedMatch} />
                         </div>
                     )}
 
-                    {/* MATCHES TAB */}
+                    {/* TAKIM & MAÇ TAB (Empty now or maybe redirect?) */}
                     {activeTab === 'matches' && (
-                        <div className="grid md:grid-cols-2 gap-8">
-                            <TeamForm apiKey={apiKey} />
-                            <MatchForm apiKey={apiKey} preloadedMatch={loadedMatch} />
+                        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
+                            <p className="text-slate-500">Bu bölüm Kurulum & Veri sekmesine taşınmıştır.</p>
+                            <button onClick={() => setActiveTab('setup')} className="mt-4 text-blue-600 font-bold hover:underline">Kurulum Sekmesine Git</button>
                         </div>
                     )}
 
