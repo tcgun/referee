@@ -481,7 +481,7 @@ export default function MatchPage() {
                 </div>
 
                 {/* INCIDENTS LIST */}
-                <div className="space-y-4">
+                <div className="space-y-6">
                     {incidents.map((incident) => (
                         <TrioGrid
                             key={incident.id}
@@ -601,24 +601,24 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
     return (
         <div className="rounded-xl overflow-hidden shadow-sm flex bg-card border border-border">
             {/* Left Sidebar (Branding + Video) */}
-            <div className="bg-red-700 w-14 md:w-20 shrink-0 flex flex-col items-center justify-center p-2 text-white relative">
+            <div className="bg-neutral-100 dark:bg-neutral-900/50 border-r border-border w-14 md:w-20 shrink-0 flex flex-col items-center justify-center p-2 relative">
                 {varRecommendation === 'review' && (
-                    <span className="font-black text-[8px] md:text-[9px] tracking-tight text-white text-center leading-tight mb-1 border-b border-white/40 pb-1">
+                    <span className="font-black text-[8px] md:text-[9px] tracking-tight text-red-600 text-center leading-tight mb-1 border-b border-red-200 pb-1">
                         VAR<br />MÜDAHALESİ
                     </span>
                 )}
-                <span className="font-black text-[10px] md:text-sm tracking-tighter">TRIO</span>
+                <span className="font-black text-[10px] md:text-sm tracking-tighter text-neutral-400">TRIO</span>
 
                 {videoUrl && (
                     <>
                         {/* Separator Line */}
-                        <div className="w-6 h-px bg-white/30 my-2 rounded-full"></div>
+                        <div className="w-6 h-px bg-neutral-300 dark:bg-neutral-700 my-2 rounded-full"></div>
 
                         {/* Video Button */}
                         <a
                             href={videoUrl}
                             target="_blank"
-                            className="flex flex-col items-center group cursor-pointer text-white/80 hover:text-white transition-all transform hover:scale-105"
+                            className="flex flex-col items-center group cursor-pointer text-red-600 hover:text-red-700 transition-all transform hover:scale-105"
                             title="Pozisyonu İzle"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 md:w-8 md:h-8 mb-0.5">
@@ -632,41 +632,40 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
 
             {/* Right Content */}
             <div className="flex-1 flex flex-col min-w-0">
-                {/* Red Header Bar (Description) */}
-                <div className="bg-red-600 text-white flex items-center h-10 px-3 overflow-hidden">
+                {/* Header Bar (Description) - Neutral */}
+                <div className="bg-transparent border-b border-border text-foreground flex items-center h-10 px-3 overflow-hidden">
                     <div className="flex-1 flex items-center justify-between min-w-0">
                         <span className="text-[10px] md:text-xs font-bold truncate mr-2 leading-tight py-1">{description || 'Pozisyon Değerlendirmesi'}</span>
-                        <span className="text-xs font-black opacity-90">{minute}'</span>
+                        <span className="text-xs font-black opacity-50">{minute}'</span>
                     </div>
                 </div>
 
-                {/* Info Bar (Referee & VAR) */}
                 {/* Info Bar (Referee, VAR, VAR Result) */}
-                <div className="bg-muted/50 border-b border-border px-3 py-1.5 flex justify-between gap-4">
+                <div className="bg-muted/30 border-b border-border px-3 py-1.5 flex justify-between gap-4">
                     {/* Column 1: Referee */}
-                    <div className="flex-1 text-center border-r border-gray-600 pr-2">
-                        <span className="block text-[8px] text-gray-400 font-bold uppercase mb-0.5">HAKEM</span>
-                        <span className="block text-[10px] text-gray-100 font-bold leading-none truncate">{refereeDecision || '-'}</span>
+                    <div className="flex-1 text-center border-r border-border pr-2">
+                        <span className="block text-[8px] text-muted-foreground font-bold uppercase mb-0.5">HAKEM</span>
+                        <span className="block text-[10px] text-foreground font-bold leading-none truncate">{refereeDecision || '-'}</span>
                     </div>
 
                     {/* Column 2: VAR Recommendation */}
-                    <div className="flex-1 text-center border-r border-gray-600 px-2">
-                        <span className="block text-[8px] text-blue-400 font-bold uppercase mb-0.5">VAR</span>
-                        <span className="block text-[10px] text-blue-100 font-bold leading-none truncate">
+                    <div className="flex-1 text-center border-r border-border px-2">
+                        <span className="block text-[8px] text-blue-600 dark:text-blue-400 font-bold uppercase mb-0.5">VAR</span>
+                        <span className="block text-[10px] text-blue-700 dark:text-blue-300 font-bold leading-none truncate">
                             {varRecommendation ? (varRecMap[varRecommendation] || varRecommendation) : '-'}
                         </span>
                     </div>
 
                     {/* Column 3: VAR Result */}
                     <div className="flex-1 text-center pl-2">
-                        <span className="block text-[8px] text-purple-400 font-bold uppercase mb-0.5">VAR SONUCU</span>
-                        <span className="block text-[10px] text-purple-100 font-bold leading-none truncate">{varDecision || '-'}</span>
+                        <span className="block text-[8px] text-purple-600 dark:text-purple-400 font-bold uppercase mb-0.5">VAR SONUCU</span>
+                        <span className="block text-[10px] text-purple-700 dark:text-purple-300 font-bold leading-none truncate">{varDecision || '-'}</span>
                     </div>
                 </div>
 
                 {/* Dark Body Bar (Trio Critics) */}
                 <div className="bg-card p-2 flex-1 flex flex-col justify-center">
-                    <div className="grid grid-cols-3 divide-x divide-border">
+                    <div className="grid grid-cols-1 md:grid-cols-3 divide-y divide-border md:divide-y-0 md:divide-x">
                         {critics.map(name => {
                             // Find opinion for this critic (loose match)
                             const op = opinions.find(o => o.criticName.toLowerCase().includes(name.toLowerCase().split(' ')[0].toLowerCase()));
