@@ -261,19 +261,15 @@ function AdminContent() {
                                         )}
                                     </div>
                                 </div>
-
-                                <TeamForm apiKey={apiKey} authToken={authToken} />
                             </div>
-
-                            <MatchForm apiKey={apiKey} authToken={authToken} preloadedMatch={loadedMatch} />
                         </div>
                     )}
 
                     {/* TAKIM & MAÇ TAB */}
                     {activeTab === 'matches' && (
-                        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
-                            <p className="text-slate-500">Bu bölüm Kurulum & Veri sekmesine taşınmıştır.</p>
-                            <button onClick={() => setActiveTab('setup')} className="mt-4 text-blue-600 font-bold hover:underline">Kurulum Sekmesine Git</button>
+                        <div className="space-y-8">
+                            <TeamForm apiKey={apiKey} authToken={authToken} />
+                            <MatchForm apiKey={apiKey} authToken={authToken} preloadedMatch={loadedMatch} />
                         </div>
                     )}
 

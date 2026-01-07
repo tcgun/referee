@@ -119,6 +119,13 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
         });
         if (res.ok) {
             toast.success(`Maç Başarıyla Kaydedildi! ✅`);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Reset form
+            setMatch({ id: '', week: match.week || 1, date: new Date().toISOString(), status: 'draft' });
+            setOriginalId('');
+            setTffRaw('');
+            setLineupRaw('');
+            setStatsRaw('');
         } else {
             const err = await res.json();
             toast.error(`Hata: ${err.error}`);
