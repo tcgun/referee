@@ -442,6 +442,32 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                             setMatch({ ...match, week: isNaN(num) ? val as any : num });
                         }} />
                     </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Skor (Alternatif)</label>
+                        <div className="flex gap-1">
+                            <input
+                                placeholder="Ev"
+                                type="number"
+                                className="border border-slate-200 p-2 w-full rounded font-bold bg-white text-sm text-center"
+                                value={match.homeScore ?? ''}
+                                onChange={e => {
+                                    const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                                    setMatch(prev => ({ ...prev, homeScore: val, score: (val !== undefined && prev.awayScore !== undefined) ? `${val}-${prev.awayScore}` : prev.score }));
+                                }}
+                            />
+                            <span className="flex items-center text-slate-400 font-bold">-</span>
+                            <input
+                                placeholder="Dep"
+                                type="number"
+                                className="border border-slate-200 p-2 w-full rounded font-bold bg-white text-sm text-center"
+                                value={match.awayScore ?? ''}
+                                onChange={e => {
+                                    const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                                    setMatch(prev => ({ ...prev, awayScore: val, score: (prev.homeScore !== undefined && val !== undefined) ? `${prev.homeScore}-${val}` : prev.score }));
+                                }}
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -467,6 +493,22 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
 
                         let foundHomeId = '';
                         let foundAwayId = '';
+                        let foundHomeScore: number | undefined;
+                        let foundAwayScore: number | undefined;
+
+                        // 1. Better Score Extraction
+                        // Look for standalone numbers in the first 10 lines
+                        const scores: number[] = [];
+                        for (let i = 0; i < Math.min(lines.length, 10); i++) {
+                            const line = lines[i];
+                            if (/^\d{1,2}$/.test(line)) {
+                                scores.push(parseInt(line));
+                            }
+                        }
+                        if (scores.length >= 2) {
+                            foundHomeScore = scores[0];
+                            foundAwayScore = scores[1];
+                        }
 
                         for (const line of lines) {
                             if (line.includes(' - ') || line.includes(' vs ')) {
@@ -507,6 +549,11 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                             newMatch.homeTeamName = getTeamName(foundHomeId);
                             newMatch.awayTeamId = foundAwayId;
                             newMatch.awayTeamName = getTeamName(foundAwayId);
+                            if (foundHomeScore !== undefined) newMatch.homeScore = foundHomeScore;
+                            if (foundAwayScore !== undefined) newMatch.awayScore = foundAwayScore;
+                            if (foundHomeScore !== undefined && foundAwayScore !== undefined) {
+                                newMatch.score = `${foundHomeScore}-${foundAwayScore}`;
+                            }
                         }
 
                         lines.forEach(line => {

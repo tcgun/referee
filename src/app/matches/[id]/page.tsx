@@ -20,7 +20,8 @@ export async function generateMetadata(
         }
 
         const match = doc.data();
-        const title = `${match?.homeTeamName} ${match?.score || 'vs'} ${match?.awayTeamName}`;
+        const score = (match?.homeScore !== undefined && match?.awayScore !== undefined) ? `${match.homeScore}-${match.awayScore}` : (match?.score && match?.score !== 'v' ? match.score : 'vs');
+        const title = `${match?.homeTeamName} ${score} ${match?.awayTeamName}`;
         const dateStr = match?.date ? new Date(match.date).toLocaleDateString('tr-TR') : '';
 
         return {

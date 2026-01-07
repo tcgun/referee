@@ -136,7 +136,7 @@ export default function MatchClient() {
                         </div>
                         <div className="flex flex-col items-center shrink-0 mx-0 md:mx-2 order-2 md:order-2 my-2 md:my-0">
                             <div className="text-4xl md:text-6xl font-black font-mono tracking-tighter text-foreground px-4 py-1">
-                                {match.score || '0-0'}
+                                {(match.homeScore !== undefined && match.awayScore !== undefined) ? `${match.homeScore} - ${match.awayScore}` : (match.score && match.score !== 'v' ? match.score : 'vs')}
                             </div>
                             <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/50 px-2 py-0.5 rounded mb-1">
                                 {match.date ? new Date(match.date).toLocaleString('tr-TR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' }) : '-'}

@@ -34,7 +34,7 @@ export const MatchItem = ({ match, headerColor }: { match: MatchGroupedOpinions,
 
                         {/* Score Badge */}
                         <div className="bg-slate-900 border border-slate-700 px-3 py-1 rounded-md text-sm font-black text-white tracking-widest min-w-[60px] text-center shadow-inner">
-                            {match.score && !match.score.includes('undefined') ? match.score : 'v'}
+                            {match.score && !match.score.includes('undefined') && match.score !== 'v' ? match.score : 'vs'}
                         </div>
 
                         {/* Away */}

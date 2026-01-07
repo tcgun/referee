@@ -53,7 +53,7 @@ export default function MatchesListingPage() {
 
                     const hScore = mData.homeScore !== undefined ? mData.homeScore : '-';
                     const aScore = mData.awayScore !== undefined ? mData.awayScore : '-';
-                    const displayScore = (hScore !== '-' || aScore !== '-') ? `${hScore} - ${aScore}` : (mData.score || 'v');
+                    const displayScore = (hScore !== '-' || aScore !== '-') ? `${hScore} - ${aScore}` : (mData.score && mData.score !== 'v' ? mData.score : 'vs');
 
                     return {
                         matchId,
