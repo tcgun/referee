@@ -40,7 +40,8 @@ export default function AdminLoginPage() {
             } else if (err.code === 'auth/too-many-requests') {
                 setError('Çok fazla başarısız deneme. Lütfen biraz bekleyin.');
             } else {
-                setError('Giriş yapılırken bir hata oluştu.');
+                // Show actual error details for debugging
+                setError(`Hata: ${err.code} - ${err.message}`);
             }
         } finally {
             setLoading(false);
