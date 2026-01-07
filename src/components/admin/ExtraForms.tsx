@@ -153,13 +153,21 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
                 const rank = gridItems.indexOf(item) + 1;
 
                 const payload = { ...item, rank, teamName: item.teamName || item.id };
+                console.log('Sending payload:', payload);
 
-                await fetch('/api/admin/standings', {
+                const res = await fetch('/api/admin/standings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
                     body: JSON.stringify(payload),
                 });
-                savedCount++;
+
+                if (!res.ok) {
+                    const errData = await res.json();
+                    console.error('Save failed for team:', item.id, errData);
+                    toast.error(`Kayıt hatası (${item.id}): ${errData.error || 'Server Error'}`);
+                } else {
+                    savedCount++;
+                }
             }
 
             toast.success(`${savedCount} takım başarıyla kaydedildi! ✅`);
