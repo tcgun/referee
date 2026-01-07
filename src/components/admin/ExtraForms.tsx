@@ -10,11 +10,10 @@ interface BaseProps {
 }
 
 export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
-    // Array of 20 items
     const [gridItems, setGridItems] = useState<Standing[]>([]);
     const [loading, setLoading] = useState(false);
+    const [bulkText, setBulkText] = useState('');
 
-    // Initial Fetch
     useEffect(() => {
         fetchStandings();
     }, []);
@@ -29,13 +28,12 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
 
             const fetched = snap.docs.map(d => ({ ...d.data(), id: d.id } as Standing));
 
-            // Fill up to 20 items
+            // Fill up to 18 items
             const fullGrid: Standing[] = [];
-            for (let i = 0; i < 20; i++) {
+            for (let i = 0; i < 18; i++) {
                 if (fetched[i]) {
                     fullGrid.push(fetched[i]);
                 } else {
-                    // Empty slot
                     fullGrid.push({
                         id: '', rank: i + 1, teamName: '',
                         played: 0, won: 0, drawn: 0, lost: 0,
@@ -51,11 +49,50 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
         }
     };
 
+    const handleBulkPaste = async () => {
+        if (!bulkText.trim()) return;
+        const lines = bulkText.split('\n').filter(l => l.trim() && !l.includes('O\tG\tB\tM'));
+        const newItems: Standing[] = [...gridItems];
+        const { resolveTeamId, getTeamName } = await import('@/lib/teams');
+
+        let currentIndex = 0;
+        for (const line of lines) {
+            if (currentIndex >= 18) break;
+
+            // Expected format (roughly): [Rank] [TeamName] [TeamNameRepeat?] [O G B M AG YG AV P]
+            // We'll use a regex or split approach to find the numeric block
+            const parts = line.split('\t');
+            if (parts.length < 8) continue;
+
+            const nameIdx = parts.findIndex(p => p.match(/[a-zA-ZçğıöşüÇĞİÖŞÜ]/));
+            const stats = parts.filter(p => p.match(/^-?\d+$/));
+
+            if (stats.length >= 6) {
+                const teamNameRaw = parts[nameIdx] || 'Bilinmeyen';
+                const teamId = resolveTeamId(teamNameRaw) || teamNameRaw.toLowerCase().replace(/\s+/g, '-');
+
+                newItems[currentIndex] = {
+                    ...newItems[currentIndex],
+                    id: teamId,
+                    teamName: getTeamName(teamId) || teamNameRaw,
+                    played: parseInt(stats[1]),
+                    won: parseInt(stats[2]),
+                    drawn: parseInt(stats[3]),
+                    lost: parseInt(stats[4]),
+                    goalDiff: parseInt(stats[stats.length - 2]),
+                    points: parseInt(stats[stats.length - 1]),
+                    rank: currentIndex + 1
+                };
+                currentIndex++;
+            }
+        }
+        setGridItems(newItems);
+        toast.info('Veriler işlendi, kaydetmeyi unutmayın!');
+    };
+
     const handleGridChange = (index: number, field: keyof Standing, val: any) => {
         const newGrid = [...gridItems];
         newGrid[index] = { ...newGrid[index], [field]: val };
-
-        // Auto-calculate Goal Diff if GF or GA changes
         if (field === 'goalsFor' || field === 'goalsAgainst') {
             newGrid[index].goalDiff = (newGrid[index].goalsFor || 0) - (newGrid[index].goalsAgainst || 0);
         }
@@ -134,11 +171,29 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
 
     return (
         <div className="space-y-4">
+            <div className="bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-xl">
+                <h4 className="text-white font-bold mb-2 flex items-center gap-2 overflow-hidden text-sm">
+                    <span className="bg-blue-600 p-1 rounded">⚡</span> HIZLI VERİ GİRİŞİ (Excel/Web Yapıştır)
+                </h4>
+                <textarea
+                    className="w-full h-24 bg-slate-800 border border-slate-700 rounded-lg p-3 text-xs text-blue-100 font-mono focus:ring-2 focus:ring-blue-500 mb-2 outline-none"
+                    placeholder="Tabloyu buraya yapıştırın (O G B M AG YG AV P kolonları içermeli)"
+                    value={bulkText}
+                    onChange={e => setBulkText(e.target.value)}
+                />
+                <button
+                    onClick={handleBulkPaste}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2 rounded-lg text-xs transition-transform active:scale-95"
+                >
+                    VERİLERİ TABLOYA AKTAR
+                </button>
+            </div>
+
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center sticky top-0 z-10">
-                    <h4 className="font-bold text-sm uppercase text-slate-700">Canlı Puan Durumu Tablosu (20 Takım)</h4>
-                    <button onClick={() => handleSaveAll()} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded font-bold text-xs">
-                        {loading ? 'Kaydediliyor...' : 'TÜMÜNÜ KAYDET'}
+                    <h4 className="font-bold text-sm uppercase text-slate-700">Puan Durumu (18 Takım)</h4>
+                    <button onClick={() => handleSaveAll()} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded font-bold text-xs shadow-sm">
+                        {loading ? 'Kaydediliyor...' : 'TÜMÜNÜ VERİTABANINA KAYDET'}
                     </button>
                 </div>
 

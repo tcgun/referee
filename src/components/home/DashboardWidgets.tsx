@@ -247,15 +247,24 @@ export const StandingsSection = ({ standings }: { standings: Standing[] }) => {
                         {sortedStandings.length === 0 ? (
                             <tr><td colSpan={8} className="p-4 text-center text-muted-foreground italic">Veri yok.</td></tr>
                         ) : sortedStandings.map((team, i) => (
-                            <tr key={team.id} className="hover:bg-muted/50 transition-colors group">
-                                <td className={`p-2 text-center font-bold ${i === 0 ? 'text-emerald-600 dark:text-emerald-400' : i >= 15 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>{team.rank || i + 1}</td>
-                                <td className="p-2 text-foreground font-bold truncate max-w-[120px]" title={team.teamName}>{team.teamName}</td>
-                                <td className="p-2 text-center text-muted-foreground">{team.played}</td>
-                                <td className="p-2 text-center text-muted-foreground">{team.won}</td>
-                                <td className="p-2 text-center text-muted-foreground">{team.drawn}</td>
-                                <td className="p-2 text-center text-muted-foreground">{team.lost}</td>
-                                <td className="p-2 text-center text-muted-foreground">{team.goalDiff}</td>
-                                <td className="p-2 text-center font-black text-primary bg-primary/5 rounded">{team.points}</td>
+                            <tr key={team.id || i} className={`hover:bg-muted/50 transition-colors group ${i < 2 ? 'bg-blue-50/20' : i < 4 ? 'bg-cyan-50/10' : i >= 16 ? 'bg-red-50/20' : ''}`}>
+                                <td className={`p-2 text-center font-bold text-[10px] ${i === 0 ? 'text-blue-600' :
+                                        i === 1 ? 'text-blue-500' :
+                                            i < 4 ? 'text-cyan-600' :
+                                                i >= 16 ? 'text-red-600' :
+                                                    'text-muted-foreground'
+                                    }`}>
+                                    {team.rank || i + 1}
+                                </td>
+                                <td className="p-2 text-foreground font-bold truncate max-w-[120px]" title={team.teamName}>
+                                    {team.teamName || '-'}
+                                </td>
+                                <td className="p-2 text-center text-muted-foreground">{team.played || 0}</td>
+                                <td className="p-2 text-center text-muted-foreground font-medium">{team.won || 0}</td>
+                                <td className="p-2 text-center text-muted-foreground font-medium">{team.drawn || 0}</td>
+                                <td className="p-2 text-center text-muted-foreground font-medium">{team.lost || 0}</td>
+                                <td className="p-2 text-center text-muted-foreground font-medium">{team.goalDiff || 0}</td>
+                                <td className="p-2 text-center font-black text-primary bg-primary/5 rounded">{team.points || 0}</td>
                             </tr>
                         ))}
                     </tbody>
