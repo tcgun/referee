@@ -72,17 +72,18 @@ export async function DELETE(request: Request) {
 
         // 1. Get all incidents
         const incidentsSnap = await matchRef.collection('incidents').get();
-        for (const incDoc of incidentsSnap.docs) {
-            // 2. Get all opinions for each incident
-            const opinionsSnap = await incDoc.ref.collection('opinions').get();
-            for (const opDoc of opinionsSnap.docs) {
-                await opDoc.ref.delete();
-            }
-            // 3. Delete the incident document
-            await incDoc.ref.delete();
-        }
 
-        // 4. Finally delete the match document itself
+        // 2. Process all incidents in parallel
+        await Promise.all(incidentsSnap.docs.map(async (incDoc) => {
+            // 3. Get and delete all opinions for each incident in parallel
+            const opinionsSnap = await incDoc.ref.collection('opinions').get();
+            await Promise.all(opinionsSnap.docs.map(opDoc => opDoc.ref.delete()));
+
+            // 4. Delete the incident document
+            await incDoc.ref.delete();
+        }));
+
+        // 5. Finally delete the match document itself
         await matchRef.delete();
 
         return NextResponse.json({ success: true });

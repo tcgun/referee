@@ -7,6 +7,7 @@ import { DisciplinaryAction, Statement } from '@/types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getTeamName, resolveTeamId } from '@/lib/teams';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function PfdkDatePage() {
     const params = useParams();
@@ -63,12 +64,37 @@ export default function PfdkDatePage() {
     };
 
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
-            <div className="flex flex-col items-center gap-2">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm font-medium">Veriler Yükleniyor...</span>
+        <main className="min-h-screen bg-background pb-20 pt-8">
+            <div className="max-w-4xl mx-auto px-4 space-y-8">
+                <div className="flex flex-col gap-4">
+                    <Skeleton className="h-4 w-24" />
+                    <div>
+                        <Skeleton className="h-10 w-48 mb-2" />
+                        <Skeleton className="h-4 w-64" />
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 gap-6">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="bg-white border border-border rounded-xl p-6 shadow-sm">
+                            <Skeleton className="h-7 w-48 mb-6 border-b border-gray-100 pb-2" />
+                            <div className="space-y-6">
+                                {[1, 2].map(j => (
+                                    <div key={j} className="flex flex-col gap-2 pl-6 relative">
+                                        <div className="absolute left-0 top-2 w-1.5 h-1.5 bg-gray-200 rounded-full" />
+                                        <Skeleton className="h-4 w-full" />
+                                        <Skeleton className="h-4 w-3/4" />
+                                        <div className="flex gap-2 mt-2">
+                                            <Skeleton className="h-6 w-24" />
+                                            <Skeleton className="h-6 w-16" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
-        </div>
+        </main>
     );
 
     // Grouping Logic: Group by Team (Cleaned Name)

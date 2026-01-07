@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { TeamForm, MatchForm, IncidentForm, OpinionForm } from '@/components/admin/AdminForms';
 import { StandingForm, StatementForm, DisciplinaryForm, DisciplinaryList, RefereeStatsForm, MatchSelect } from '@/components/admin/ExtraForms';
 import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
-import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/firebase/client';
+import { useRouter } from 'next/navigation';
 
 // Wrapper for Disciplinary Section to share state
-const DisciplinaryWrapper = ({ apiKey }: { apiKey: string }) => {
+const DisciplinaryWrapper = ({ apiKey, authToken }: { apiKey: string, authToken?: string }) => {
     const [editingItem, setEditingItem] = useState<DisciplinaryAction | null>(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -16,12 +17,14 @@ const DisciplinaryWrapper = ({ apiKey }: { apiKey: string }) => {
         <>
             <DisciplinaryForm
                 apiKey={apiKey}
+                authToken={authToken}
                 editItem={editingItem}
                 onCancelEdit={() => setEditingItem(null)}
                 onSuccess={() => setRefreshTrigger(prev => prev + 1)}
             />
             <DisciplinaryList
                 apiKey={apiKey}
+                authToken={authToken}
                 onEdit={setEditingItem}
                 refreshTrigger={refreshTrigger}
             />
@@ -30,31 +33,37 @@ const DisciplinaryWrapper = ({ apiKey }: { apiKey: string }) => {
 };
 
 export default function AdminPage() {
-    // Auth State (Disabled per user request)
-    // const [user, setUser] = useState<User | null>(null);
-    // const [authToken, setAuthToken] = useState<string>('');
+    // Auth State
+    const [user, setUser] = useState<User | null>(null);
+    const [authToken, setAuthToken] = useState<string>('');
+    const [loading, setLoading] = useState(true);
+    const router = useRouter();
 
-    // Use sessionStorage instead of component state for admin key
-    // This ensures the key is cleared when the browser tab is closed
     const [apiKey, setApiKey] = useState('');
     const [seeding, setSeeding] = useState(false);
     const [activeTab, setActiveTab] = useState<'setup' | 'matches' | 'incidents' | 'extras'>('setup');
 
-    // Load admin key from sessionStorage on mount
+    // Load admin key and check auth
     useEffect(() => {
         const storedKey = sessionStorage.getItem('admin_key');
         if (storedKey) {
             setApiKey(storedKey);
         }
-        // Auth listener removed
-    }, []);
 
-    // Refresh token periodically (simplified: just rely on initial fetch or forced refresh if needed, usually onAuthStateChanged handles updates)
+        const unsubscribe = onAuthStateChanged(auth, async (u) => {
+            setUser(u);
+            if (u) {
+                const token = await u.getIdToken();
+                setAuthToken(token);
+            } else {
+                setAuthToken('');
+                router.push('/admin-secret-panel/login');
+            }
+            setLoading(false);
+        });
 
-    /* 
-    const handleLogin = async () => { ... }
-    const handleLogout = async () => { ... }
-    */
+        return () => unsubscribe();
+    }, [router]);
 
     const handleApiKeyChange = (newKey: string) => {
         setApiKey(newKey);
@@ -65,34 +74,11 @@ export default function AdminPage() {
         }
     };
 
-    // Clear admin key when component unmounts (tab closed)
-    useEffect(() => {
-        return () => {
-            // Note: sessionStorage automatically clears when tab closes, but we can also clear on unmount
-            // sessionStorage.removeItem('admin_key');
-        };
-    }, []);
-
     // Central Data Management
     const [targetMatchId, setTargetMatchId] = useState('');
     const [loadedMatch, setLoadedMatch] = useState<Match | null>(null);
     const [loadedIncidents, setLoadedIncidents] = useState<Array<Incident & { opinions: Opinion[] }>>([]);
 
-    // Persist Match ID removed from mount to ensure it starts empty as requested ("dolu gelmesin")
-    /*
-    useEffect(() => {
-        const stored = localStorage.getItem('last_admin_match_id');
-        if (stored) {
-            setTargetMatchId(stored);
-        }
-    }, []);
-    */
-
-    // Effect to auto-fetch only if user explicitly requested OR on mount if we had a stored value?
-    // Actually simpler: just load value. User still clicks fetch.
-    // BUT user asked for "yenilediğimde maç verilerini getire tekrar basmam gerekiyor". So we should auto-fetch.
-
-    // Let's create a dedicated fetch wrapper that handles the ID
     const fetchMatchById = async (id: string, silent = false) => {
         if (!id) return;
         try {
@@ -128,17 +114,6 @@ export default function AdminPage() {
         }
     };
 
-    // Auto-load effect removed as per "açılınca dolu gelmesin" request
-    /*
-    useEffect(() => {
-        const stored = localStorage.getItem('last_admin_match_id');
-        if (stored) {
-            setTargetMatchId(stored);
-            fetchMatchById(stored, true);
-        }
-    }, []);
-    */
-
     const handleFetchMatch = () => {
         localStorage.setItem('last_admin_match_id', targetMatchId);
         fetchMatchById(targetMatchId);
@@ -152,20 +127,38 @@ export default function AdminPage() {
                 method: 'POST',
                 headers: {
                     'x-admin-key': apiKey,
+                    'Authorization': `Bearer ${authToken}`
                 }
             });
             const data = await res.json();
             if (res.ok) alert('Başarılı: ' + data.message);
             else alert('Hata: ' + data.error);
         } catch (e) {
-            console.error(e); // Fixed: was catch(e) but used alert('Bir hata oluştu')
+            console.error(e);
             alert('Bir hata oluştu.');
         } finally {
             setSeeding(false);
         }
     };
 
-    // if (!user) { ... } // Removed login wall
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+            router.push('/admin-secret-panel/login');
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+        );
+    }
+
+    if (!user) return null;
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
@@ -176,17 +169,26 @@ export default function AdminPage() {
                         <span className="text-blue-500">◆</span> Yönetici Paneli
                     </h1>
                     <div className="flex items-center gap-4">
-                        {/* User Info removed */}
+                        <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"></div>
+                            <span className="text-[10px] font-bold text-slate-300 truncate max-w-[120px]">{user.email}</span>
+                        </div>
 
                         <input
                             type="password"
-                            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 w-32 transition-colors"
+                            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 w-32 transition-colors"
                             value={apiKey}
                             onChange={e => handleApiKeyChange(e.target.value)}
                             placeholder="SECRET_KEY..."
                             autoComplete="off"
                         />
-                        <div className={`w-2 h-2 rounded-full ${apiKey ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-slate-700'}`}></div>
+
+                        <button
+                            onClick={handleLogout}
+                            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-red-500/20"
+                        >
+                            ÇIKIŞ
+                        </button>
                     </div>
                 </div>
             </div>
@@ -202,8 +204,7 @@ export default function AdminPage() {
                         </div>
                         <div className="ml-3">
                             <p className="text-sm text-amber-700">
-                                <strong>Güvenlik Uyarısı:</strong> Admin key browser'da saklanıyor. Bu sayfayı sadece güvenli bir cihazda kullanın.
-                                Sekme kapatıldığında admin key otomatik olarak silinir.
+                                <strong>Güvenlik Uyarısı:</strong> Firebase Auth aktif edildi. Statik key hala API istekleri için gereklidir.
                             </p>
                         </div>
                     </div>
@@ -267,14 +268,14 @@ export default function AdminPage() {
                                     </div>
                                 </div>
 
-                                <TeamForm apiKey={apiKey} />
+                                <TeamForm apiKey={apiKey} authToken={authToken} />
                             </div>
 
-                            <MatchForm apiKey={apiKey} preloadedMatch={loadedMatch} />
+                            <MatchForm apiKey={apiKey} authToken={authToken} preloadedMatch={loadedMatch} />
                         </div>
                     )}
 
-                    {/* TAKIM & MAÇ TAB (Empty now or maybe redirect?) */}
+                    {/* TAKIM & MAÇ TAB */}
                     {activeTab === 'matches' && (
                         <div className="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
                             <p className="text-slate-500">Bu bölüm Kurulum & Veri sekmesine taşınmıştır.</p>
@@ -285,18 +286,18 @@ export default function AdminPage() {
                     {/* INCIDENTS TAB */}
                     {activeTab === 'incidents' && (
                         <div className="grid md:grid-cols-2 gap-8">
-                            <IncidentForm apiKey={apiKey} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
-                            <OpinionForm apiKey={apiKey} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
+                            <IncidentForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
+                            <OpinionForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
                         </div>
                     )}
 
                     {/* EXTRAS TAB */}
                     {activeTab === 'extras' && (
                         <div className="grid md:grid-cols-2 gap-6">
-                            <StandingForm apiKey={apiKey} />
-                            <StatementForm apiKey={apiKey} />
-                            <DisciplinaryWrapper apiKey={apiKey} />
-                            <RefereeStatsForm apiKey={apiKey} />
+                            <StandingForm apiKey={apiKey} authToken={authToken} />
+                            <StatementForm apiKey={apiKey} authToken={authToken} />
+                            <DisciplinaryWrapper apiKey={apiKey} authToken={authToken} />
+                            <RefereeStatsForm apiKey={apiKey} authToken={authToken} />
                         </div>
                     )}
 
@@ -305,7 +306,3 @@ export default function AdminPage() {
         </div>
     );
 }
-
-// Styling note: The sub-forms (TeamForm, etc.) are imported from separate components.
-// We are trusting they will inherit the global tailwind styles nicely, or we might need to visit them if they have hardcoded ugly styles.
-// For now, looking at previous context, they seemed basic. We'll assume they are acceptable or will be updated if requested specifically.

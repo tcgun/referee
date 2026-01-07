@@ -13,7 +13,10 @@ const monoFont = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RefereeLig - Süper Lig Hakem Performans Analizi",
+  title: {
+    default: "RefereeLig - Süper Lig Hakem Analizi",
+    template: "%s | RefereeLig"
+  },
   description: "Türkiye Süper Lig hakem kararlarının analizi, VAR pozisyonları, uzman yorumları ve PFDK kararları.",
   keywords: ["hakem", "süper lig", "VAR", "hakem analizi", "futbol", "Türkiye"],
   authors: [{ name: "RefereeLig" }],
@@ -25,6 +28,8 @@ export const metadata: Metadata = {
 };
 
 import Navbar from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
+import { Toaster } from "sonner";
 
 export default function RootLayout({
   children,
@@ -38,6 +43,8 @@ export default function RootLayout({
       >
         <Navbar />
         {children}
+        <Footer />
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import { DisciplinaryAction, Statement } from '@/types';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function PfdkPage() {
     const [dates, setDates] = useState<string[]>([]);
@@ -48,12 +48,33 @@ export default function PfdkPage() {
     }, []);
 
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
-            <div className="flex flex-col items-center gap-2">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm font-medium">Veriler Yükleniyor...</span>
+        <main className="min-h-screen bg-background pb-20 pt-8">
+            <div className="max-w-2xl mx-auto px-4 space-y-8">
+                <div className="flex flex-col gap-2 text-center">
+                    <Skeleton className="h-10 w-64 mx-auto mb-2" />
+                    <Skeleton className="h-4 w-full mx-auto" />
+                </div>
+                <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                    <div className="bg-gray-50/50 p-4 border-b border-border">
+                        <Skeleton className="h-4 w-24" />
+                    </div>
+                    <div className="divide-y divide-border">
+                        {[1, 2, 3, 4, 5].map(i => (
+                            <div key={i} className="p-5 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Skeleton className="w-10 h-10 rounded-full" />
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-5 w-32" />
+                                        <Skeleton className="h-3 w-20" />
+                                    </div>
+                                </div>
+                                <Skeleton className="h-4 w-4" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
-        </div>
+        </main>
     );
 
     return (

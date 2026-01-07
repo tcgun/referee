@@ -35,7 +35,7 @@ export async function withAdminGuard(
         // If ADMIN_UIDS env is set, we ENFORCE token check.
         // If not set, we skip it (warn in logs).
         // const enforceToken = (process.env.ADMIN_UIDS || '').length > 0;
-        const enforceToken = false; // Disabled at step 156 by user request
+        const enforceToken = true;
 
         if (enforceToken) {
             const token = authHeader?.replace('Bearer ', '');

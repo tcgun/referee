@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { Statement } from '@/types';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function StatementsPage() {
     const [statements, setStatements] = useState<Statement[]>([]);
@@ -25,12 +26,30 @@ export default function StatementsPage() {
     }, []);
 
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
-            <div className="flex flex-col items-center gap-2">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm font-medium">Veriler Yükleniyor...</span>
+        <main className="min-h-screen bg-background pb-20 pt-8">
+            <div className="max-w-4xl mx-auto px-4 space-y-8">
+                <div className="flex flex-col gap-2">
+                    <Skeleton className="h-10 w-64 mb-1" />
+                    <Skeleton className="h-4 w-full max-w-md" />
+                </div>
+                <div className="grid grid-cols-1 gap-6">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                                <Skeleton className="h-6 w-24 rounded-md" />
+                                <Skeleton className="h-5 w-20 rounded" />
+                            </div>
+                            <Skeleton className="h-8 w-3/4 mb-3" />
+                            <div className="space-y-2">
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-2/3" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
-        </div>
+        </main>
     );
 
     // Filter out PFDK related if they are already on PFDK page, or show all? 

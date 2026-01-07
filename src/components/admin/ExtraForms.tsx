@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Standing, Statement, DisciplinaryAction, RefereeStats, Match } from '@/types';
+import { toast } from 'sonner';
 
 interface BaseProps {
     apiKey: string;
@@ -9,7 +10,7 @@ interface BaseProps {
 }
 
 export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
-    // Array of 18 items
+    // Array of 20 items
     const [gridItems, setGridItems] = useState<Standing[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -28,9 +29,9 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
 
             const fetched = snap.docs.map(d => ({ ...d.data(), id: d.id } as Standing));
 
-            // Fill up to 18 items
+            // Fill up to 20 items
             const fullGrid: Standing[] = [];
-            for (let i = 0; i < 18; i++) {
+            for (let i = 0; i < 20; i++) {
                 if (fetched[i]) {
                     fullGrid.push(fetched[i]);
                 } else {
@@ -96,12 +97,12 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
                 });
             }
 
-            alert('Tüm Tablo Kaydedildi! ✅');
+            toast.success('Tüm Tablo Başarıyla Kaydedildi! ✅');
             fetchStandings(); // Reload to be clean
 
         } catch (error) {
             console.error(error);
-            alert('Hata oluştu.');
+            toast.error('Hata: Tablo kaydedilirken bir sorun oluştu.');
         } finally {
             setLoading(false);
         }
@@ -135,7 +136,7 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
         <div className="space-y-4">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center sticky top-0 z-10">
-                    <h4 className="font-bold text-sm uppercase text-slate-700">Canlı Puan Durumu Tablosu (18 Takım)</h4>
+                    <h4 className="font-bold text-sm uppercase text-slate-700">Canlı Puan Durumu Tablosu (20 Takım)</h4>
                     <button onClick={() => handleSaveAll()} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded font-bold text-xs">
                         {loading ? 'Kaydediliyor...' : 'TÜMÜNÜ KAYDET'}
                     </button>
@@ -179,13 +180,13 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
                                         />
                                     </td>
                                     {/* Stats */}
-                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.played} onChange={e => handleGridChange(i, 'played', +e.target.value)} /></td>
-                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.won} onChange={e => handleGridChange(i, 'won', +e.target.value)} /></td>
-                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.drawn} onChange={e => handleGridChange(i, 'drawn', +e.target.value)} /></td>
-                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.lost} onChange={e => handleGridChange(i, 'lost', +e.target.value)} /></td>
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.played || ''} onChange={e => handleGridChange(i, 'played', +e.target.value)} /></td>
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.won || ''} onChange={e => handleGridChange(i, 'won', +e.target.value)} /></td>
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.drawn || ''} onChange={e => handleGridChange(i, 'drawn', +e.target.value)} /></td>
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.lost || ''} onChange={e => handleGridChange(i, 'lost', +e.target.value)} /></td>
                                     {/* AG YG Inputs Removed */}
-                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 bg-slate-50 font-bold text-slate-500 text-[11px]" value={item.goalDiff} onChange={e => handleGridChange(i, 'goalDiff', +e.target.value)} /></td>
-                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-blue-200 rounded p-0 h-7 bg-blue-50 font-black text-blue-700 text-[11px]" value={item.points} onChange={e => handleGridChange(i, 'points', +e.target.value)} /></td>
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 bg-slate-50 font-bold text-slate-500 text-[11px]" value={item.goalDiff || ''} onChange={e => handleGridChange(i, 'goalDiff', +e.target.value)} /></td>
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-blue-200 rounded p-0 h-7 bg-blue-50 font-black text-blue-700 text-[11px]" value={item.points || ''} onChange={e => handleGridChange(i, 'points', +e.target.value)} /></td>
                                 </tr>
                             ))}
                         </tbody>
@@ -208,8 +209,8 @@ export const StatementForm = ({ apiKey, authToken }: BaseProps) => {
             headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
             body: JSON.stringify(statement),
         });
-        if (res.ok) alert('Açıklama Eklendi!');
-        else alert('Hata oluştu');
+        if (res.ok) toast.success('Açıklama Başarıyla Eklendi! ✅');
+        else toast.error('Hata: Açıklama eklenemedi.');
     };
 
     return (
@@ -298,7 +299,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
         });
 
         if (res.ok) {
-            alert(editItem ? 'Kayıt Güncellendi!' : 'Kayıt Eklendi!');
+            toast.success(`PFDK Kararı ${editItem ? 'Güncellendi' : 'Eklendi'}! ✅`);
             if (onSuccess) onSuccess();
             if (onCancelEdit) onCancelEdit();
             if (!editItem) {
@@ -309,7 +310,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
             }
         } else {
             const errData = await res.json();
-            alert(`Hata: ${errData.error || 'Bilinmeyen Hata'}\n${JSON.stringify(errData.details || {}, null, 2)}`);
+            toast.error(`Hata: ${errData.error || 'Bilinmeyen Hata'}\n${JSON.stringify(errData.details || {}, null, 2)}`);
         }
     };
 
@@ -464,7 +465,7 @@ interface DisciplinaryListProps extends BaseProps {
     refreshTrigger?: number;
 }
 
-export const DisciplinaryList = ({ apiKey, onEdit, refreshTrigger }: DisciplinaryListProps) => {
+export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: DisciplinaryListProps) => {
     const [matchId, setMatchId] = useState('');
     const [items, setItems] = useState<DisciplinaryAction[]>([]);
     const [loading, setLoading] = useState(false);
@@ -477,7 +478,7 @@ export const DisciplinaryList = ({ apiKey, onEdit, refreshTrigger }: Disciplinar
     }, [refreshTrigger]);
 
     const handleFetch = async () => {
-        if (!matchId) return alert('Lütfen Maç ID giriniz (örn: week1-gfk-gs).');
+        if (!matchId) return toast.error('Lütfen Maç ID giriniz (örn: week1-gfk-gs).');
         setLoading(true);
         try {
             const { collection, query, where, getDocs, deleteDoc, doc } = await import('firebase/firestore');
@@ -487,10 +488,10 @@ export const DisciplinaryList = ({ apiKey, onEdit, refreshTrigger }: Disciplinar
             const snap = await getDocs(q);
             const data = snap.docs.map(d => ({ ...d.data(), id: d.id })) as DisciplinaryAction[];
             setItems(data);
-            if (data.length === 0) alert('Bu maç IDsi ile eşleşen kayıt bulunamadı.');
+            if (data.length === 0) toast.error('Bu maç IDsi ile eşleşen kayıt bulunamadı.');
         } catch (error) {
             console.error(error);
-            alert('Hata oluştu.');
+            toast.error('Hata: Veriler getirilemedi.');
         } finally {
             setLoading(false);
         }
@@ -501,18 +502,21 @@ export const DisciplinaryList = ({ apiKey, onEdit, refreshTrigger }: Disciplinar
         try {
             const res = await fetch(`/api/admin/disciplinary?id=${id}`, {
                 method: 'DELETE',
-                headers: { 'x-admin-key': apiKey }
+                headers: {
+                    'x-admin-key': apiKey,
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                }
             });
 
             if (res.ok) {
                 setItems(items.filter(i => i.id !== id));
-                alert('Kayıt silindi.');
+                toast.success('Kayıt Başarıyla Silindi! 🗑️');
             } else {
-                alert('Silinirken hata oluştu.');
+                toast.error('Hata: Silinirken sorun oluştu.');
             }
         } catch (e) {
             console.error(e);
-            alert('Silinemedi.');
+            toast.error('Hata: Ağ hatası oluştu.');
         }
     };
 
@@ -615,7 +619,7 @@ export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
                     performanceNotes: fetched.performanceNotes || []
                 });
             } else {
-                alert('Maç bulundu ancak kayıtlı istatistik yok veya maç yok.');
+                toast.error('Maç bulundu ancak kayıtlı istatistik yok veya maç yok.');
             }
         } catch (e) {
             console.error(e);
@@ -624,7 +628,7 @@ export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!matchId) return alert('Maç ID giriniz.');
+        if (!matchId) return toast.error('Maç ID giriniz.');
 
         try {
             const res = await fetch('/api/admin/matches', {
@@ -646,14 +650,14 @@ export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
             });
 
             if (res.ok) {
-                alert('Hakem istatistikleri ve notları güncellendi!');
+                toast.success('Haftanın Hakem Performansı Kaydedildi! ✅');
             } else {
                 const data = await res.json();
-                alert(`Hata: ${data.error || 'Güncellenemedi'}`);
+                toast.error(`Hata: ${data.error || 'Güncellenemedi'}`);
             }
         } catch (error) {
             console.error(error);
-            alert('Sunucu hatası oluştu.');
+            toast.error('Sunucu hatası oluştu.');
         }
     };
 

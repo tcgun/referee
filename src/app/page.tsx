@@ -19,6 +19,8 @@ interface GroupedOpinion {
   againstCount?: number;
 }
 
+import { Skeleton } from '@/components/ui/Skeleton';
+
 export default function Home() {
   const [trioGrouped, setTrioGrouped] = useState<GroupedOpinion[]>([]);
   const [generalGrouped, setGeneralGrouped] = useState<GroupedOpinion[]>([]);
@@ -105,12 +107,48 @@ export default function Home() {
   }, []);
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
-      <div className="flex flex-col items-center gap-2">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <span className="text-sm font-medium">Veriler Yükleniyor...</span>
+    <main className="min-h-screen bg-background pb-20 pt-8">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-6">
+        <div className="flex gap-4 mb-8">
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20 flex-1 rounded-2xl" />)}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-[450px] bg-card border border-border rounded-2xl p-4 space-y-4">
+                <div className="flex justify-between items-center border-b border-border pb-2">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="w-5 h-5 rounded-md" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <Skeleton className="h-3 w-12" />
+                </div>
+                <div className="space-y-4">
+                  <Skeleton className="h-[100px] w-full rounded-xl" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                    <Skeleton className="h-4 w-4/6" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="lg:col-span-1">
+            <div className="bg-card border border-border rounded-2xl p-4 h-[600px] space-y-4">
+              <Skeleton className="h-4 w-32 mb-4" />
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
+                <div key={i} className="flex gap-2">
+                  <Skeleton className="w-6 h-6 rounded-md" />
+                  <Skeleton className="h-6 flex-1 rounded-md" />
+                  <Skeleton className="w-8 h-6 rounded-md" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </main>
   );
 
   return (
