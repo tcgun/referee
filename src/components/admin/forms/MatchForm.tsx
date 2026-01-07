@@ -614,7 +614,6 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                             }
                         });
 
-                        newMatch.id = generateMatchId(newMatch);
                         setMatch(newMatch);
                     }}
                 />
@@ -653,7 +652,9 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                         if (!foundHomeId || !foundAwayId) {
                             const orderedTeams: string[] = [];
                             lines.forEach(line => {
-                                if (line.match(/\d+/) || line.includes('Teknik') || line.includes('Yedekler')) return;
+                                // Skip lines that are purely numbers (scores/minutes) but keep team names
+                                // Some teams have numbers in names (seldom), but resolveTeamId will handle it
+                                if (line.match(/^\d+$/) || line.includes('Teknik') || line.includes('Yedekler')) return;
                                 const tId = resolveTeamId(line);
                                 if (tId && !orderedTeams.includes(tId)) orderedTeams.push(tId);
                             });
@@ -668,8 +669,24 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                             newMatch.homeTeamName = getTeamName(foundHomeId);
                             newMatch.awayTeamId = foundAwayId;
                             newMatch.awayTeamName = getTeamName(foundAwayId);
-                            newMatch.id = generateMatchId(newMatch);
                         }
+
+                        // Also extract date from lineup if present
+                        lines.forEach(line => {
+                            if (line.match(/\d{1,2}\.\d{1,2}\.\d{4}/)) {
+                                const parts = line.split('-');
+                                if (parts.length > 0) {
+                                    const datePart = parts[0].trim();
+                                    const timePart = parts[1] ? parts[1].trim() : '00:00';
+                                    const [day, month, year] = datePart.split('.');
+                                    const [hour, minute] = timePart.split(':');
+                                    const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+                                    if (!isNaN(d.getTime())) newMatch.date = d.toISOString();
+                                }
+                            }
+                        });
+
+                        newMatch.id = generateMatchId(newMatch);
 
                         const homeXI: any[] = []; const awayXI: any[] = [];
                         const homeSubs: any[] = []; const awaySubs: any[] = [];
