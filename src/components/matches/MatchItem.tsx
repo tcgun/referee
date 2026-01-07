@@ -11,7 +11,8 @@ export interface MatchGroupedOpinions {
     awayTeam?: string;
     score?: string;
     opinions: Opinion[];
-    againstCount?: number; // Count of positions with 'against' or judged incorrect
+    againstCount?: number;
+    date?: string;
 }
 
 export const MatchItem = ({ match, headerColor }: { match: MatchGroupedOpinions, headerColor?: string }) => {

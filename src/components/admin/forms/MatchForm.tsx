@@ -87,6 +87,20 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
         return payload;
     };
 
+    const generateMatchId = (m: Partial<Match>) => {
+        const activeWeek = m.week || 1;
+        if (activeWeek && m.homeTeamId && m.awayTeamId && m.date) {
+            const d = new Date(m.date);
+            if (!isNaN(d.getTime())) {
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `week${activeWeek}-${m.homeTeamId}-${m.awayTeamId}-${yyyy}-${mm}-${dd}`;
+            }
+        }
+        return m.id || '';
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -600,14 +614,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                             }
                         });
 
-                        const activeWeek = match.week || 1;
-                        if (activeWeek && newMatch.homeTeamId && newMatch.awayTeamId && newMatch.date) {
-                            const d = new Date(newMatch.date);
-                            const yyyy = d.getFullYear();
-                            const mm = String(d.getMonth() + 1).padStart(2, '0');
-                            const dd = String(d.getDate()).padStart(2, '0');
-                            newMatch.id = `week${activeWeek}-${newMatch.homeTeamId}-${newMatch.awayTeamId}-${yyyy}-${mm}-${dd}`;
-                        }
+                        newMatch.id = generateMatchId(newMatch);
                         setMatch(newMatch);
                     }}
                 />
@@ -661,6 +668,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                             newMatch.homeTeamName = getTeamName(foundHomeId);
                             newMatch.awayTeamId = foundAwayId;
                             newMatch.awayTeamName = getTeamName(foundAwayId);
+                            newMatch.id = generateMatchId(newMatch);
                         }
 
                         const homeXI: any[] = []; const awayXI: any[] = [];

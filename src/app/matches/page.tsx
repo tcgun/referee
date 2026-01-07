@@ -63,13 +63,20 @@ export default function MatchesListingPage() {
                         awayTeam: mData.awayTeamName,
                         score: displayScore,
                         opinions,
-                        againstCount
+                        againstCount,
+                        date: mData.date as string
                     } as MatchGroupedOpinions;
                 }));
 
-                setMatches(matchesData);
-                if (matchesData.length > 0) {
-                    const maxWeek = Math.max(...matchesData.map(m => m.week || 0));
+                const sortedMatches = matchesData.sort((a, b) => {
+                    const dateA = new Date(a.date || 0).getTime();
+                    const dateB = new Date(b.date || 0).getTime();
+                    return dateA - dateB;
+                });
+
+                setMatches(sortedMatches);
+                if (sortedMatches.length > 0) {
+                    const maxWeek = Math.max(...sortedMatches.map(m => m.week || 0));
                     setSelectedWeek(maxWeek);
                 }
             } catch (err) {
