@@ -38,10 +38,15 @@ export async function withAdminGuard(
 
         if (enforceToken) {
             const token = authHeader?.replace('Bearer ', '');
+            if (!token) {
+                return NextResponse.json({ error: 'Unauthorized: Missing Admin Token', code: 'MISSING_TOKEN' }, { status: 403 });
+            }
+
             const isValidToken = await verifyAdminToken(token || null);
 
             if (!isValidToken) {
-                return NextResponse.json({ error: 'Unauthorized: Invalid or Missing Admin Token' }, { status: 403 });
+                // Determine why it failed logic is in auth.ts but we can infer
+                return NextResponse.json({ error: 'Unauthorized: Invalid Admin Token (Check UID Whitelist)', code: 'INVALID_TOKEN' }, { status: 403 });
             }
         }
 
