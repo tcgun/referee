@@ -289,31 +289,122 @@ export const StatementForm = ({ apiKey, authToken }: BaseProps) => {
     const [statement, setStatement] = useState<Partial<Statement>>({
         title: '', content: '', entity: '', type: 'tff', date: new Date().toISOString().split('T')[0]
     });
+    const [existingStatements, setExistingStatements] = useState<Statement[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        fetchExisting();
+    }, []);
+
+    const fetchExisting = async () => {
+        try {
+            const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
+            const { db } = await import('@/firebase/client');
+            const q = query(collection(db, 'statements'), orderBy('date', 'desc'));
+            const snap = await getDocs(q);
+            setExistingStatements(snap.docs.map(d => ({ ...d.data(), id: d.id } as Statement)));
+        } catch (e) {
+            console.error("Error fetching statements", e);
+        }
+    };
+
+    const handleSelect = (id: string) => {
+        const found = existingStatements.find(s => s.id === id);
+        if (found) {
+            setStatement({ ...found });
+        } else {
+            setStatement({
+                title: '', content: '', entity: '', type: 'tff', date: new Date().toISOString().split('T')[0]
+            });
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const res = await fetch('/api/admin/statements', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
-            body: JSON.stringify(statement),
-        });
-        if (res.ok) toast.success('Açıklama Başarıyla Eklendi! ✅');
-        else toast.error('Hata: Açıklama eklenemedi.');
+        setLoading(true);
+        try {
+            const res = await fetch('/api/admin/statements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
+                body: JSON.stringify(statement),
+            });
+            if (res.ok) {
+                toast.success(statement.id ? 'Açıklama Güncellendi! ✅' : 'Açıklama Başarıyla Eklendi! ✅');
+                fetchExisting();
+                if (!statement.id) {
+                    setStatement({ title: '', content: '', entity: '', type: 'tff', date: new Date().toISOString().split('T')[0] });
+                }
+            } else {
+                toast.error('Hata: İşlem başarısız.');
+            }
+        } catch (e) {
+            toast.error('Bağlantı Hatası');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm">
-            <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Resmi Açıklama Ekle</h3>
-            <select className="border border-gray-300 p-2 w-full rounded" value={statement.type} onChange={e => setStatement({ ...statement, type: e.target.value as any })}>
-                <option value="tff">TFF / MHK</option>
-                <option value="club">Kulüp</option>
-            </select>
-            <input placeholder="Kurum Adı (örn: TFF, Galatasaray)" className="border border-gray-300 p-2 w-full rounded" value={statement.entity} onChange={e => setStatement({ ...statement, entity: e.target.value })} required />
-            <input placeholder="Başlık" className="border border-gray-300 p-2 w-full rounded" value={statement.title} onChange={e => setStatement({ ...statement, title: e.target.value })} required />
-            <textarea placeholder="Açıklama içeriği..." className="border border-gray-300 p-2 w-full rounded h-24" value={statement.content} onChange={e => setStatement({ ...statement, content: e.target.value })} required />
-            <input type="date" className="border border-gray-300 p-2 w-full rounded" value={statement.date} onChange={e => setStatement({ ...statement, date: e.target.value })} />
+        <form onSubmit={handleSubmit} className={`space-y-3 p-4 border border-gray-200 rounded shadow-sm relative ${statement.id ? 'bg-amber-50 border-amber-300' : 'bg-white'}`}>
+            <div className="flex justify-between items-center border-b pb-2">
+                <h3 className="font-bold text-lg text-gray-800">{statement.id ? 'Açıklamayı Düzenle' : 'Resmi Açıklama Ekle'}</h3>
+                {statement.id && (
+                    <button
+                        type="button"
+                        onClick={() => setStatement({ title: '', content: '', entity: '', type: 'tff', date: new Date().toISOString().split('T')[0] })}
+                        className="text-[10px] font-bold bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300"
+                    >
+                        YENİ EKLE (İPTAL)
+                    </button>
+                )}
+            </div>
 
-            <button className="bg-blue-600 text-white p-2 rounded w-full">Kaydet</button>
+            <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-500 uppercase">Düzenlemek İçin Seçin</label>
+                <select
+                    className="border border-gray-300 p-2 w-full rounded text-sm bg-white"
+                    value={statement.id || ''}
+                    onChange={(e) => handleSelect(e.target.value)}
+                >
+                    <option value="">-- Yeni Açıklama Ekle --</option>
+                    {existingStatements.map(s => (
+                        <option key={s.id} value={s.id}>{s.date} - {s.entity}: {s.title.substring(0, 30)}...</option>
+                    ))}
+                </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Tür</label>
+                    <select className="border border-gray-300 p-2 w-full rounded text-sm bg-white" value={statement.type} onChange={e => setStatement({ ...statement, type: e.target.value as any })}>
+                        <option value="tff">TFF / MHK</option>
+                        <option value="club">Kulüp</option>
+                    </select>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Tarih</label>
+                    <input type="date" className="border border-gray-300 p-2 w-full rounded text-sm bg-white" value={statement.date} onChange={e => setStatement({ ...statement, date: e.target.value })} />
+                </div>
+            </div>
+
+            <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-500 uppercase">Kurum / Kulüp Adı</label>
+                <input placeholder="örn: TFF, Galatasaray" className="border border-gray-300 p-2 w-full rounded text-sm bg-white" value={statement.entity} onChange={e => setStatement({ ...statement, entity: e.target.value })} required />
+            </div>
+
+            <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-500 uppercase">Başlık</label>
+                <input placeholder="Haftalık Hakem Atamaları Hakkında" className="border border-gray-300 p-2 w-full rounded text-sm bg-white" value={statement.title} onChange={e => setStatement({ ...statement, title: e.target.value })} required />
+            </div>
+
+            <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-500 uppercase">İçerik</label>
+                <textarea placeholder="Açıklama metni..." className="border border-gray-300 p-2 w-full rounded h-32 text-sm bg-white" value={statement.content} onChange={e => setStatement({ ...statement, content: e.target.value })} required />
+            </div>
+
+            <button disabled={loading} className={`p-2 rounded w-full text-white font-bold transition-transform active:scale-95 ${statement.id ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                {loading ? 'İşleniyor...' : (statement.id ? 'DEĞİŞİKLİKLERİ KAYDET' : 'AÇIKLAMAYI YAYINLA')}
+            </button>
         </form>
     );
 };

@@ -5,6 +5,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { Statement } from '@/types';
 import { Skeleton } from '@/components/ui/Skeleton';
+import Link from 'next/link';
 
 export default function StatementsPage() {
     const [statements, setStatements] = useState<Statement[]>([]);
@@ -52,8 +53,6 @@ export default function StatementsPage() {
         </main>
     );
 
-    // Filter out PFDK related if they are already on PFDK page, or show all? 
-    // User asked for "Açıklamalar" in general.
     const sorted = [...statements].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     return (
@@ -69,22 +68,35 @@ export default function StatementsPage() {
                         <div className="p-20 text-center bg-card border border-dashed border-border rounded-2xl text-muted-foreground font-medium">
                             Henüz kayıtlı bir açıklama bulunmuyor.
                         </div>
-                    ) : sorted.map((st, i) => (
-                        <div key={st.id || i} className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex items-center justify-between mb-4">
-                                <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest">
-                                    {st.entity}
-                                </span>
-                                <span className="text-[11px] font-bold text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
-                                    {st.date}
-                                </span>
+                    ) : sorted.map((st, i) => {
+                        const isLong = st.content.length > 200;
+                        const displayContent = isLong ? st.content.substring(0, 200).trim() + '...' : st.content;
+
+                        return (
+                            <div key={st.id || i} className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow group">
+                                <Link href={`/statements/${st.id}`} className="block h-full">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest">
+                                            {st.entity}
+                                        </span>
+                                        <span className="text-[11px] font-bold text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
+                                            {st.date}
+                                        </span>
+                                    </div>
+                                    <h2 className="text-xl font-black text-foreground mb-3 tracking-tight group-hover:text-amber-600 transition-colors uppercase">{st.title}</h2>
+                                    <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap mb-4">
+                                        {displayContent}
+                                    </div>
+                                    {isLong && (
+                                        <div className="flex items-center gap-1 text-[11px] font-black text-amber-600 uppercase tracking-tighter hover:gap-2 transition-all">
+                                            Devamını Oku
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                        </div>
+                                    )}
+                                </Link>
                             </div>
-                            <h2 className="text-xl font-black text-foreground mb-3 tracking-tight">{st.title}</h2>
-                            <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                                {st.content}
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </main>
