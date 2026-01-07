@@ -12,19 +12,32 @@ export const TeamForm = ({ apiKey, authToken }: TeamFormProps) => {
         id: '', name: '', logo: '', colors: { primary: '#000000', secondary: '#ffffff', text: '#ffffff' }
     });
 
+    const [loading, setLoading] = useState(false);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const res = await fetch('/api/admin/teams', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-admin-key': apiKey,
-                ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
-            },
-            body: JSON.stringify(team),
-        });
-        if (res.ok) toast.success('Takım Başarıyla Eklendi! ✅');
-        else toast.error('Hata: Takım eklenemedi.');
+        setLoading(true);
+        try {
+            const res = await fetch('/api/admin/teams', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-key': apiKey,
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                },
+                body: JSON.stringify(team),
+            });
+            if (res.ok) {
+                toast.success('Takım Başarıyla Eklendi! ✅');
+                setTeam({ id: '', name: '', logo: '', colors: { primary: '#000000', secondary: '#ffffff', text: '#ffffff' } });
+            } else {
+                toast.error('Hata: Takım eklenemedi.');
+            }
+        } catch (e) {
+            toast.error('Bağlantı Hatası');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -102,8 +115,11 @@ export const TeamForm = ({ apiKey, authToken }: TeamFormProps) => {
                     </div>
                 </div>
 
-                <button className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all mt-4">
-                    TAKIMI SİSTEME EKLE
+                <button
+                    disabled={loading}
+                    className={`w-full ${loading ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'} active:scale-[0.98] text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all mt-4`}
+                >
+                    {loading ? 'EKLENİYOR...' : 'TAKIMI SİSTEME EKLE'}
                 </button>
             </div>
         </form>

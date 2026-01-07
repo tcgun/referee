@@ -277,6 +277,7 @@ function AdminContent() {
                                         )}
                                     </div>
                                 </div>
+                                <TeamForm apiKey={apiKey} authToken={authToken} />
                             </div>
                         </div>
                     )}
@@ -284,7 +285,6 @@ function AdminContent() {
                     {/* TAKIM & MAÇ TAB */}
                     {activeTab === 'matches' && (
                         <div className="space-y-8">
-                            <TeamForm apiKey={apiKey} authToken={authToken} />
                             <MatchForm apiKey={apiKey} authToken={authToken} preloadedMatch={loadedMatch} />
                         </div>
                     )}
