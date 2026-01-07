@@ -45,12 +45,28 @@ function AdminContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
-    const initialTab = (searchParams.get('tab') || 'setup') as 'setup' | 'matches' | 'incidents' | 'extras' | 'officials';
-    const [activeTab, setActiveTab] = useState(initialTab);
+    const [activeTab, setActiveTab] = useState<'setup' | 'matches' | 'incidents' | 'extras' | 'officials'>('setup');
 
-    // Sync tab with URL
+    // Sync tab with URL and LocalStorage
+    useEffect(() => {
+        const queryTab = searchParams.get('tab');
+        const storedTab = localStorage.getItem('admin_active_tab');
+
+        if (queryTab) {
+            setActiveTab(queryTab as any);
+            localStorage.setItem('admin_active_tab', queryTab);
+        } else if (storedTab) {
+            setActiveTab(storedTab as any);
+            // Put it in URL if missing
+            const params = new URLSearchParams(window.location.search);
+            params.set('tab', storedTab);
+            router.replace(`${pathname}?${params.toString()}`);
+        }
+    }, [searchParams, pathname, router]);
+
     const handleTabChange = (tab: string) => {
         setActiveTab(tab as any);
+        localStorage.setItem('admin_active_tab', tab);
         const params = new URLSearchParams(searchParams.toString());
         params.set('tab', tab);
         router.replace(`${pathname}?${params.toString()}`);

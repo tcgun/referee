@@ -512,17 +512,13 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
 
                         const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-                        let foundHomeId = '';
-                        let foundAwayId = '';
                         let foundHomeScore: number | undefined;
                         let foundAwayScore: number | undefined;
 
                         // 1. Better Score Extraction
-                        // Look for standalone numbers in the first 15 lines
                         const scores: number[] = [];
                         for (let i = 0; i < Math.min(lines.length, 15); i++) {
                             const line = lines[i];
-                            // Match 1-2 digit standalone numbers
                             if (/^\d{1,2}$/.test(line)) {
                                 scores.push(parseInt(line));
                             }
@@ -536,50 +532,6 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                         if (foundAwayScore !== undefined) newMatch.awayScore = foundAwayScore;
                         if (foundHomeScore !== undefined && foundAwayScore !== undefined) {
                             newMatch.score = `${foundHomeScore} - ${foundAwayScore}`;
-                        }
-
-
-                        for (const line of lines) {
-                            if (line.includes(' - ') || line.includes(' vs ')) {
-                                const sep = line.includes(' - ') ? ' - ' : ' vs ';
-                                const parts = line.split(sep);
-                                if (parts.length === 2) {
-                                    const hId = resolveTeamId(parts[0]);
-                                    const aId = resolveTeamId(parts[1]);
-                                    if (hId && aId) {
-                                        foundHomeId = hId;
-                                        foundAwayId = aId;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (!foundHomeId || !foundAwayId) {
-                            const foundTeams = new Set<string>();
-                            lines.forEach(line => {
-                                if (line.includes('(Hakem)') || line.match(/\d{2}\.\d{2}\.\d{4}/)) return;
-                                const tId = resolveTeamId(line);
-                                if (tId) foundTeams.add(tId);
-                            });
-                            const orderedTeams: string[] = [];
-                            lines.forEach(line => {
-                                const tId = resolveTeamId(line);
-                                if (tId && foundTeams.has(tId) && !orderedTeams.includes(tId)) orderedTeams.push(tId);
-                            });
-                            if (orderedTeams.length === 2) {
-                                foundHomeId = orderedTeams[0];
-                                foundAwayId = orderedTeams[1];
-                            }
-                        }
-
-
-
-                        if (foundHomeId && foundAwayId) {
-                            newMatch.homeTeamId = foundHomeId;
-                            newMatch.homeTeamName = getTeamName(foundHomeId);
-                            newMatch.awayTeamId = foundAwayId;
-                            newMatch.awayTeamName = getTeamName(foundAwayId);
                         }
 
                         lines.forEach(line => {
