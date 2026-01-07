@@ -53,7 +53,6 @@ export async function POST(request: Request) {
 
             // --- 3. UPDATE EXTERNAL REFERENCES (Disciplinary Actions & Positions) ---
             const pfdkSnap = await firestore.collection('disciplinary_actions').where('matchId', '==', oldId).get();
-            const posSnap = await firestore.collection('positions').where('matchId', '==', oldId).get();
 
             const batch = firestore.batch();
 
@@ -61,11 +60,9 @@ export async function POST(request: Request) {
                 batch.update(doc.ref, { matchId: newId });
             });
 
-            posSnap.docs.forEach(doc => {
-                batch.update(doc.ref, { matchId: newId });
-            });
 
-            if (!pfdkSnap.empty || !posSnap.empty) {
+
+            if (!pfdkSnap.empty) {
                 await batch.commit();
             }
 

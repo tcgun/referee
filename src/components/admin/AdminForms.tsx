@@ -1,8 +1,7 @@
 "use client";
 
-import { TeamForm } from './forms/TeamForm';
-import { MatchForm } from './forms/MatchForm';
-import { IncidentForm } from './forms/IncidentForm';
-import { OpinionForm } from './forms/OpinionForm';
-
-export { TeamForm, MatchForm, IncidentForm, OpinionForm };
+export { TeamForm } from './forms/TeamForm';
+export { MatchForm } from './forms/MatchForm';
+export { IncidentForm } from './forms/IncidentForm';
+export { OpinionForm } from './forms/OpinionForm';
+export { OfficialForm } from './forms/OfficialForm';

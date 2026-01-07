@@ -15,9 +15,31 @@ export async function POST(request: Request) {
         }
 
         const data = validationResult.data;
-        const id = data.id || uuidv4();
 
-        await firestore.collection('disciplinary_actions').doc(id).set({ ...data, id }, { merge: true });
+        let matchId = data.matchId || '';
+        if (matchId && !matchId.startsWith('d-')) {
+            matchId = `d-${matchId}`;
+        }
+
+        const slugify = (text: string) => {
+            const trMap: Record<string, string> = {
+                'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u',
+                'Ç': 'c', 'Ğ': 'g', 'İ': 'i', 'Ö': 'o', 'Ş': 's', 'Ü': 'u'
+            };
+            let str = text.toString();
+            Object.keys(trMap).forEach(key => {
+                str = str.replaceAll(key, trMap[key]);
+            });
+            return str.toLowerCase().trim()
+                .replace(/\s+/g, '-')
+                .replace(/[^\w\-]+/g, '')
+                .replace(/\-\-+/g, '-');
+        };
+
+        const subjectSlug = slugify(data.subject || 'unknown');
+        const id = data.id || `d-${matchId.replace('d-', '')}-${subjectSlug}`;
+
+        await firestore.collection('disciplinary_actions').doc(id).set({ ...data, id, matchId }, { merge: true });
 
         return NextResponse.json({ success: true, id });
     });

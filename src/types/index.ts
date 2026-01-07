@@ -9,6 +9,18 @@ export interface Team {
     };
 }
 
+export type OfficialRole = 'referee' | 'assistant' | 'fourth' | 'var' | 'avar' | 'observer' | 'representative';
+
+export interface Official {
+    id: string;
+    name: string;
+    region?: string;
+    roles: OfficialRole[];
+    rating?: number; // overall rating
+    matchesCount?: number;
+    roleCounts?: Partial<Record<OfficialRole, number>>;
+}
+
 export interface MatchStats {
     homePossession?: number;
     awayPossession?: number;

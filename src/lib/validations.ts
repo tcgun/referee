@@ -153,16 +153,7 @@ export const statementSchema = z.object({
     type: z.enum(['tff', 'club']),
 });
 
-// Position Schema
-export const positionSchema = z.object({
-    id: z.string().min(1).max(100),
-    matchId: z.string().min(1).max(100),
-    minute: z.union([z.number().int().min(0).max(120), z.string().regex(/^\d{1,3}(\+\d{1,2})?$/)]),
-    type: z.enum(['penalty', 'red_card', 'yellow_card', 'goal', 'offside', 'foul', 'other']),
-    description: z.string().max(500).optional(),
-    imageUrl: z.string().url().optional().or(z.literal('')),
-    videoUrl: z.string().url().optional().or(z.literal('')),
-});
+
 
 // Disciplinary Action Schema
 export const disciplinaryActionSchema = z.object({

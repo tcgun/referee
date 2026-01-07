@@ -49,28 +49,42 @@ export function SummaryStatsRow() {
 
     if (loading) {
         return (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                {[1, 2, 3].map(i => (
-                    <div key={i} className="h-24 bg-slate-100 animate-pulse rounded-xl"></div>
-                ))}
+            <div className="grid grid-cols-1 md:grid-cols-10 gap-4 mb-8">
+                <div className="md:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="h-24 bg-slate-100 animate-pulse rounded-xl"></div>
+                    <div className="h-24 bg-slate-100 animate-pulse rounded-xl"></div>
+                </div>
+                <div className="md:col-span-3 h-24 bg-slate-100 animate-pulse rounded-xl"></div>
             </div>
         );
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
-            {cards.map((card, idx) => (
-                <div key={idx} className={`rounded-xl border p-4 flex items-center justify-between shadow-sm transition-transform hover:scale-[1.02] ${card.color}`}>
-                    <div>
-                        <h3 className="text-[10px] font-black uppercase opacity-70 tracking-widest mb-1">{card.title}</h3>
-                        <div className="text-lg font-black leading-tight mb-0.5">{card.value}</div>
-                        <div className="text-xs font-medium opacity-80">{card.subValue}</div>
+        <div className="grid grid-cols-1 md:grid-cols-10 gap-4 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="md:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {cards.slice(0, 2).map((card, idx) => (
+                    <div key={idx} className={`rounded-xl border p-4 flex items-center justify-between shadow-sm transition-transform hover:scale-[1.02] ${card.color}`}>
+                        <div>
+                            <h3 className="text-[10px] font-black uppercase opacity-70 tracking-widest mb-1">{card.title}</h3>
+                            <div className="text-lg font-black leading-tight mb-0.5">{card.value}</div>
+                            <div className="text-xs font-medium opacity-80">{card.subValue}</div>
+                        </div>
+                        <div className="text-2xl opacity-20 grayscale-0">
+                            {card.icon}
+                        </div>
                     </div>
-                    <div className="text-2xl opacity-20 grayscale-0">
-                        {card.icon}
-                    </div>
+                ))}
+            </div>
+            <div className={`md:col-span-3 rounded-xl border p-4 flex items-center justify-between shadow-sm transition-transform hover:scale-[1.02] ${cards[2].color}`}>
+                <div>
+                    <h3 className="text-[10px] font-black uppercase opacity-70 tracking-widest mb-1">{cards[2].title}</h3>
+                    <div className="text-lg font-black leading-tight mb-0.5">{cards[2].value}</div>
+                    <div className="text-xs font-medium opacity-80">{cards[2].subValue}</div>
                 </div>
-            ))}
+                <div className="text-2xl opacity-20 grayscale-0">
+                    {cards[2].icon}
+                </div>
+            </div>
         </div>
     );
 }

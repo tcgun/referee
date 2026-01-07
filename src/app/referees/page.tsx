@@ -1,77 +1,28 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-// Revert deleted standard UI components, so I'll write raw Tailwind.
-
-interface RefereeStat {
-    name: string;
-    matches: number;
-    errors: number;
-    controversial: number;
-    correct: number;
-}
+import { ShieldCheck } from 'lucide-react';
 
 export default function RefereesPage() {
-    const [stats, setStats] = useState<RefereeStat[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        fetch('/api/stats/referees')
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) setStats(data);
-            })
-            .catch(console.error)
-            .finally(() => setLoading(false));
-    }, []);
-
-    if (loading) return (
-        <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-        </div>
-    );
-
     return (
-        <main className="min-h-screen bg-background pb-20 pt-8">
-            <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-6">
-                <header className="mb-8">
-                    <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase">
-                        Hakem <span className="text-primary">İstatistikleri</span>
-                    </h1>
-                    <p className="text-muted-foreground text-xs font-medium tracking-wide mt-1">
-                        2024-2025 Sezonu Performans Raporu
-                    </p>
-                </header>
-
-                <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-muted text-muted-foreground text-[10px] uppercase font-black tracking-wider">
-                                <tr>
-                                    <th className="p-4">Hakem</th>
-                                    <th className="p-4 text-center">Maç</th>
-                                    <th className="p-4 text-center text-red-500">Hatalı</th>
-                                    <th className="p-4 text-center text-orange-500">Tartışmalı</th>
-                                    <th className="p-4 text-center text-green-500">Doğru</th>
-                                    <th className="p-4 text-center">Ort. Hata</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border font-medium text-card-foreground">
-                                {stats.map((ref, i) => (
-                                    <tr key={i} className="hover:bg-muted/50 transition-colors">
-                                        <td className="p-4 font-bold">{ref.name}</td>
-                                        <td className="p-4 text-center">{ref.matches}</td>
-                                        <td className="p-4 text-center text-red-400 font-bold bg-red-900/10">{ref.errors}</td>
-                                        <td className="p-4 text-center text-orange-400">{ref.controversial}</td>
-                                        <td className="p-4 text-center text-green-400">{ref.correct}</td>
-                                        <td className="p-4 text-center text-muted-foreground">
-                                            {(ref.errors / (ref.matches || 1)).toFixed(1)}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+        <main className="min-h-[80vh] bg-background flex items-center justify-center p-8">
+            <div className="max-w-md w-full text-center space-y-6">
+                <div className="flex justify-center">
+                    <div className="w-20 h-20 bg-slate-900 rounded-2xl flex items-center justify-center border border-slate-800 shadow-xl">
+                        <ShieldCheck className="w-10 h-10 text-blue-500" />
                     </div>
+                </div>
+
+                <div className="space-y-2">
+                    <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase">
+                        HAZIRLANIYOR
+                    </h1>
+                    <p className="text-muted-foreground text-sm font-medium">
+                        Detaylı hakem performans analizleri ve özel istatistik raporları çok yakında burada olacak.
+                    </p>
+                </div>
+
+                <div className="pt-4">
+                    <div className="h-1 w-24 bg-blue-600 mx-auto rounded-full" />
                 </div>
             </div>
         </main>

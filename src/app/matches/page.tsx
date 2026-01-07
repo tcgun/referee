@@ -23,12 +23,12 @@ const groupByWeek = (matches: MatchGroupedOpinions[]) => {
 export default function MatchesListingPage() {
     const [matches, setMatches] = useState<MatchGroupedOpinions[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
 
     useEffect(() => {
         async function fetchMatches() {
             try {
                 setLoading(true);
-                // 1. Fetch Matches - Order by week desc
                 const matchesQ = query(collection(db, 'matches'), orderBy('week', 'desc'));
                 const matchesSnap = await getDocs(matchesQ);
 
@@ -36,13 +36,13 @@ export default function MatchesListingPage() {
                     const mData = mDoc.data() as Match;
                     const matchId = mDoc.id;
 
-                    // 2. Fetch Opinions for this match to show stats
+                    // Fetch Opinions
                     const { collectionGroup, where, collection, getDocs } = await import('firebase/firestore');
                     const opinionsQ = query(collectionGroup(db, 'opinions'), where('matchId', '==', matchId));
                     const opinionsSnap = await getDocs(opinionsQ);
                     const opinions = opinionsSnap.docs.map(d => d.data() as Opinion);
 
-                    // 3. Fetch Incidents to count "Aleyhe" (Incorrect judgments)
+                    // Fetch Incidents
                     const incSnap = await getDocs(collection(db, 'matches', matchId, 'incidents'));
                     let againstCount = 0;
                     for (const incDoc of incSnap.docs) {
@@ -51,14 +51,13 @@ export default function MatchesListingPage() {
                         if (hasIncorrect) againstCount++;
                     }
 
-                    // Handle scores properly
                     const hScore = mData.homeScore !== undefined ? mData.homeScore : '-';
                     const aScore = mData.awayScore !== undefined ? mData.awayScore : '-';
                     const displayScore = (hScore !== '-' || aScore !== '-') ? `${hScore} - ${aScore}` : (mData.score || 'v');
 
                     return {
                         matchId,
-                        matchName: `${mData.week}. Hafta: ${mData.homeTeamName} - ${mData.awayTeamName}`,
+                        matchName: mData.homeTeamName && mData.awayTeamName ? `${mData.homeTeamName} - ${mData.awayTeamName}` : mData.id,
                         week: mData.week,
                         homeTeam: mData.homeTeamName,
                         awayTeam: mData.awayTeamName,
@@ -69,6 +68,10 @@ export default function MatchesListingPage() {
                 }));
 
                 setMatches(matchesData);
+                if (matchesData.length > 0) {
+                    const maxWeek = Math.max(...matchesData.map(m => m.week || 0));
+                    setSelectedWeek(maxWeek);
+                }
             } catch (err) {
                 console.error("Matches Listing Fetch Error:", err);
             } finally {
@@ -87,40 +90,52 @@ export default function MatchesListingPage() {
         </div>
     );
 
-    const grouped = groupByWeek(matches);
+    const availableWeeks = Array.from(new Set(matches.map(m => m.week || 0))).sort((a, b) => b - a);
+    const filteredMatches = matches.filter(m => m.week === selectedWeek);
 
     return (
         <main className="min-h-screen bg-background pb-20 pt-8">
             <div className="max-w-4xl mx-auto px-4 space-y-8">
 
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase">MAÇLAR</h1>
-                    <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">Lig Haftalarına Göre Maç Listesi</p>
+                    <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase italic bg-clip-text text-transparent bg-gradient-to-r from-primary to-orange-500">MAÇLAR</h1>
+                    <p className="text-muted-foreground text-xs uppercase tracking-widest font-bold">Lig Haftalarına Göre Maç Listesi</p>
                 </div>
 
-                <div className="space-y-12">
-                    {grouped.length === 0 ? (
+                {/* Week Selector */}
+                <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar">
+                    {availableWeeks.map(week => (
+                        <button
+                            key={week}
+                            onClick={() => setSelectedWeek(week)}
+                            className={`flex-shrink-0 px-6 py-2 rounded-full text-sm font-black transition-all border ${selectedWeek === week
+                                ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105'
+                                : 'bg-card text-muted-foreground border-border hover:border-primary/50'
+                                }`}
+                        >
+                            {week}. HAFTA
+                        </button>
+                    ))}
+                </div>
+
+                <div className="space-y-6">
+                    {selectedWeek === null ? (
                         <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
                             <span className="text-muted-foreground font-medium">Henüz maç verisi bulunamadı.</span>
                         </div>
-                    ) : grouped.map((group) => (
-                        <section key={group.week} className="space-y-4">
-                            <div className="flex items-center gap-4">
-                                <div className="bg-primary text-primary-foreground px-3 py-1 rounded text-xs font-black uppercase tracking-widest shadow-lg">
-                                    {group.week}. HAFTA
+                    ) : filteredMatches.length === 0 ? (
+                        <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+                            <span className="text-muted-foreground font-medium">{selectedWeek}. Hafta için henüz maç verisi bulunamadı.</span>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {filteredMatches.map((match) => (
+                                <div key={match.matchId} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                    <MatchItem match={match} />
                                 </div>
-                                <div className="h-px bg-border flex-1"></div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {group.matches.map((match) => (
-                                    <div key={match.matchId} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                        <MatchItem match={match} />
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    ))}
+                            ))}
+                        </div>
+                    )}
                 </div>
 
             </div>

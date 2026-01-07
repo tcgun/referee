@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { TeamForm, MatchForm, IncidentForm, OpinionForm } from '@/components/admin/AdminForms';
+import { TeamForm, MatchForm, IncidentForm, OpinionForm, OfficialForm } from '@/components/admin/AdminForms';
 import { StandingForm, StatementForm, DisciplinaryForm, DisciplinaryList, RefereeStatsForm, MatchSelect } from '@/components/admin/ExtraForms';
 import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
 import { signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/firebase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { Suspense } from 'react';
 
 // Wrapper for Disciplinary Section to share state
 const DisciplinaryWrapper = ({ apiKey, authToken }: { apiKey: string, authToken?: string }) => {
@@ -32,16 +33,28 @@ const DisciplinaryWrapper = ({ apiKey, authToken }: { apiKey: string, authToken?
     );
 };
 
-export default function AdminPage() {
+function AdminContent() {
     // Auth State
     const [user, setUser] = useState<User | null>(null);
     const [authToken, setAuthToken] = useState<string>('');
     const [loading, setLoading] = useState(true);
-    const router = useRouter();
 
     const [apiKey, setApiKey] = useState('');
-    const [seeding, setSeeding] = useState(false);
-    const [activeTab, setActiveTab] = useState<'setup' | 'matches' | 'incidents' | 'extras'>('setup');
+
+    // Tab Persistence Logic
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const pathname = usePathname();
+    const initialTab = (searchParams.get('tab') || 'setup') as 'setup' | 'matches' | 'incidents' | 'extras' | 'officials';
+    const [activeTab, setActiveTab] = useState(initialTab);
+
+    // Sync tab with URL
+    const handleTabChange = (tab: string) => {
+        setActiveTab(tab as any);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('tab', tab);
+        router.replace(`${pathname}?${params.toString()}`);
+    };
 
     // Load admin key and check auth
     useEffect(() => {
@@ -119,27 +132,7 @@ export default function AdminPage() {
         fetchMatchById(targetMatchId);
     };
 
-    const handleSeed = async () => {
-        if (!confirm('Gaziantep FK - Galatasaray verileri yüklensin mi?')) return;
-        setSeeding(true);
-        try {
-            const res = await fetch('/api/setup/seed', {
-                method: 'POST',
-                headers: {
-                    'x-admin-key': apiKey,
-                    'Authorization': `Bearer ${authToken}`
-                }
-            });
-            const data = await res.json();
-            if (res.ok) alert('Başarılı: ' + data.message);
-            else alert('Hata: ' + data.error);
-        } catch (e) {
-            console.error(e);
-            alert('Bir hata oluştu.');
-        } finally {
-            setSeeding(false);
-        }
-    };
+
 
     const handleLogout = async () => {
         try {
@@ -220,11 +213,12 @@ export default function AdminPage() {
                         { id: 'setup', label: 'Kurulum & Veri' },
                         { id: 'matches', label: 'Takım & Maç' },
                         { id: 'incidents', label: 'Pozisyon & Yorum' },
+                        { id: 'officials', label: 'Hakemler' },
                         { id: 'extras', label: 'Puan & PFDK' }
                     ].map((tab) => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
+                            onClick={() => handleTabChange(tab.id)}
                             className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${activeTab === tab.id
                                 ? 'bg-slate-900 text-white shadow-md transform scale-105'
                                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
@@ -301,8 +295,25 @@ export default function AdminPage() {
                         </div>
                     )}
 
+                    {/* OFFICIALS TAB */}
+                    {activeTab === 'officials' && (
+                        <OfficialForm apiKey={apiKey} authToken={authToken} />
+                    )}
+
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function AdminPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+        }>
+            <AdminContent />
+        </Suspense>
     );
 }

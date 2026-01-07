@@ -378,7 +378,13 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
 
         const url = editItem ? '/api/admin/disciplinary' : '/api/admin/disciplinary';
         const method = editItem ? 'PUT' : 'POST';
-        const body = { ...finalAction, id: editItem?.id };
+
+        let matchId = finalAction.matchId || '';
+        if (matchId && !matchId.startsWith('d-')) {
+            matchId = `d-${matchId}`;
+        }
+
+        const body = { ...finalAction, matchId, id: editItem?.id };
 
         const res = await fetch(url, {
             method: method,
@@ -518,7 +524,8 @@ export const MatchSelect = ({ value, onChange, className = "" }: { value: string
             try {
                 const { collection, getDocs, orderBy, query } = await import('firebase/firestore');
                 const { db } = await import('@/firebase/client');
-                const q = query(collection(db, 'matches'), orderBy('date', 'desc')); // Most recent first
+                // Order by week descending, then date descending for natural feel
+                const q = query(collection(db, 'matches'), orderBy('week', 'desc'), orderBy('date', 'desc'));
                 const snap = await getDocs(q);
                 setMatches(snap.docs.map(d => ({ ...d.data(), id: d.id } as Match)));
             } catch (e) {
@@ -530,6 +537,16 @@ export const MatchSelect = ({ value, onChange, className = "" }: { value: string
         fetchMatches();
     }, []);
 
+    // Group matches by week
+    const groupedMatches: Record<number, Match[]> = {};
+    matches.forEach(m => {
+        const w = m.week || 0;
+        if (!groupedMatches[w]) groupedMatches[w] = [];
+        groupedMatches[w].push(m);
+    });
+
+    const weeks = Object.keys(groupedMatches).map(Number).sort((a, b) => b - a);
+
     return (
         <select
             className={`border border-gray-300 p-2 w-full rounded font-mono text-sm ${className}`}
@@ -538,10 +555,14 @@ export const MatchSelect = ({ value, onChange, className = "" }: { value: string
             disabled={loading}
         >
             <option value="">{loading ? 'Yükleniyor...' : 'Maç Seçiniz...'}</option>
-            {matches.map(m => (
-                <option key={m.id} value={m.id}>
-                    {String(m.date)} - {m.homeTeamName} vs {m.awayTeamName} ({m.id})
-                </option>
+            {weeks.map(week => (
+                <optgroup key={week} label={`${week}. Hafta`}>
+                    {groupedMatches[week].map(m => (
+                        <option key={m.id} value={m.id}>
+                            {m.homeTeamName} - {m.awayTeamName} ({m.id})
+                        </option>
+                    ))}
+                </optgroup>
             ))}
         </select>
     );
@@ -569,10 +590,15 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
         if (!matchId) return toast.error('Lütfen Maç ID giriniz (örn: week1-gfk-gs).');
         setLoading(true);
         try {
-            const { collection, query, where, getDocs, deleteDoc, doc } = await import('firebase/firestore');
+            const { collection, query, where, getDocs } = await import('firebase/firestore');
             const { db } = await import('@/firebase/client');
 
-            const q = query(collection(db, 'disciplinary_actions'), where('matchId', '==', matchId));
+            let searchId = matchId.trim();
+            if (searchId && !searchId.startsWith('d-')) {
+                searchId = `d-${searchId}`;
+            }
+
+            const q = query(collection(db, 'disciplinary_actions'), where('matchId', '==', searchId));
             const snap = await getDocs(q);
             const data = snap.docs.map(d => ({ ...d.data(), id: d.id })) as DisciplinaryAction[];
             setItems(data);
@@ -580,6 +606,32 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
         } catch (error) {
             console.error(error);
             toast.error('Hata: Veriler getirilemedi.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSync = async () => {
+        if (!confirm('Tüm disiplin sevklerini yeni formata (d- prefix) senkronize etmek istediğinize emin misiniz?')) return;
+        setLoading(true);
+        try {
+            const res = await fetch('/api/admin/disciplinary/sync', {
+                method: 'POST',
+                headers: {
+                    'x-admin-key': apiKey,
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                toast.success(`${data.processed} kayıt başarıyla senkronize edildi! ✅`);
+                if (matchId) handleFetch();
+            } else {
+                toast.error('Senkronizasyon başarısız oldu.');
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('Ağ hatası oluştu.');
         } finally {
             setLoading(false);
         }
@@ -610,7 +662,16 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
 
     return (
         <div className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm h-full flex flex-col">
-            <h3 className="font-bold text-lg text-gray-800 border-b pb-2">PFDK / Performans Listesi</h3>
+            <div className="flex justify-between items-center border-b pb-2">
+                <h3 className="font-bold text-lg text-gray-800">PFDK / Performans Listesi</h3>
+                <button
+                    onClick={handleSync}
+                    disabled={loading}
+                    className="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 transition-colors"
+                >
+                    {loading ? '...' : 'SENKRONİZE ET'}
+                </button>
+            </div>
             <div className="flex gap-2">
                 <div className="flex-1">
                     <MatchSelect value={matchId} onChange={setMatchId} />
