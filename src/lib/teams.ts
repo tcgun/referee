@@ -22,12 +22,14 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
     'bas': {
         name: 'Başakşehir Futbol Kulübü',
         colors: { primary: '#E56B25', secondary: '#163962' },
-        short: 'bas'
+        short: 'bas',
+        aliases: ['basaksehir', 'rams', 'ibfk', 'medipol', 'rams basaksehir']
     },
     'ant': {
         name: 'Antalyaspor',
         colors: { primary: '#E30613', secondary: '#FFFFFF' },
-        short: 'ant'
+        short: 'ant',
+        aliases: ['bitexen antalyaspor', 'hesapcom antalyaspor']
     },
     'sam': {
         name: 'Samsunspor',
@@ -42,7 +44,8 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
     'ala': {
         name: 'Alanyaspor',
         colors: { primary: '#F9B517', secondary: '#008C45' },
-        short: 'ala'
+        short: 'ala',
+        aliases: ['corendon alanyaspor']
     },
     'fen': {
         name: 'Fenerbahçe',
@@ -67,28 +70,32 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
     'fat': {
         name: 'Fatih Karagümrük',
         colors: { primary: '#ff0000', secondary: '#000000' },
-        short: 'fat'
+        short: 'fat',
+        aliases: ['fatih karagümrük', 'karagümrük', 'mısırlı', 'vavaçars']
     },
     'eyu': {
         name: 'Eyüpspor',
         colors: { primary: '#800080', secondary: '#FFFF00' },
-        short: 'eyu'
+        short: 'eyu',
+        aliases: ['ikas eyüpspor']
     },
     'riz': {
         name: 'Rizespor',
         colors: { primary: '#008C45', secondary: '#163962' },
-        short: 'riz'
+        short: 'riz',
+        aliases: ['çaykur rizespor']
     },
     'gaz': {
         name: 'Gaziantep Futbol Kulübü',
         colors: { primary: '#DA291C', secondary: '#000000' },
         short: 'gaz',
-        aliases: ['gfk']
+        aliases: ['gfk', 'gaziantepfk', 'gaziantep', 'sumudica']
     },
     'kay': {
         name: 'Kayserispor',
         colors: { primary: '#FFD700', secondary: '#CC0000' },
-        short: 'kay'
+        short: 'kay',
+        aliases: ['mondihome kayserispor', 'zecorner kayserispor']
     }
 };
 
