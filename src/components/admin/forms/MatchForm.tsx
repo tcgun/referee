@@ -497,10 +497,11 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                         let foundAwayScore: number | undefined;
 
                         // 1. Better Score Extraction
-                        // Look for standalone numbers in the first 10 lines
+                        // Look for standalone numbers in the first 15 lines
                         const scores: number[] = [];
-                        for (let i = 0; i < Math.min(lines.length, 10); i++) {
+                        for (let i = 0; i < Math.min(lines.length, 15); i++) {
                             const line = lines[i];
+                            // Match 1-2 digit standalone numbers
                             if (/^\d{1,2}$/.test(line)) {
                                 scores.push(parseInt(line));
                             }
@@ -509,6 +510,13 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                             foundHomeScore = scores[0];
                             foundAwayScore = scores[1];
                         }
+
+                        if (foundHomeScore !== undefined) newMatch.homeScore = foundHomeScore;
+                        if (foundAwayScore !== undefined) newMatch.awayScore = foundAwayScore;
+                        if (foundHomeScore !== undefined && foundAwayScore !== undefined) {
+                            newMatch.score = `${foundHomeScore} - ${foundAwayScore}`;
+                        }
+
 
                         for (const line of lines) {
                             if (line.includes(' - ') || line.includes(' vs ')) {
@@ -544,16 +552,13 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                             }
                         }
 
+
+
                         if (foundHomeId && foundAwayId) {
                             newMatch.homeTeamId = foundHomeId;
                             newMatch.homeTeamName = getTeamName(foundHomeId);
                             newMatch.awayTeamId = foundAwayId;
                             newMatch.awayTeamName = getTeamName(foundAwayId);
-                            if (foundHomeScore !== undefined) newMatch.homeScore = foundHomeScore;
-                            if (foundAwayScore !== undefined) newMatch.awayScore = foundAwayScore;
-                            if (foundHomeScore !== undefined && foundAwayScore !== undefined) {
-                                newMatch.score = `${foundHomeScore}-${foundAwayScore}`;
-                            }
                         }
 
                         lines.forEach(line => {

@@ -32,7 +32,9 @@ export const matchSchema = z.object({
     stadium: z.string().min(1).max(200),
     referee: z.string().min(1).max(100),
     varReferee: z.string().min(1).max(100).optional(),
-    score: z.string().regex(/^\d+-\d+$/).optional(), // Format: "2-1"
+    score: z.string().regex(/^\d+\s*-\s*\d+$/).optional(), // Format: "2-1" or "2 - 1"
+    homeScore: z.number().int().min(0).optional(),
+    awayScore: z.number().int().min(0).optional(),
     stats: z.object({
         homePossession: z.number().min(0).max(100).optional(),
         awayPossession: z.number().min(0).max(100).optional(),
