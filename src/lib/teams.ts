@@ -115,17 +115,30 @@ export function resolveTeamId(input: string): string | null {
     // 2. Direct ID match
     if (SUPER_LIG_TEAMS[search]) return search;
 
-    // 3. Normalized name match
-    const normalize = (s: string) => s.toLowerCase()
-        .replace(/[^a-z0-9]/g, '')
-        .replace(/[ığüşöç]/g, (m) => {
-            const map: any = { 'ı': 'i', 'ğ': 'g', 'ü': 'u', 'ş': 's', 'ö': 'o', 'ç': 'c' };
-            return map[m];
-        });
+    // 3. Normalized name match (Bidirectional)
+    const normalize = (s: string) => {
+        let n = s.toLowerCase();
+        // Replace Turkish chars FIRST
+        n = n.replace(/ı/g, 'i')
+            .replace(/ğ/g, 'g')
+            .replace(/ü/g, 'u')
+            .replace(/ş/g, 's')
+            .replace(/ö/g, 'o')
+            .replace(/ç/g, 'c')
+            .replace(/İ/g, 'i'); // Handle capital I with dot if passed
+        // Then strip non-alphanumeric
+        return n.replace(/[^a-z0-9]/g, '');
+    };
 
     const searchNorm = normalize(search);
+
     for (const [id, data] of Object.entries(SUPER_LIG_TEAMS)) {
-        if (normalize(data.name).includes(searchNorm) || normalize(id).includes(searchNorm)) {
+        const teamNameNorm = normalize(data.name);
+        const teamIdNorm = normalize(id);
+
+        // Case A: Team Name contains Input (standard search)
+        // Case B (Sponsors): Input contains Team Name (e.g. "Corendon Alanyaspor" contains "alanyaspor")
+        if (teamNameNorm.includes(searchNorm) || searchNorm.includes(teamNameNorm) || teamIdNorm.includes(searchNorm)) {
             return id;
         }
     }

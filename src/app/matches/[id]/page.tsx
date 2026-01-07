@@ -140,16 +140,16 @@ export default function MatchPage() {
             {/* SIMPLIFIED HEADER (No Logos, Names Only) + TABS */}
             <div className="bg-card border-b border-border shadow-sm mb-6 pt-4">
                 <div className="max-w-7xl mx-auto px-4 pb-6">
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-4">
                         {/* Home Team */}
-                        <div className="flex-1 text-right">
-                            <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground leading-none">
+                        <div className="w-full md:flex-1 text-center md:text-right order-1 md:order-1">
+                            <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground leading-none break-words">
                                 {match.homeTeamName}
                             </h1>
                         </div>
 
                         {/* Score & Date */}
-                        <div className="flex flex-col items-center shrink-0 mx-2">
+                        <div className="flex flex-col items-center shrink-0 mx-0 md:mx-2 order-2 md:order-2 my-2 md:my-0">
                             <div className="text-4xl md:text-6xl font-black font-mono tracking-tighter text-foreground px-4 py-1">
                                 {match.score || '0-0'}
                             </div>
@@ -157,33 +157,33 @@ export default function MatchPage() {
                                 {match.date ? new Date(match.date).toLocaleString('tr-TR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' }) : '-'}
                             </div>
                             {match.stadium && (
-                                <div className="text-[9px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-4 flex items-center gap-1">
+                                <div className="text-[9px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-1 flex items-center gap-1">
                                     <svg className="w-3 h-3 text-muted-foreground/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V7l8-4 8 4v14" /></svg>
                                     {match.stadium}
                                 </div>
                             )}
-
-                            {/* TABS (Moved Here) */}
-                            <div className="flex gap-1 bg-muted/30 p-1 rounded-lg overflow-x-auto max-w-full">
-                                {['summary', 'lineups', 'pfdk', 'performance'].map((tab) => (
-                                    <button
-                                        key={tab}
-                                        onClick={() => setActiveTab(activeTab === tab ? null : tab as any)}
-                                        className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/50'
-                                            }`}
-                                    >
-                                        {tab === 'summary' ? 'İSTATİSTİK' : tab === 'lineups' ? 'KADRO' : tab === 'pfdk' ? 'PFDK' : 'HAKEM PERFORMANSI'}
-                                    </button>
-                                ))}
-                            </div>
                         </div>
 
                         {/* Away Team */}
-                        <div className="flex-1 text-left">
-                            <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground leading-none">
+                        <div className="w-full md:flex-1 text-center md:text-left order-3 md:order-3">
+                            <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground leading-none break-words">
                                 {match.awayTeamName}
                             </h1>
                         </div>
+                    </div>
+
+                    {/* TABS (Moved Here for Mobile Layout) */}
+                    <div className="flex gap-0.5 bg-muted/30 p-0.5 rounded-lg w-full mt-4 md:mt-6 justify-between md:justify-center">
+                        {['summary', 'lineups', 'pfdk', 'performance'].map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(activeTab === tab ? null : tab as any)}
+                                className={`flex-1 py-1.5 rounded text-[7px] md:text-[10px] font-black uppercase tracking-tighter transition-all whitespace-nowrap text-center ${activeTab === tab ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/50'
+                                    }`}
+                            >
+                                {tab === 'summary' ? 'İSTATİSTİK' : tab === 'lineups' ? 'KADRO' : tab === 'pfdk' ? 'PFDK' : 'HAKEM PERFORMANSI'}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -321,22 +321,51 @@ export default function MatchPage() {
                             ) : (
                                 <div className="grid grid-cols-1 gap-4">
                                     {disciplinary.map((action) => (
-                                        <div key={action.id} className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-start">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-2">
+                                        <div key={action.id} className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col gap-4 items-start">
+                                            <div className="w-full">
+                                                <div className="flex items-center gap-2 mb-3 border-b border-border pb-2">
                                                     <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${action.teamName ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-700'
                                                         }`}>
                                                         {action.teamName || 'Genel'}
                                                     </span>
                                                     <h4 className="font-bold text-sm text-foreground">{action.subject}</h4>
                                                 </div>
-                                                <p className="text-sm text-muted-foreground leading-relaxed">{action.reason}</p>
-                                            </div>
-                                            <div className="shrink-0">
-                                                <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 px-3 py-2 rounded text-center min-w-[100px]">
-                                                    <span className="block text-[9px] font-bold text-red-500 uppercase">CEZA</span>
-                                                    <span className="block text-sm font-black text-red-700 dark:text-red-400">{action.penalty}</span>
-                                                </div>
+
+                                                {/* Reason (Description) */}
+                                                <p className="text-sm text-muted-foreground leading-relaxed italic mb-4">
+                                                    "{action.reason}"
+                                                </p>
+
+                                                {/* Penalty List (Bulleted) */}
+                                                {action.penalty && (
+                                                    <div className="bg-red-50/50 dark:bg-red-900/10 border-l-4 border-red-500 pl-4 py-2 rounded-r-lg">
+                                                        <ul className="space-y-2">
+                                                            {action.penalty.replace(/ - /g, '\n').split('\n').map((item, idx) => {
+                                                                // Clean up text
+                                                                let cleanItem = item.trim();
+
+                                                                // Remove leading "- " if exists
+                                                                cleanItem = cleanItem.replace(/^- /, '');
+
+                                                                // Remove "CEZA" prefix if exists
+                                                                cleanItem = cleanItem.replace(/^((PARA )?CEZA(SI)?:\s*)/i, '');
+                                                                // Fix currency format: 220.000.TL -> 220.000 TL
+                                                                cleanItem = cleanItem.replace(/(\d{1,3}(\.\d{3})*)(\.|.-)\s*TL/gi, '$1 TL');
+                                                                // Remove trailing "PARA CEZASI" redundancy
+                                                                cleanItem = cleanItem.replace(/\s+PARA CEZASI/gi, '');
+
+                                                                if (!cleanItem) return null;
+
+                                                                return (
+                                                                    <li key={idx} className="text-xs font-bold text-red-700 dark:text-red-400 flex items-start gap-2">
+                                                                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
+                                                                        <span className="uppercase leading-normal">{cleanItem}</span>
+                                                                    </li>
+                                                                );
+                                                            })}
+                                                        </ul>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -641,25 +670,25 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                 </div>
 
                 {/* Info Bar (Referee, VAR, VAR Result) */}
-                <div className="bg-muted/30 border-b border-border px-3 py-1.5 flex justify-between gap-4">
+                <div className="bg-muted/30 border-b border-border px-2 md:px-3 py-1.5 flex justify-between gap-1 md:gap-4">
                     {/* Column 1: Referee */}
                     <div className="flex-1 text-center border-r border-border pr-2">
-                        <span className="block text-[8px] text-muted-foreground font-bold uppercase mb-0.5">HAKEM</span>
-                        <span className="block text-[10px] text-foreground font-bold leading-none truncate">{refereeDecision || '-'}</span>
+                        <span className="block text-[7px] md:text-[8px] text-muted-foreground font-bold uppercase mb-0.5">HAKEM</span>
+                        <span className="block text-[9px] md:text-[10px] text-foreground font-bold leading-none truncate">{refereeDecision || '-'}</span>
                     </div>
 
                     {/* Column 2: VAR Recommendation */}
                     <div className="flex-1 text-center border-r border-border px-2">
-                        <span className="block text-[8px] text-blue-600 dark:text-blue-400 font-bold uppercase mb-0.5">VAR</span>
-                        <span className="block text-[10px] text-blue-700 dark:text-blue-300 font-bold leading-none truncate">
+                        <span className="block text-[7px] md:text-[8px] text-blue-600 dark:text-blue-400 font-bold uppercase mb-0.5">VAR</span>
+                        <span className="block text-[9px] md:text-[10px] text-blue-700 dark:text-blue-300 font-bold leading-none truncate">
                             {varRecommendation ? (varRecMap[varRecommendation] || varRecommendation) : '-'}
                         </span>
                     </div>
 
                     {/* Column 3: VAR Result */}
                     <div className="flex-1 text-center pl-2">
-                        <span className="block text-[8px] text-purple-600 dark:text-purple-400 font-bold uppercase mb-0.5">VAR SONUCU</span>
-                        <span className="block text-[10px] text-purple-700 dark:text-purple-300 font-bold leading-none truncate">{varDecision || '-'}</span>
+                        <span className="block text-[7px] md:text-[8px] text-purple-600 dark:text-purple-400 font-bold uppercase mb-0.5">VAR SONUCU</span>
+                        <span className="block text-[9px] md:text-[10px] text-purple-700 dark:text-purple-300 font-bold leading-none truncate">{varDecision || '-'}</span>
                     </div>
                 </div>
 

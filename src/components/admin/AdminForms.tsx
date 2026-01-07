@@ -134,41 +134,40 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const payload = prepareMatchForSave(match);
+
+        let activeId = match.id;
+
+        // Auto-Generate ID if missing
+        if (!activeId) {
+            if (match.homeTeamId && match.awayTeamId && match.date) {
+                const d = new Date(match.date);
+                if (!isNaN(d.getTime())) {
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    activeId = `week${match.week || 1}-${match.homeTeamId}-${match.awayTeamId}-${yyyy}-${mm}-${dd}`;
+                    setMatch(prev => ({ ...prev, id: activeId }));
+                }
+            }
+        }
+
+        if (!activeId) return alert('Lütfen önce Maç ID giriniz (veya verileri yapıştırınız).');
+
+        const payload = prepareMatchForSave({ ...match, id: activeId });
         const res = await fetch('/api/admin/matches', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
             body: JSON.stringify(payload),
         });
         if (res.ok) {
-            alert('Maç Başarıyla Kaydedildi! ✅');
+            alert(`Maç Başarıyla Kaydedildi! ✅\nID: ${activeId}`);
         } else {
             const err = await res.json();
             alert(`Hata: ${err.error}\n${JSON.stringify(err.details || '', null, 2)}`);
         }
     };
 
-    const handleQuickSave = async () => {
-        if (!match.id) return alert('Lütfen önce Maç ID giriniz.');
 
-        try {
-            const payload = prepareMatchForSave(match);
-            const res = await fetch('/api/admin/matches', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
-                body: JSON.stringify(payload),
-            });
-            if (res.ok) {
-                alert('Veriler başarıyla kaydedildi! ✅');
-            } else {
-                const err = await res.json();
-                alert(`Kaydetme Hatası: ${err.error}\n${JSON.stringify(err.details || '', null, 2)}`);
-            }
-        } catch (error) {
-            console.error(error);
-            alert('Ağ hatası oluştu');
-        }
-    };
 
     const handleLoad = async () => {
         if (!match.id) return alert('Lütfen Maç ID giriniz');
@@ -235,7 +234,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                 // 3. Stats Raw
                 let stats = '';
                 if (data.stats) {
-                    const m = {
+                    const m: Record<string, string> = {
                         'Topla Oynama': 'Possession', 'Toplam Şut': 'Shots', 'Kaleyi Bulan Şut': 'ShotsOnTarget',
                         'Net Gol Şansı': 'BigChances', 'Köşe Vuruşu': 'Corners', 'Ofsayt': 'Offsides',
                         'Kurtarışlar': 'Saves', 'Fauller': 'Fouls', 'Sarı Kart': 'YellowCards', 'Kırmızı Kart': 'RedCards'
@@ -291,28 +290,38 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
         }
     };
 
+    // Updated Auto-Fill to support w1galfen -> week1-gal-fen-YYYY-MM-DD
     const handleAutoFillFromId = () => {
         const idInput = (match.id || '').toLowerCase().trim();
         if (!idInput) return;
 
-        // Supported patterns: weekN-home-away or home-away
-        const parts = idInput.split('-');
-        if (parts.length < 2) return;
-
-        let weekVal = match.week;
+        let weekVal = match.week || 1;
         let homeStr = '';
         let awayStr = '';
-        let isWeekPrefixed = false;
+        let dateStr = ''; // YYYY-MM-DD
 
-        if (parts[0].startsWith('week')) {
-            const possibleWeek = parseInt(parts[0].replace('week', ''));
-            if (!isNaN(possibleWeek)) weekVal = possibleWeek;
-            homeStr = parts[1];
-            awayStr = parts[2] || '';
-            isWeekPrefixed = true;
+        // Pattern 1: w{Week}{Home}{Away} (e.g. w1galfen or w12galfen)
+        // Heuristic: "w" + digits + 3 chars + 3 chars
+        const shortcodeMatch = idInput.match(/^w(\d+)([a-z]{3})([a-z]{3})$/);
+
+        if (shortcodeMatch) {
+            weekVal = parseInt(shortcodeMatch[1]);
+            homeStr = shortcodeMatch[2];
+            awayStr = shortcodeMatch[3];
         } else {
-            homeStr = parts[0];
-            awayStr = parts[1] || '';
+            // Pattern 2: Standard week1-gal-fen...
+            const parts = idInput.split('-');
+            if (parts.length >= 2) {
+                if (parts[0].startsWith('week')) {
+                    const w = parseInt(parts[0].replace('week', ''));
+                    if (!isNaN(w)) weekVal = w;
+                    homeStr = parts[1];
+                    awayStr = parts[2] || '';
+                } else {
+                    homeStr = parts[0];
+                    awayStr = parts[1] || '';
+                }
+            }
         }
 
         const updates: any = { week: weekVal };
@@ -337,13 +346,28 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
             }
         }
 
-        // Reconstruct ID using long names if resolved
-        let finalId = isWeekPrefixed ? `week${weekVal}` : '';
-        if (finalHomeId) finalId += (finalId ? '-' : '') + finalHomeId;
-        if (finalAwayId) finalId += (finalId ? '-' : '') + finalAwayId;
+        // Try to append Date if available in Match state
+        if (match.date) {
+            const d = new Date(match.date);
+            if (!isNaN(d.getTime())) {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                dateStr = `${year}-${month}-${day}`;
+            }
+        }
+
+        // Reconstruct ID
+        let finalId = `week${weekVal}`;
+        if (finalHomeId) finalId += `-${finalHomeId}`;
+        if (finalAwayId) finalId += `-${finalAwayId}`;
+
+        // Append date if we have a valid 3-part ID already
+        if (finalHomeId && finalAwayId && dateStr) {
+            finalId += `-${dateStr}`;
+        }
 
         updates.id = finalId;
-
         setMatch(prev => ({ ...prev, ...updates }));
     };
 
@@ -480,90 +504,37 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
 
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Tarih (GG.AA.YYYY SS:DD)</label>
-                        <input type="text"
-                            placeholder="GG.AA.YYYY SS:DD"
-                            className="border border-slate-200 p-2 w-full rounded text-sm bg-white font-mono"
-                            value={localDate}
-                            onChange={() => { }} // Controlled via onKeyDown for masking
-                            onKeyDown={e => {
-                                if (['Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) return;
-                                e.preventDefault();
-                                const input = e.currentTarget;
-                                let start = input.selectionStart || 0;
-                                let end = input.selectionEnd || 0;
-                                let currentStr = localDate || "00.00.0000 00:00";
-                                if (e.key === 'Backspace') {
-                                    let pos = start;
-                                    if (start === end) pos = Math.max(0, start - 1);
 
-                                    // Map of fixed characters in "DD.MM.YYYY HH:MM"
-                                    const mask = "__.__.____ __:__";
-                                    const fixedIndices = [2, 5, 10, 13];
+            </div>
 
-                                    if (pos >= 0) {
-                                        let newStr = currentStr.split('');
-                                        // If position is a fixed character, jump back to the previous digit
-                                        while (pos >= 0 && fixedIndices.includes(pos)) {
-                                            pos--;
-                                        }
-
-                                        if (pos >= 0) {
-                                            newStr[pos] = '0';
-                                            const finalStr = newStr.join('');
-                                            setLocalDate(finalStr);
-
-                                            const parsed = finalStr.match(/^(\d{2})\.(\d{2})\.(\d{4})\s(\d{2}):(\d{2})$/);
-                                            if (parsed) {
-                                                const [, d, m, y, h, min] = parsed;
-                                                const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), parseInt(h), parseInt(min));
-                                                if (!isNaN(dateObj.getTime())) setMatch(prev => ({ ...prev, date: dateObj.toISOString() }));
-                                            }
-                                            setTimeout(() => { input.selectionStart = input.selectionEnd = pos; }, 0);
-                                        }
-                                    }
-                                    return;
-                                }
-                                if (/\d/.test(e.key)) {
-                                    let pos = start;
-                                    const fixedIndices = [2, 5, 10, 13];
-
-                                    // Skip fixed characters
-                                    while (pos < currentStr.length && fixedIndices.includes(pos)) {
-                                        pos++;
-                                    }
-
-                                    if (pos < currentStr.length) {
-                                        let newStr = currentStr.split('');
-                                        newStr[pos] = e.key;
-                                        const finalStr = newStr.join('');
-                                        setLocalDate(finalStr);
-
-                                        const parsed = finalStr.match(/^(\d{2})\.(\d{2})\.(\d{4})\s(\d{2}):(\d{2})$/);
-                                        if (parsed) {
-                                            const [, d, m, y, h, min] = parsed;
-                                            const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), parseInt(h), parseInt(min));
-                                            if (!isNaN(dateObj.getTime())) setMatch(prev => ({ ...prev, date: dateObj.toISOString() }));
-                                        }
-
-                                        let nextPos = pos + 1;
-                                        while (nextPos < currentStr.length && fixedIndices.includes(nextPos)) {
-                                            nextPos++;
-                                        }
-                                        setTimeout(() => { input.selectionStart = input.selectionEnd = nextPos; }, 0);
+            {/* Smart Paste Section */}
+            <div className="bg-blue-50 p-3 rounded mb-4 border border-blue-100 relative">
+                <div className="flex justify-between items-center mb-1">
+                    <h4 className="font-bold text-xs text-blue-800 uppercase">Hızlı Veri Girişi (TFF Kopyala-Yapıştır)</h4>
+                    <div className="flex items-center gap-1">
+                        <label className="text-[10px] text-blue-600 font-bold uppercase">Hafta:</label>
+                        <input
+                            type="number"
+                            className="w-12 text-xs p-1 border border-blue-200 rounded text-center font-bold"
+                            value={match.week || 1}
+                            onChange={(e) => {
+                                const w = parseInt(e.target.value) || 1;
+                                const updates: any = { week: w };
+                                if (match.homeTeamId && match.awayTeamId && match.date) {
+                                    const d = new Date(match.date);
+                                    if (!isNaN(d.getTime())) {
+                                        const yyyy = d.getFullYear();
+                                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                                        const dd = String(d.getDate()).padStart(2, '0');
+                                        updates.id = `week${w}-${match.homeTeamId}-${match.awayTeamId}-${yyyy}-${mm}-${dd}`;
                                     }
                                 }
+                                setMatch({ ...match, ...updates });
                             }}
                         />
                     </div>
                 </div>
-            </div>
 
-            {/* Smart Paste Section */}
-            <div className="bg-blue-50 p-3 rounded mb-4 border border-blue-100">
-                <h4 className="font-bold text-xs text-blue-800 mb-1 uppercase">Hızlı Veri Girişi (TFF Kopyala-Yapıştır)</h4>
                 <textarea
                     className="w-full text-xs p-2 border rounded h-24 font-mono text-gray-700"
                     placeholder="TFF sayfasından maç detaylarını kopyalayıp buraya yapıştırın..."
@@ -576,16 +547,79 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                         const newMatch = { ...match };
                         if (!newMatch.officials) newMatch.officials = { referees: [], varReferees: [], observers: [], representatives: [] };
 
-                        // Reset lists to avoid duplicates on re-paste
-                        newMatch.officials.referees = ['', '', '', '']; // Main, Asst1, Asst2, 4th
+                        // Reset lists
+                        newMatch.officials.referees = ['', '', '', ''];
                         newMatch.officials.varReferees = [];
                         newMatch.officials.observers = [];
                         newMatch.officials.representatives = [];
 
                         const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
+                        let foundHomeId = '';
+                        let foundAwayId = '';
+                        let foundDate = null;
+                        let foundStadium = '';
+
+                        // Stage 1: Try to find a specific "Home - Away" line first (Strong Signal)
+                        for (const line of lines) {
+                            if (line.includes(' - ') || line.includes(' vs ')) {
+                                const sep = line.includes(' - ') ? ' - ' : ' vs ';
+                                const parts = line.split(sep);
+                                if (parts.length === 2) {
+                                    const hId = resolveTeamId(parts[0]);
+                                    const aId = resolveTeamId(parts[1]);
+                                    if (hId && aId) {
+                                        foundHomeId = hId;
+                                        foundAwayId = aId;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Stage 2: If Stage 1 failed, scan ALL lines for team names (Weak Signal)
+                        if (!foundHomeId || !foundAwayId) {
+                            const foundTeams = new Set<string>();
+                            lines.forEach(line => {
+                                // Avoid lines that look like officials or dates
+                                if (line.includes('(Hakem)') || line.match(/\d{2}\.\d{2}\.\d{4}/)) return;
+
+                                // Try to resolve the whole line (e.g. "Göztepe")
+                                // or parts of it? resolveTeamId handles fuzzy containment.
+                                const tId = resolveTeamId(line);
+                                if (tId) foundTeams.add(tId);
+                            });
+
+                            if (foundTeams.size === 2) {
+                                const arr = Array.from(foundTeams);
+                                // Heuristic: First found in text is likely Home
+                                // But Set iteration order matches insertion order usually.
+                                // Let's re-scan to be sure of order
+                                const orderedTeams: string[] = [];
+                                lines.forEach(line => {
+                                    const tId = resolveTeamId(line);
+                                    if (tId && foundTeams.has(tId) && !orderedTeams.includes(tId)) {
+                                        orderedTeams.push(tId);
+                                    }
+                                });
+
+                                if (orderedTeams.length === 2) {
+                                    foundHomeId = orderedTeams[0];
+                                    foundAwayId = orderedTeams[1];
+                                }
+                            }
+                        }
+
+                        // Apply Teams if found
+                        if (foundHomeId && foundAwayId) {
+                            newMatch.homeTeamId = foundHomeId;
+                            newMatch.homeTeamName = getTeamName(foundHomeId);
+                            newMatch.awayTeamId = foundAwayId;
+                            newMatch.awayTeamName = getTeamName(foundAwayId);
+                        }
+
                         lines.forEach(line => {
-                            // Date Detection (e.g. 8.08.2025 - 21:30)
+                            // Date Detection (e.g. 08.07.2025 - 21:00)
                             if (line.match(/\d{1,2}\.\d{1,2}\.\d{4}/)) {
                                 const parts = line.split('-');
                                 if (parts.length > 0) {
@@ -596,19 +630,12 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                                     const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
                                     if (!isNaN(d.getTime())) {
                                         newMatch.date = d.toISOString();
+                                        foundDate = d;
                                     }
                                 }
                             }
-                            // Stadium Detection (Heuristic: Ends with STADYUMU/STADI/PARK/ARENA or contains " - " separator for City)
-                            else if (line.includes('STADYUMU') || line.includes('STADI') || line.includes('PARK') || line.includes('ARENA') || (line.includes(' - ') && !line.match(/\d{1,2}\.\d{1,2}\./))) {
-                                if (line.includes(' - ')) {
-                                    // TFF format: "VENUE NAME - CITY - DISTRICT" -> Take first part
-                                    newMatch.stadium = line.split(' - ')[0].trim();
-                                } else {
-                                    newMatch.stadium = line.split('-')[0].trim();
-                                }
-                            }
-                            // Officials Parsing
+
+                            // Official Parsing
                             else if (line.includes('(Hakem)')) {
                                 newMatch.referee = line.replace('(Hakem)', '').trim();
                                 newMatch.officials!.referees[0] = newMatch.referee;
@@ -635,49 +662,36 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                             else if (line.includes('(Temsilci)')) {
                                 newMatch.officials!.representatives.push(line.replace('(Temsilci)', '').trim());
                             }
+                            // Stadium Detection
+                            else if (line.includes('STADYUMU') || line.includes('STADI') || line.includes('PARK') || line.includes('ARENA')) {
+                                if (line.includes(' - ')) {
+                                    newMatch.stadium = line.split(' - ')[0].trim();
+                                } else {
+                                    newMatch.stadium = line.trim();
+                                }
+                            }
                         });
 
-                        // --- REFORMAT TO CLEAN STRUCTURE (Per User Request) ---
-                        // Only reformat if we have at least partial data to avoid overwriting user typing too aggressively
-                        if (newMatch.date || newMatch.stadium || newMatch.referee) {
-                            let cleanText = '';
+                        // ID GENERATION (Immediate)
+                        const activeWeek = match.week || 1; // Use current state week (from input)
+                        if (activeWeek && newMatch.homeTeamId && newMatch.awayTeamId && newMatch.date) {
+                            const d = new Date(newMatch.date);
+                            const yyyy = d.getFullYear();
+                            const mm = String(d.getMonth() + 1).padStart(2, '0');
+                            const dd = String(d.getDate()).padStart(2, '0');
 
-                            // 1. Date (DD.MM.YYYY - HH:MM)
-                            if (newMatch.date) {
-                                const d = new Date(newMatch.date);
-                                const fDay = String(d.getDate()).padStart(2, '0');
-                                const fMonth = String(d.getMonth() + 1).padStart(2, '0');
-                                const fYear = d.getFullYear();
-                                const fHour = String(d.getHours()).padStart(2, '0');
-                                const fMin = String(d.getMinutes()).padStart(2, '0');
-                                cleanText += `${fDay}.${fMonth}.${fYear} - ${fHour}:${fMin}\n`;
-                            }
-
-                            // 2. Stadium
-                            if (newMatch.stadium) cleanText += `${newMatch.stadium}\n`;
-
-                            // 3. Officials
-                            if (newMatch.officials) {
-                                const { referees, varReferees, observers, representatives } = newMatch.officials;
-                                if (referees[0]) cleanText += `${referees[0]} (Hakem)\n`;
-                                if (referees[1]) cleanText += `${referees[1]} (1. Yardımcı Hakem)\n`;
-                                if (referees[2]) cleanText += `${referees[2]} (2. Yardımcı Hakem)\n`;
-                                if (referees[3]) cleanText += `${referees[3]} (Dördüncü Hakem)\n`;
-
-                                varReferees.forEach((v, i) => cleanText += `${v} ${i === 0 ? '(VAR)' : '(AVAR)'}\n`);
-                                observers.forEach(o => cleanText += `${o} (Gözlemci)\n`);
-                                representatives.forEach(r => cleanText += `${r} (Temsilci)\n`);
-                            }
-
-                            setTffRaw(cleanText.trim());
+                            const newId = `week${activeWeek}-${newMatch.homeTeamId}-${newMatch.awayTeamId}-${yyyy}-${mm}-${dd}`;
+                            newMatch.id = newId;
                         }
+
+                        // Reformat TFF Raw to be clean
+                        // We will just keep user's input for now or do minimal cleaning,
+                        // as aggressive cleaning might be annoying while typing.
 
                         setMatch(newMatch);
                     }}
                 />
-                <button type="button" onClick={handleQuickSave} className="w-full bg-blue-100 text-blue-800 text-xs font-bold py-1 rounded hover:bg-blue-200 mt-1">
-                    Bilgileri Kaydet 💾
-                </button>
+
             </div>
 
             {/* Lineup Paste Section */}
@@ -695,8 +709,95 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                         const newMatch = { ...match };
                         if (!newMatch.lineups) newMatch.lineups = { home: [], away: [], homeSubs: [], awaySubs: [], homeCoach: '', awayCoach: '' };
 
-                        // --- ROBUST TOKENIZER & PARSER ---
                         const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+                        // --- TOKENIZER & PARSER ---
+                        // 1. Identity Detection (Teams & Date) - Allowing Lineup Paste to Initialize Match
+                        let foundHomeId = '';
+                        let foundAwayId = '';
+                        let foundDate = null;
+
+                        // Stage 1: Try to find "Home - Away" (Unlikely in lineup text, but possible)
+                        for (const line of lines) {
+                            if (line.includes(' - ') || line.includes(' vs ')) {
+                                const sep = line.includes(' - ') ? ' - ' : ' vs ';
+                                const parts = line.split(sep);
+                                if (parts.length === 2) {
+                                    const hId = resolveTeamId(parts[0]);
+                                    const aId = resolveTeamId(parts[1]);
+                                    if (hId && aId) {
+                                        foundHomeId = hId;
+                                        foundAwayId = aId;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Stage 2: Scan for any team Names (Common in Lineup headers)
+                        if (!foundHomeId || !foundAwayId) {
+                            const foundTeams = new Set<string>();
+                            const orderedTeams: string[] = [];
+
+                            lines.forEach(line => {
+                                // Skip obvious non-team lines
+                                if (line.match(/\d+/) || line.includes('Teknik') || line.includes('Yedekler')) return;
+
+                                const tId = resolveTeamId(line);
+                                if (tId && !foundTeams.has(tId)) {
+                                    foundTeams.add(tId);
+                                    orderedTeams.push(tId);
+                                }
+                            });
+
+                            if (orderedTeams.length >= 2) {
+                                // Assume first two unique teams found are Home and Away
+                                foundHomeId = orderedTeams[0];
+                                foundAwayId = orderedTeams[1];
+                            }
+                        }
+
+                        // Stage 3: Date Detection
+                        lines.forEach(line => {
+                            if (line.match(/\d{1,2}\.\d{1,2}\.\d{4}/)) {
+                                const parts = line.split('-'); // Try split by - or space
+                                const datePart = parts[0].trim(); // First part usually date
+                                const [day, month, year] = datePart.split('.');
+                                // Try finding time
+                                let hour = '00', minute = '00';
+                                const timeMatch = line.match(/(\d{2}):(\d{2})/);
+                                if (timeMatch) {
+                                    hour = timeMatch[1];
+                                    minute = timeMatch[2];
+                                }
+
+                                const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+                                if (!isNaN(d.getTime())) {
+                                    newMatch.date = d.toISOString();
+                                }
+                            }
+                        });
+
+
+                        if (foundHomeId && foundAwayId) {
+                            newMatch.homeTeamId = foundHomeId;
+                            newMatch.homeTeamName = getTeamName(foundHomeId);
+                            newMatch.awayTeamId = foundAwayId;
+                            newMatch.awayTeamName = getTeamName(foundAwayId);
+                        }
+
+                        // Auto-ID Logic
+                        const activeWeek = match.week || 1;
+                        if (activeWeek && newMatch.homeTeamId && newMatch.awayTeamId && newMatch.date) {
+                            const d = new Date(newMatch.date);
+                            const yyyy = d.getFullYear();
+                            const mm = String(d.getMonth() + 1).padStart(2, '0');
+                            const dd = String(d.getDate()).padStart(2, '0');
+                            const newId = `week${activeWeek}-${newMatch.homeTeamId}-${newMatch.awayTeamId}-${yyyy}-${mm}-${dd}`;
+                            newMatch.id = newId;
+                        }
+
+                        // --- ROBUST PLAYER PARSER ---
                         const homeXI: any[] = [];
                         const awayXI: any[] = [];
                         const homeSubs: any[] = [];
@@ -706,7 +807,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
 
                         let section = 'xi'; // xi, subs, coach
 
-                        // State Machine Data
+                        // ... (Rest of the player parser state machine)
                         let buffer = {
                             hNum: null as string | null,
                             hName: null as string | null,
@@ -730,10 +831,13 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                             buffer = { hNum: null, hName: null, aName: null };
                         };
 
-                        // 1. ITERATE LINES
+                        // 1. ITERATE LINES (Player Parsing)
                         for (let i = 0; i < lines.length; i++) {
                             const line = lines[i];
                             const lower = line.toLowerCase();
+
+                            // Skip lines that were likely identified as Team Names (heuristic) if we want? 
+                            // Actually, let's just let the parser run, it filters headers usually.
 
                             // Section switching
                             if (lower.includes('yedekler')) {
@@ -834,9 +938,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                     <span>Tespit Edilen İlk 11: <strong>{match.lineups?.home?.length || 0}</strong> - <strong>{match.lineups?.away?.length || 0}</strong></span>
                     <span>Yedek: <strong>{match.lineups?.homeSubs?.length || 0}</strong> - <strong>{match.lineups?.awaySubs?.length || 0}</strong></span>
                 </div>
-                <button type="button" onClick={handleQuickSave} className="w-full bg-green-100 text-green-800 text-xs font-bold py-1 rounded hover:bg-green-200">
-                    Kadroyu Kaydet 💾
-                </button>
+
             </div>
 
 
@@ -857,14 +959,24 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                         const newMatch = { ...match };
                         if (!newMatch.stats) newMatch.stats = {} as MatchStats;
 
-                        // Normalize text for easier parsing: remove labels' colons and trim
-                        const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+                        // Define map first so we can use keys for pre-processing
                         const map: Record<string, string> = {
                             'Topla Oynama': 'Possession', 'Toplam Şut': 'Shots', 'Kaleyi Bulan Şut': 'ShotsOnTarget',
                             'İsabetli Şut': 'ShotsOnTarget', 'Net Gol Şansı': 'BigChances', 'Köşe Vuruşu': 'Corners',
                             'Ofsayt': 'Offsides', 'Kurtarışlar': 'Saves', 'Kurtarış': 'Saves', 'Fauller': 'Fouls',
                             'Faul': 'Fouls', 'Sarı Kart': 'YellowCards', 'Kırmızı Kart': 'RedCards'
                         };
+
+                        // Pre-Process: Separate merged values/keys (e.g. "0Topla Oynama" -> "0\nTopla Oynama")
+                        let processed = text;
+                        Object.keys(map).forEach(key => {
+                            // Regex: Look for (Digit or %) followed immediately by the Key
+                            const regex = new RegExp(`(\\d|%)(${key})`, 'g');
+                            processed = processed.replace(regex, '$1\n$2');
+                        });
+
+                        // Normalize text
+                        const lines = processed.split('\n').map(l => l.trim()).filter(l => l);
 
                         const values: Record<string, string[]> = {};
 
@@ -937,9 +1049,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: BaseProps) => {
                         setMatch(newMatch);
                     }}
                 />
-                <button type="button" onClick={handleQuickSave} className="w-full bg-orange-100 text-orange-800 text-xs font-bold py-1 rounded hover:bg-orange-200 mt-1">
-                    İstatistikleri Kaydet 💾
-                </button>
+
             </div>
 
             <div className="border-t pt-2 mt-2">

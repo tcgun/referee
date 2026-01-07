@@ -9,125 +9,183 @@ interface BaseProps {
 }
 
 export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
-    const [standing, setStanding] = useState<Partial<Standing>>({
-        id: '', rank: 1, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0
-    });
-    const [standings, setStandings] = useState<Standing[]>([]);
+    // Array of 18 items
+    const [gridItems, setGridItems] = useState<Standing[]>([]);
     const [loading, setLoading] = useState(false);
 
+    // Initial Fetch
+    useEffect(() => {
+        fetchStandings();
+    }, []);
+
     const fetchStandings = async () => {
+        setLoading(true);
         try {
             const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
             const { db } = await import('@/firebase/client');
             const q = query(collection(db, 'standings'), orderBy('rank', 'asc'));
             const snap = await getDocs(q);
-            setStandings(snap.docs.map(d => ({ ...d.data(), id: d.id } as Standing)));
-        } catch (e) {
-            console.error(e);
-        }
-    };
 
-    useEffect(() => {
-        fetchStandings();
-    }, []);
+            const fetched = snap.docs.map(d => ({ ...d.data(), id: d.id } as Standing));
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const res = await fetch('/api/admin/standings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
-            body: JSON.stringify({ ...standing, teamName: standing.id }),
-        });
-        if (res.ok) {
-            alert('Puan Durumu Güncellendi!');
-            fetchStandings();
-            setStanding({ id: '', rank: (standing.rank || 0) + 1, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0 });
-        }
-        else alert('Hata oluştu');
-    };
-
-    const handleEdit = (s: Standing) => {
-        setStanding(s);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    const handleDelete = async (id: string) => {
-        if (!confirm('Silmek istediğinize emin misiniz?')) return;
-        try {
-            const res = await fetch(`/api/admin/standings?id=${id}`, {
-                method: 'DELETE',
-                headers: { 'x-admin-key': apiKey }
-            });
-            if (res.ok) {
-                alert('Silindi');
-                fetchStandings();
+            // Fill up to 18 items
+            const fullGrid: Standing[] = [];
+            for (let i = 0; i < 18; i++) {
+                if (fetched[i]) {
+                    fullGrid.push(fetched[i]);
+                } else {
+                    // Empty slot
+                    fullGrid.push({
+                        id: '', rank: i + 1, teamName: '',
+                        played: 0, won: 0, drawn: 0, lost: 0,
+                        goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0
+                    });
+                }
             }
+            setGridItems(fullGrid);
         } catch (e) {
             console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGridChange = (index: number, field: keyof Standing, val: any) => {
+        const newGrid = [...gridItems];
+        newGrid[index] = { ...newGrid[index], [field]: val };
+
+        // Auto-calculate Goal Diff if GF or GA changes
+        if (field === 'goalsFor' || field === 'goalsAgainst') {
+            newGrid[index].goalDiff = (newGrid[index].goalsFor || 0) - (newGrid[index].goalsAgainst || 0);
+        }
+
+        setGridItems(newGrid);
+    };
+
+    const handleSaveAll = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (!confirm('Tüm tabloyu kaydetmek istediğinize emin misiniz?')) return;
+
+        try {
+            setLoading(true);
+
+            // We'll perform sequential saving or batch, but API is single-item based for now.
+            // Let's modify the API logic or just loop client-side (easier given current setup).
+            const validItems = gridItems.filter(item => item.id && item.id.trim() !== '');
+
+            // First delete all (reset) or just upsert?
+            // Upsert is safer. But handling Rank changes relies on overwriting.
+
+            for (const item of validItems) {
+                // Ensure ID is teamName used as doc ID usually
+                // item.id should be generic ID (e.g. 'gal')
+                // item.teamName should be display name
+
+                // If ID is empty, user didn't fill it correctly
+                if (!item.id) continue;
+
+                // Make sure rank matches index+1 if strictly forced
+                const rank = gridItems.indexOf(item) + 1;
+
+                const payload = { ...item, rank, teamName: item.teamName || item.id };
+
+                await fetch('/api/admin/standings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
+                    body: JSON.stringify(payload),
+                });
+            }
+
+            alert('Tüm Tablo Kaydedildi! ✅');
+            fetchStandings(); // Reload to be clean
+
+        } catch (error) {
+            console.error(error);
+            alert('Hata oluştu.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Helper to resolve team name on blur
+    // Helper to resolve team name on blur
+    const handleIdBlur = async (index: number) => {
+        const item = gridItems[index];
+        if (item.id) {
+            const { resolveTeamId, getTeamName } = await import('@/lib/teams');
+            const resolvedId = resolveTeamId(item.id);
+            if (resolvedId) {
+                handleGridChange(index, 'id', resolvedId);
+                if (!item.teamName || item.teamName.toLowerCase() === item.id.toLowerCase()) {
+                    handleGridChange(index, 'teamName', getTeamName(resolvedId));
+                }
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const handleIdKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' || e.key === 'Tab') {
+            handleIdBlur(index);
         }
     };
 
     return (
-        <div className="space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm">
-                <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Puan Durumu Ekle / Düzenle</h3>
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                        <label className="text-xs font-bold text-gray-500">Takım Kodu (ID)</label>
-                        <input placeholder="örn: galatasaray" className="border border-gray-300 p-2 w-full rounded" value={standing.id} onChange={e => setStanding({ ...standing, id: e.target.value })} required />
-                    </div>
-
-                    <div className="space-y-1">
-                        <label className="text-xs font-bold text-gray-500">Sıralama (Rank)</label>
-                        <input type="number" placeholder="Kaçıncı sırada?" className="border border-gray-300 p-2 w-full rounded" value={standing.rank || ''} onChange={e => setStanding({ ...standing, rank: +e.target.value })} />
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-4 gap-3 pt-2">
-                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">O</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.played || ''} onChange={e => setStanding({ ...standing, played: +e.target.value })} /></div>
-                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">G</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.won || ''} onChange={e => setStanding({ ...standing, won: +e.target.value })} /></div>
-                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">B</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.drawn || ''} onChange={e => setStanding({ ...standing, drawn: +e.target.value })} /></div>
-                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">M</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.lost || ''} onChange={e => setStanding({ ...standing, lost: +e.target.value })} /></div>
-
-                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">AG</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalsFor || ''} onChange={e => setStanding({ ...standing, goalsFor: +e.target.value })} /></div>
-                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">YG</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalsAgainst || ''} onChange={e => setStanding({ ...standing, goalsAgainst: +e.target.value })} /></div>
-                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">AV</span><input type="number" className="border p-2 rounded w-full text-center" value={standing.goalDiff || ''} onChange={e => setStanding({ ...standing, goalDiff: +e.target.value })} /></div>
-                    <div className="space-y-1"><span className="text-xs text-gray-500 font-bold block text-center">P</span><input type="number" className="border p-2 rounded w-full text-center font-black bg-gray-50" value={standing.points || ''} onChange={e => setStanding({ ...standing, points: +e.target.value })} /></div>
-                </div>
-
-                <div className="flex gap-2">
-                    <button type="submit" className="flex-1 bg-purple-600 text-white p-2 rounded font-bold hover:bg-purple-700">Kaydet</button>
-                    {standing.id && (
-                        <button type="button" onClick={() => setStanding({ id: '', rank: standings.length + 1 })} className="bg-gray-200 text-gray-700 px-4 rounded font-bold">Yeni</button>
-                    )}
-                </div>
-            </form>
-
+        <div className="space-y-4">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                    <h4 className="font-bold text-xs uppercase text-slate-700">Mevcut Puan Durumu (İlk 4 Ağırlıklı)</h4>
-                    <span className="text-[10px] text-slate-500">{standings.length} Takım</span>
+                <div className="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center sticky top-0 z-10">
+                    <h4 className="font-bold text-sm uppercase text-slate-700">Canlı Puan Durumu Tablosu (18 Takım)</h4>
+                    <button onClick={() => handleSaveAll()} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded font-bold text-xs">
+                        {loading ? 'Kaydediliyor...' : 'TÜMÜNÜ KAYDET'}
+                    </button>
                 </div>
+
                 <div className="overflow-x-auto">
-                    <table className="w-full text-[11px] text-left">
-                        <thead className="bg-slate-50 text-slate-500 uppercase font-black">
+                    <table className="w-full text-xs text-left min-w-[600px]">
+                        <thead className="bg-slate-100 text-slate-500 uppercase font-bold border-b text-[10px] tracking-wider">
                             <tr>
-                                <th className="px-3 py-2">Sıra</th>
-                                <th className="px-3 py-2">Takım</th>
-                                <th className="px-3 py-2">P</th>
-                                <th className="px-3 py-2 text-right">İşlem</th>
+                                <th className="px-1 py-2 w-8 text-center bg-slate-100 sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">#</th>
+                                <th className="px-1 py-2 w-16 bg-slate-100 sticky left-8 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">KOD</th>
+                                <th className="px-1 py-2 w-auto min-w-[140px]">Takım Adı</th>
+                                <th className="px-1 py-2 w-10 text-center" title="Oynanan">O</th>
+                                <th className="px-1 py-2 w-10 text-center" title="Galibiyet">G</th>
+                                <th className="px-1 py-2 w-10 text-center" title="Beraberlik">B</th>
+                                <th className="px-1 py-2 w-10 text-center" title="Mağlubiyet">M</th>
+                                <th className="px-1 py-2 w-12 text-center" title="Averaj">AV</th>
+                                <th className="px-1 py-2 w-14 text-center bg-blue-50 text-blue-800">PUAN</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {standings.map((s, idx) => (
-                                <tr key={s.id} className={idx < 4 ? 'bg-blue-50/30' : ''}>
-                                    <td className="px-3 py-2 font-bold">{s.rank}.</td>
-                                    <td className="px-3 py-2 font-medium uppercase">{s.id}</td>
-                                    <td className="px-3 py-2 font-bold text-blue-700">{s.points}</td>
-                                    <td className="px-3 py-2 text-right space-x-2">
-                                        <button onClick={() => handleEdit(s)} className="text-blue-600 hover:text-blue-800 font-bold">Düz</button>
-                                        <button onClick={() => handleDelete(s.id)} className="text-red-500 hover:text-red-700 font-bold">Sil</button>
+                            {gridItems.map((item, i) => (
+                                <tr key={i} className={`hover:bg-blue-50/20 group ${i < 1 ? 'bg-green-50/10' : i > 15 ? 'bg-red-50/10' : ''}`}>
+                                    <td className="px-1 py-1 text-center font-bold text-slate-400 text-[10px] bg-white sticky left-0 z-10">{i + 1}</td>
+                                    <td className="px-1 py-1 bg-white sticky left-8 z-10">
+                                        <input
+                                            className="w-full border border-slate-200 rounded p-1 font-mono text-center focus:border-blue-400 focus:ring-1 focus:ring-blue-200 uppercase text-[11px] h-7"
+                                            value={item.id}
+                                            onChange={e => handleGridChange(i, 'id', e.target.value)}
+                                            onBlur={() => handleIdBlur(i)}
+                                            onKeyDown={(e) => handleIdKeyDown(i, e)}
+                                            placeholder="..."
+                                        />
                                     </td>
+                                    <td className="px-1 py-1">
+                                        <input
+                                            className="w-full border border-slate-200 rounded p-1 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 text-[11px] h-7 font-bold text-slate-700"
+                                            value={item.teamName || ''}
+                                            onChange={e => handleGridChange(i, 'teamName', e.target.value)}
+                                            placeholder="Takım Adı"
+                                        />
+                                    </td>
+                                    {/* Stats */}
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.played} onChange={e => handleGridChange(i, 'played', +e.target.value)} /></td>
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.won} onChange={e => handleGridChange(i, 'won', +e.target.value)} /></td>
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.drawn} onChange={e => handleGridChange(i, 'drawn', +e.target.value)} /></td>
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 text-[11px]" value={item.lost} onChange={e => handleGridChange(i, 'lost', +e.target.value)} /></td>
+                                    {/* AG YG Inputs Removed */}
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-slate-200 rounded p-0 h-7 bg-slate-50 font-bold text-slate-500 text-[11px]" value={item.goalDiff} onChange={e => handleGridChange(i, 'goalDiff', +e.target.value)} /></td>
+                                    <td className="px-0.5 py-1"><input type="number" className="w-full text-center border border-blue-200 rounded p-0 h-7 bg-blue-50 font-black text-blue-700 text-[11px]" value={item.points} onChange={e => handleGridChange(i, 'points', +e.target.value)} /></td>
                                 </tr>
                             ))}
                         </tbody>
@@ -182,7 +240,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
         teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
         type: 'pfdk', matchId: ''
     });
-    const [pfdkTarget, setPfdkTarget] = useState<'player' | 'staff' | 'club'>('player');
+    const [pfdkTarget, setPfdkTarget] = useState<'player' | 'staff' | 'club' | 'other'>('player');
 
     // Effect to populate form when editItem changes
     useEffect(() => {
@@ -210,6 +268,24 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
         if (finalAction.type === 'pfdk' && pfdkTarget === 'club') {
             finalAction.subject = 'Kulüp';
         }
+
+        // --- DATA CLEANING START ---
+        if (finalAction.teamName) {
+            // Import top-level or ensure cached if possible, but dynamic is fine here
+            const { resolveTeamId, getTeamName } = await import('@/lib/teams');
+            const resolvedId = resolveTeamId(finalAction.teamName);
+            if (resolvedId) {
+                finalAction.teamName = getTeamName(resolvedId);
+            }
+        }
+
+        if (finalAction.penalty) {
+            let p = finalAction.penalty.replace(/^Ceza:\s*/i, '');
+            // Matches: "40.000.-TL", "40.000.- TL", "40.000  .-  TL" etc.
+            p = p.replace(/(\d+)\s*\.-\s*TL/g, '$1 TL');
+            finalAction.penalty = p.trim();
+        }
+        // --- DATA CLEANING END ---
 
         const url = editItem ? '/api/admin/disciplinary' : '/api/admin/disciplinary';
         const method = editItem ? 'PUT' : 'POST';
@@ -249,8 +325,12 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
 
             <div className="flex gap-2 items-end">
                 <div className="flex-1 space-y-1">
-                    <label className="text-xs font-bold text-gray-500">Bağlı Maç Seçimi (Opsiyonel)</label>
-                    <MatchSelect value={action.matchId || ''} onChange={(val) => setAction({ ...action, matchId: val })} />
+                    <label className="text-xs font-bold text-gray-500">Bağlı Maç (Maçsız Sevk için boş bırakın)</label>
+                    <MatchSelect
+                        value={action.matchId || ''}
+                        onChange={(val) => setAction({ ...action, matchId: val })}
+                        className={pfdkTarget === 'other' ? 'opacity-50 pointer-events-none bg-gray-100' : ''}
+                    />
                 </div>
                 <button
                     type="button"
@@ -271,8 +351,9 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
             {action.type === 'pfdk' && (
                 <div className="flex gap-2 mb-1">
                     <button type="button" onClick={() => setPfdkTarget('player')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'player' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Futbolcu</button>
-                    <button type="button" onClick={() => setPfdkTarget('staff')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'staff' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Yönetici</button>
-                    <button type="button" onClick={() => setPfdkTarget('club')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'club' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Kulüp</button>
+                    <button type="button" onClick={() => setPfdkTarget('staff')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'staff' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Teknik/İdari</button>
+                    <button type="button" onClick={() => { setPfdkTarget('club'); setAction(prev => ({ ...prev, subject: 'Kulüp' })); }} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'club' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Kulüp</button>
+                    <button type="button" onClick={() => { setPfdkTarget('other'); setAction(prev => ({ ...prev, matchId: '' })); }} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'other' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Diğer</button>
                 </div>
             )}
 
@@ -310,12 +391,22 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
             <textarea placeholder="Sevk Nedeni (Gerekçe)" className="border border-gray-300 p-2 w-full rounded h-24" value={action.reason} onChange={e => setAction({ ...action, reason: e.target.value })} required />
 
             {action.type === 'pfdk' && (
-                <input
-                    placeholder="Verilen Ceza (Kısa Özet) - Örn: 2 Maç Men, 50.000 TL"
-                    className="border border-red-200 bg-red-50 p-2 w-full rounded text-red-800 placeholder-red-300 font-bold"
-                    value={action.penalty || ''}
-                    onChange={e => setAction({ ...action, penalty: e.target.value })}
-                />
+                <div className="relative">
+                    <textarea
+                        placeholder="Verilen Ceza (Kısa Özet) - Örn: 2 Maç Men"
+                        className="border border-red-200 bg-red-50 p-2 w-full rounded text-red-800 placeholder-red-300 font-bold min-h-[60px]"
+                        value={action.penalty || ''}
+                        onChange={e => setAction({ ...action, penalty: e.target.value })}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setAction(prev => ({ ...prev, penalty: (prev.penalty ? prev.penalty + '\n' : '') + '- ' }))}
+                        className="absolute bottom-2 right-2 bg-red-200 hover:bg-red-300 text-red-800 text-xs px-2 py-1 rounded shadow-sm"
+                        title="Yeni Satır Ekle"
+                    >
+                        + Satır
+                    </button>
+                </div>
             )}
 
             <input type="date" className="border border-gray-300 p-2 w-full rounded" value={action.date} onChange={e => setAction({ ...action, date: e.target.value })} />
@@ -456,7 +547,7 @@ export const DisciplinaryList = ({ apiKey, onEdit, refreshTrigger }: Disciplinar
                             </div>
                             <div className="text-[10px] text-gray-500 mb-1">{item.teamName ? item.teamName + ' - ' : ''} {item.date}</div>
                             <p className="text-gray-700 italic border-l-2 border-gray-300 pl-1">{item.reason}</p>
-                            {item.penalty && <p className="text-red-600 font-bold text-[10px] mt-1 bg-red-50 p-1 rounded inline-block">CEZA: {item.penalty}</p>}
+                            {item.penalty && <p className="text-red-600 font-bold text-[10px] mt-1 bg-red-50 p-1 rounded inline-block whitespace-pre-wrap">CEZA: {item.penalty}</p>}
                         </div>
                         <div className='flex flex-col gap-1 ml-2'>
                             <button onClick={() => handleDelete(item.id)} className="text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity px-2 hover:bg-red-50 rounded">Sil</button>
@@ -668,16 +759,13 @@ export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
             setStats({ ...stats, performanceNotes: newNotes });
             setEditingState(null);
         } else {
-            setStats(prev => ({
-                ...prev,
-                performanceNotes: [...(prev.performanceNotes || []), tempNote]
-            }));
+            setStats(prev => ({ ...prev, performanceNotes: [...(prev.performanceNotes || []), tempNote] }));
         }
         setTempNote('');
     };
 
     const editNote = (index: number) => {
-        setTempNote(stats.performanceNotes![index]);
+        setTempNote(stats.performanceNotes?.[index] || '');
         setEditingState({ type: 'note', index });
     };
 
@@ -691,142 +779,62 @@ export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
         }
     };
 
-    const cancelEdit = () => {
-        setEditingState(null);
-        setTempHomeError('');
-        setTempHomeMinute('');
-        setTempAwayError('');
-        setTempAwayMinute('');
-        setTempNote('');
-    };
-
     return (
-        <form onSubmit={handleSave} className={`space-y-4 p-4 border border-gray-200 rounded shadow-sm relative ${editingState ? 'bg-amber-50 border-amber-300' : 'bg-white'}`}>
-            {editingState && (
-                <div className="absolute top-2 right-2 flex gap-2">
-                    <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded">DÜZENLENİYOR ({editingState.type})</span>
-                    <button type="button" onClick={cancelEdit} className="text-[10px] font-bold text-gray-500 hover:text-gray-800 bg-gray-100 px-2 py-1 rounded">İPTAL</button>
-                </div>
-            )}
-            <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Hakem İstatistikleri & Hata Analizi</h3>
+        <form onSubmit={handleSave} className="space-y-4 p-4 border border-gray-200 bg-white rounded shadow-sm">
+            <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Hakem Karnesi & Hatalar</h3>
 
-            {/* Match ID Fetch */}
             <div className="flex gap-2 items-end">
                 <div className="flex-1 space-y-1">
                     <label className="text-xs font-bold text-gray-500">Maç Seçimi</label>
                     <MatchSelect value={matchId} onChange={setMatchId} />
                 </div>
-                <button type="button" onClick={handleFetchForEdit} className="bg-indigo-600 text-white font-bold px-3 py-2 rounded text-sm mb-0.5 hover:bg-indigo-700">Getir</button>
-                <button
-                    type="button"
-                    onClick={() => {
-                        setMatchId('');
-                        setStats({
-                            ballInPlayTime: '',
-                            fouls: 0,
-                            yellowCards: 0,
-                            redCards: 0,
-                            incorrectDecisions: 0,
-                            errorsFavoringHome: 0,
-                            errorsFavoringAway: 0,
-                            homeErrors: [],
-                            awayErrors: [],
-                            performanceNotes: []
-                        });
-                        cancelEdit();
-                    }}
-                    className="bg-gray-200 text-gray-700 font-bold px-3 py-2 rounded text-sm mb-0.5 hover:bg-gray-300"
-                >
-                    Sıfırla
+                <button type="button" onClick={handleFetchForEdit} className="bg-gray-800 text-white px-3 py-2 rounded font-bold text-sm mb-0.5">
+                    Getir
                 </button>
             </div>
 
-            {/* General Stats Grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 pb-2 border-b">
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500">Topun Oyunda Kalma Süresi</label>
-                    <input className="border border-gray-300 p-2 w-full rounded" value={stats.ballInPlayTime} onChange={e => setStats({ ...stats, ballInPlayTime: e.target.value })} />
+                    <label className="text-xs font-bold text-gray-500">Topla Oynama (dk)</label>
+                    <input placeholder="örn: 54:30" className="border border-gray-300 p-2 w-full rounded" value={stats.ballInPlayTime} onChange={e => setStats({ ...stats, ballInPlayTime: e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500">Toplam Hatalı Karar (Manuel)</label>
-                    <input type="number" className="border border-gray-300 p-2 w-full rounded" value={stats.incorrectDecisions} onChange={e => setStats({ ...stats, incorrectDecisions: +e.target.value })} />
+                    <label className="text-xs font-bold text-gray-500">Faul Sayısı</label>
+                    <input type="number" className="border border-gray-300 p-2 w-full rounded" value={stats.fouls} onChange={e => setStats({ ...stats, fouls: +e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-yellow-600">Sarı Kartlar</label>
+                    <label className="text-xs font-bold text-gray-500">Sarı Kart</label>
                     <input type="number" className="border border-gray-300 p-2 w-full rounded" value={stats.yellowCards} onChange={e => setStats({ ...stats, yellowCards: +e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-red-600">Kırmızı Kartlar</label>
+                    <label className="text-xs font-bold text-gray-500">Kırmızı Kart</label>
                     <input type="number" className="border border-gray-300 p-2 w-full rounded" value={stats.redCards} onChange={e => setStats({ ...stats, redCards: +e.target.value })} />
                 </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500">Toplam Faul</label>
-                    <input type="number" className="border border-gray-300 p-2 w-full rounded" value={stats.fouls} onChange={e => setStats({ ...stats, fouls: +e.target.value })} />
+                <div className="space-y-1 col-span-2">
+                    <label className="text-xs font-bold text-gray-500">Toplam Hatalı Karar (Otomatik Paketlenir)</label>
+                    <input type="number" className="border border-gray-300 p-2 w-full rounded bg-gray-100" readOnly value={(stats.homeErrors?.length || 0) + (stats.awayErrors?.length || 0)} />
                 </div>
             </div>
 
-            {/* NOTES SECTION */}
-            <div className="space-y-2 bg-blue-50 p-3 rounded border border-blue-200">
-                <div className="flex justify-between items-center border-b border-blue-200 pb-1">
-                    <label className="text-xs font-bold text-blue-700 uppercase">Maç / Hakem Notları</label>
-                </div>
-                <div className="flex gap-1">
-                    <input
-                        placeholder="Not ekle (Otomatik BÜYÜK HARF)..."
-                        className="border border-blue-300 p-1 w-full rounded text-xs"
-                        value={tempNote}
-                        onChange={e => setTempNote(toUpper(e.target.value))}
-                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addNote())}
-                    />
-                    <button type="button" onClick={addNote} className="bg-blue-600 text-white text-xs px-2 rounded font-bold">
-                        {editingState?.type === 'note' ? 'Güzenle' : '+'}
-                    </button>
-                </div>
-                <ul className="space-y-1 max-h-32 overflow-y-auto">
-                    {stats.performanceNotes?.map((note, i) => (
-                        <li key={i} className="text-[10px] bg-white border border-blue-100 p-1 rounded flex justify-between items-center group">
-                            <span>{note}</span>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                                <button type="button" onClick={() => editNote(i)} className="text-blue-500 font-bold px-1">✎</button>
-                                <button type="button" onClick={() => removeNote(i)} className="text-red-500 font-bold px-1">X</button>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-
-            {/* Errors Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-3 rounded border border-gray-200">
+            {/* Error Lists */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Home Stats */}
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center border-b pb-1">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Ev Sahibi Lehine ({stats.errorsFavoringHome})</label>
-                    </div>
-                    <div className="flex gap-1">
-                        <input
-                            placeholder="Dk"
-                            className="border border-gray-300 p-1 w-12 rounded text-xs text-center"
-                            value={tempHomeMinute}
-                            onChange={e => setTempHomeMinute(toUpper(e.target.value))}
-                        />
-                        <input
-                            placeholder="Hata açıklaması..."
-                            className="border border-gray-300 p-1 w-full rounded text-xs"
-                            value={tempHomeError}
-                            onChange={e => setTempHomeError(toUpper(e.target.value))}
-                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addHomeError())}
-                        />
-                        <button type="button" onClick={addHomeError} className="bg-gray-800 text-white text-xs px-2 rounded font-bold">
-                            {editingState?.type === 'homeError' ? '✎' : '+'}
+                <div className="bg-orange-50 p-3 rounded border border-orange-100">
+                    <h4 className="font-bold text-orange-800 text-sm mb-2 border-b border-orange-200 pb-1">Ev Sahibi Aleyhine Hata</h4>
+                    <div className="flex gap-1 mb-2">
+                        <input placeholder="Dk" className="w-12 border p-1 text-sm rounded" value={tempHomeMinute} onChange={e => setTempHomeMinute(e.target.value)} />
+                        <input placeholder="Hata detayı..." className="flex-1 border p-1 text-sm rounded" value={tempHomeError} onChange={e => setTempHomeError(e.target.value)} />
+                        <button type="button" onClick={addHomeError} className="bg-orange-600 text-white px-2 py-1 rounded text-xs font-bold">
+                            {editingState?.type === 'homeError' ? 'Ok' : '+'}
                         </button>
                     </div>
-                    <ul className="space-y-1 max-h-32 overflow-y-auto">
-                        {stats.homeErrors?.map((err, i) => (
-                            <li key={i} className="text-[10px] bg-white border p-1 rounded flex justify-between items-center group">
+                    <ul className="space-y-1 max-h-40 overflow-y-auto">
+                        {(stats.homeErrors || []).map((err, i) => (
+                            <li key={i} className="text-xs text-gray-700 bg-white p-1 rounded border flex justify-between items-center group">
                                 <span>{err}</span>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                                    <button type="button" onClick={() => editHomeError(i)} className="text-blue-500 font-bold px-1">✎</button>
-                                    <button type="button" onClick={() => removeHomeError(i)} className="text-red-500 font-bold px-1">X</button>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button type="button" onClick={() => editHomeError(i)} className="text-blue-500 font-bold px-1">D</button>
+                                    <button type="button" onClick={() => removeHomeError(i)} className="text-red-500 font-bold px-1">Sil</button>
                                 </div>
                             </li>
                         ))}
@@ -834,35 +842,22 @@ export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
                 </div>
 
                 {/* Away Stats */}
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center border-b pb-1">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Deplasman Lehine ({stats.errorsFavoringAway})</label>
-                    </div>
-                    <div className="flex gap-1">
-                        <input
-                            placeholder="Dk"
-                            className="border border-gray-300 p-1 w-12 rounded text-xs text-center"
-                            value={tempAwayMinute}
-                            onChange={e => setTempAwayMinute(toUpper(e.target.value))}
-                        />
-                        <input
-                            placeholder="Hata açıklaması..."
-                            className="border border-gray-300 p-1 w-full rounded text-xs"
-                            value={tempAwayError}
-                            onChange={e => setTempAwayError(toUpper(e.target.value))}
-                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAwayError())}
-                        />
-                        <button type="button" onClick={addAwayError} className="bg-gray-800 text-white text-xs px-2 rounded font-bold">
-                            {editingState?.type === 'awayError' ? '✎' : '+'}
+                <div className="bg-blue-50 p-3 rounded border border-blue-100">
+                    <h4 className="font-bold text-blue-800 text-sm mb-2 border-b border-blue-200 pb-1">Deplasman Aleyhine Hata</h4>
+                    <div className="flex gap-1 mb-2">
+                        <input placeholder="Dk" className="w-12 border p-1 text-sm rounded" value={tempAwayMinute} onChange={e => setTempAwayMinute(e.target.value)} />
+                        <input placeholder="Hata detayı..." className="flex-1 border p-1 text-sm rounded" value={tempAwayError} onChange={e => setTempAwayError(e.target.value)} />
+                        <button type="button" onClick={addAwayError} className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold">
+                            {editingState?.type === 'awayError' ? 'Ok' : '+'}
                         </button>
                     </div>
-                    <ul className="space-y-1 max-h-32 overflow-y-auto">
-                        {stats.awayErrors?.map((err, i) => (
-                            <li key={i} className="text-[10px] bg-white border p-1 rounded flex justify-between items-center group">
+                    <ul className="space-y-1 max-h-40 overflow-y-auto">
+                        {(stats.awayErrors || []).map((err, i) => (
+                            <li key={i} className="text-xs text-gray-700 bg-white p-1 rounded border flex justify-between items-center group">
                                 <span>{err}</span>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                                    <button type="button" onClick={() => editAwayError(i)} className="text-blue-500 font-bold px-1">✎</button>
-                                    <button type="button" onClick={() => removeAwayError(i)} className="text-red-500 font-bold px-1">X</button>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button type="button" onClick={() => editAwayError(i)} className="text-blue-500 font-bold px-1">D</button>
+                                    <button type="button" onClick={() => removeAwayError(i)} className="text-red-500 font-bold px-1">Sil</button>
                                 </div>
                             </li>
                         ))}
@@ -870,7 +865,31 @@ export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
                 </div>
             </div>
 
-            <button className="bg-indigo-600 text-white p-2 rounded w-full font-bold hover:bg-indigo-700">İstatistikleri ve Hataları Kaydet</button>
+            {/* Performance Notes */}
+            <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <h4 className="font-bold text-gray-800 text-sm mb-2 border-b border-gray-300 pb-1">Genel Performans Notları</h4>
+                <div className="flex gap-1 mb-2">
+                    <input placeholder="Hakem performansı hakkında not ekle..." className="flex-1 border p-1 text-sm rounded" value={tempNote} onChange={e => setTempNote(e.target.value)} />
+                    <button type="button" onClick={addNote} className="bg-gray-700 text-white px-3 py-1 rounded text-xs font-bold">
+                        {editingState?.type === 'note' ? 'Ok' : 'Ekle'}
+                    </button>
+                </div>
+                <ul className="space-y-1 max-h-40 overflow-y-auto">
+                    {(stats.performanceNotes || []).map((note, i) => (
+                        <li key={i} className="text-xs text-gray-700 bg-white p-1 rounded border flex justify-between items-center group">
+                            <span>{note}</span>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button type="button" onClick={() => editNote(i)} className="text-blue-500 font-bold px-1">D</button>
+                                <button type="button" onClick={() => removeNote(i)} className="text-red-500 font-bold px-1">Sil</button>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+
+            <button className="bg-green-600 text-white font-bold p-3 rounded w-full hover:bg-green-700 shadow-md">
+                Karneyi Kaydet
+            </button>
         </form>
     );
 };

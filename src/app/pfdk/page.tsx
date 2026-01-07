@@ -1,25 +1,43 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { DisciplinaryAction, Statement } from '@/types';
 import Link from 'next/link';
 
 export default function PfdkPage() {
-    const [actions, setActions] = useState<DisciplinaryAction[]>([]);
-    const [statements, setStatements] = useState<Statement[]>([]);
+    const [dates, setDates] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function fetchData() {
             try {
                 setLoading(true);
-                const pfdkSnap = await getDocs(collection(db, 'disciplinary_actions'));
-                setActions(pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction)));
+                // We still fetch all to get unique dates (Firestore limitation for distinct queries)
+                const docSnap = await getDocs(collection(db, 'disciplinary_actions'));
 
-                const stmtSnap = await getDocs(collection(db, 'statements'));
-                setStatements(stmtSnap.docs.map(d => ({ ...d.data(), id: d.id } as Statement)));
+                const uniqueDates = new Set<string>();
+                docSnap.docs.forEach(d => {
+                    const data = d.data();
+                    if (data.date) uniqueDates.add(data.date);
+                });
+
+                // Sort Dates (Newest First) - Assuming DD.MM.YYYY format
+                const sorted = Array.from(uniqueDates).sort((a, b) => {
+                    const [d1, m1, y1] = a.split('.').map(Number);
+                    const [d2, m2, y2] = b.split('.').map(Number);
+
+                    const dateA = new Date(y1, m1 - 1, d1).getTime();
+                    const dateB = new Date(y2, m2 - 1, d2).getTime();
+
+                    if (isNaN(dateA)) return 1;
+                    if (isNaN(dateB)) return -1;
+
+                    return dateB - dateA;
+                });
+
+                setDates(sorted);
             } catch (err) {
                 console.error("PFDK Page Fetch Error:", err);
             } finally {
@@ -38,68 +56,45 @@ export default function PfdkPage() {
         </div>
     );
 
-    const pfdkStatements = statements.filter(s => s.title.toLowerCase().includes('pfdk'));
-
     return (
         <main className="min-h-screen bg-background pb-20 pt-8">
-            <div className="max-w-4xl mx-auto px-4 space-y-8">
-                <div className="flex flex-col gap-2">
+            <div className="max-w-2xl mx-auto px-4 space-y-8">
+                <div className="flex flex-col gap-2 text-center">
                     <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase text-red-500">PFDK KARARLARI</h1>
                     <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">Profesyonel Futbol Disiplin Kurulu Sevk ve Ceza Raporları</p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6">
-                    {/* Disciplinary Actions */}
-                    <section className="space-y-4">
-                        <h2 className="text-xs font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-2">SON SEVKLER VE CEZALAR</h2>
-                        <div className="grid grid-cols-1 gap-4">
-                            {actions.length === 0 ? (
-                                <div className="p-12 text-center bg-card border border-dashed border-border rounded-2xl text-muted-foreground text-sm">Kayıt bulunamadı.</div>
-                            ) : actions.sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((act, i) => (
-                                <div key={act.id || i} className="bg-card border border-border rounded-xl p-4 shadow-sm hover:border-red-500/30 transition-colors">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                {act.type === 'performance' && <span className="bg-blue-100 text-blue-700 text-[9px] font-black px-1.5 py-0.5 rounded">HAKEM PERFORMANSI</span>}
-                                                <span className="bg-red-100 text-red-700 text-[9px] font-black px-1.5 py-0.5 rounded">{act.subject}</span>
+                <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                    <div className="bg-gray-50/50 p-4 border-b border-border">
+                        <h2 className="text-xs font-black text-muted-foreground uppercase tracking-widest">TARİH LİSTESİ</h2>
+                    </div>
+                    {dates.length === 0 ? (
+                        <div className="p-12 text-center text-muted-foreground text-sm">Kayıt bulunamadı.</div>
+                    ) : (
+                        <div className="divide-y divide-border">
+                            {dates.map(date => {
+                                // Convert DD.MM.YYYY to DD-MM-YYYY for URL
+                                const urlDate = date.replaceAll('.', '-');
+                                return (
+                                    <Link key={date} href={`/pfdk/${urlDate}`} className="block p-5 hover:bg-gray-50 transition-colors group">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 font-bold text-xs group-hover:bg-red-100 group-hover:scale-110 transition-all">
+                                                    📄
+                                                </div>
+                                                <div>
+                                                    <span className="block text-lg font-black text-gray-800 group-hover:text-red-600 transition-colors">{date}</span>
+                                                    <span className="text-xs font-bold text-gray-400 uppercase">PFDK KARARLARI</span>
+                                                </div>
                                             </div>
-                                            {act.teamName && <h3 className="font-black text-sm text-foreground uppercase">{act.teamName}</h3>}
+                                            <div className="text-gray-300 group-hover:text-red-500 group-hover:translate-x-1 transition-all">
+                                                ➔
+                                            </div>
                                         </div>
-                                        <span className="text-[10px] font-bold text-muted-foreground font-mono">{act.date}</span>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground leading-relaxed mb-3 italic">"{act.reason}"</p>
-                                    {act.penalty && (
-                                        <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-2 rounded text-xs font-bold text-red-700 dark:text-red-400">
-                                            CEZA: {act.penalty}
-                                        </div>
-                                    )}
-                                    {act.matchId && (
-                                        <Link href={`/matches/${act.matchId}`} className="inline-block mt-3 text-[10px] font-black text-primary hover:underline">
-                                            İLGİLİ MAÇI GÖR →
-                                        </Link>
-                                    )}
-                                </div>
-                            ))}
+                                    </Link>
+                                );
+                            })}
                         </div>
-                    </section>
-
-                    {/* Related Statements */}
-                    {pfdkStatements.length > 0 && (
-                        <section className="space-y-4 pt-8">
-                            <h2 className="text-xs font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-2">İLGİLİ RESMİ AÇIKLAMALAR</h2>
-                            <div className="grid grid-cols-1 gap-4">
-                                {pfdkStatements.map((st, i) => (
-                                    <div key={st.id || i} className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">{st.entity}</span>
-                                            <span className="text-[10px] font-bold text-muted-foreground font-mono">{st.date}</span>
-                                        </div>
-                                        <h4 className="font-bold text-sm text-foreground mb-2">{st.title}</h4>
-                                        <p className="text-sm text-muted-foreground leading-relaxed">{st.content}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
                     )}
                 </div>
             </div>
