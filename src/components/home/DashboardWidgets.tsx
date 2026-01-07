@@ -247,12 +247,12 @@ export const StandingsSection = ({ standings }: { standings: Standing[] }) => {
                         {Array.from({ length: 18 }).map((_, i) => {
                             const team = sortedStandings[i];
                             return (
-                                <tr key={team?.id || i} className={`hover:bg-muted/50 transition-colors group ${i < 2 ? 'bg-blue-50/20' : i < 4 ? 'bg-cyan-50/10' : i >= 16 ? 'bg-red-50/20' : ''}`}>
+                                <tr key={team?.id || i} className={`hover:bg-muted/50 transition-colors group ${i < 2 ? 'bg-blue-50/20' : i < 4 ? 'bg-cyan-50/10' : i >= 15 ? 'bg-red-50/20' : ''}`}>
                                     <td className={`p-2 text-center font-bold text-[10px] ${i === 0 ? 'text-blue-600' :
-                                        i === 1 ? 'text-blue-500' :
-                                            i < 4 ? 'text-cyan-600' :
-                                                i >= 16 ? 'text-red-600' :
-                                                    'text-muted-foreground'
+                                            i === 1 ? 'text-blue-500' :
+                                                i < 4 ? 'text-cyan-600' :
+                                                    i >= 15 ? 'text-red-600' :
+                                                        'text-muted-foreground'
                                         }`}>
                                         {i + 1}
                                     </td>

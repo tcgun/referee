@@ -128,13 +128,19 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
         try {
             setLoading(true);
 
-            // We'll perform sequential saving or batch, but API is single-item based for now.
             // Let's modify the API logic or just loop client-side (easier given current setup).
             const validItems = gridItems.filter(item => item.id && item.id.trim() !== '');
+
+            if (validItems.length === 0) {
+                toast.warning('Kaydedilecek geçerli veri bulunamadı. Lütfen tabloyu doldurun.');
+                setLoading(false);
+                return;
+            }
 
             // First delete all (reset) or just upsert?
             // Upsert is safer. But handling Rank changes relies on overwriting.
 
+            let savedCount = 0;
             for (const item of validItems) {
                 // Ensure ID is teamName used as doc ID usually
                 // item.id should be generic ID (e.g. 'gal')
@@ -153,10 +159,11 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
                     headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
                     body: JSON.stringify(payload),
                 });
+                savedCount++;
             }
 
-            toast.success('Tüm Tablo Başarıyla Kaydedildi! ✅');
-            fetchStandings(); // Reload to be clean
+            toast.success(`${savedCount} takım başarıyla kaydedildi! ✅`);
+            // fetchStandings(); // Removed to prevent "disappearing" due to race condition. Local state is accurate.
 
         } catch (error) {
             console.error(error);
@@ -235,7 +242,7 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {gridItems.map((item, i) => (
-                                <tr key={i} className={`hover:bg-blue-50/20 group ${i < 1 ? 'bg-green-50/10' : i > 15 ? 'bg-red-50/10' : ''}`}>
+                                <tr key={i} className={`hover:bg-blue-50/20 group ${i < 1 ? 'bg-green-50/10' : i >= 15 ? 'bg-red-50/10' : ''}`}>
                                     <td className="px-1 py-1 text-center font-bold text-slate-400 text-[10px] bg-white sticky left-0 z-10">{i + 1}</td>
                                     <td className="px-1 py-1 bg-white sticky left-8 z-10">
                                         <input
