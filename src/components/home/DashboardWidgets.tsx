@@ -37,7 +37,7 @@ const WidgetCard = ({ title, icon, children, headerColor = "text-foreground" }: 
                 </Link>
             )}
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar bg-card">
+        <div className="flex-1 overflow-y-auto no-scrollbar bg-card">
             {children}
         </div>
     </div>
@@ -229,7 +229,7 @@ export const StandingsSection = ({ standings }: { standings: Standing[] }) => {
                 <span className="text-xl">🏆</span>
                 <h3 className="font-black text-xs uppercase tracking-wider text-foreground">Puan Durumu</h3>
             </div>
-            <div className="overflow-auto custom-scrollbar flex-1 bg-card">
+            <div className="overflow-x-auto no-scrollbar flex-1 bg-card">
                 <table className="w-full text-xs text-left whitespace-nowrap">
                     <thead className="text-[10px] font-black text-muted-foreground bg-muted/50 uppercase tracking-wider sticky top-0 z-10 backdrop-blur-md">
                         <tr>
@@ -249,14 +249,14 @@ export const StandingsSection = ({ standings }: { standings: Standing[] }) => {
                             return (
                                 <tr key={team?.id || i} className={`hover:bg-muted/50 transition-colors group ${i < 2 ? 'bg-blue-50/20' : i < 4 ? 'bg-cyan-50/10' : i >= 15 ? 'bg-red-50/20' : ''}`}>
                                     <td className={`p-2 text-center font-bold text-[10px] ${i === 0 ? 'text-blue-600' :
-                                            i === 1 ? 'text-blue-500' :
-                                                i < 4 ? 'text-cyan-600' :
-                                                    i >= 15 ? 'text-red-600' :
-                                                        'text-muted-foreground'
+                                        i === 1 ? 'text-blue-500' :
+                                            i < 4 ? 'text-cyan-600' :
+                                                i >= 15 ? 'text-red-600' :
+                                                    'text-muted-foreground'
                                         }`}>
                                         {i + 1}
                                     </td>
-                                    <td className="p-2 text-foreground font-bold truncate max-w-[120px]" title={team?.teamName}>
+                                    <td className="p-2 text-foreground font-bold truncate max-w-[100px]" title={team?.teamName}>
                                         {team?.teamName || '-'}
                                     </td>
                                     <td className="p-2 text-center text-muted-foreground">{team?.played || 0}</td>

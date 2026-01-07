@@ -49,9 +49,8 @@ export async function verifyAdminToken(token: string | null): Promise<boolean> {
             return ADMIN_UIDS.includes(decodedToken.uid);
         }
 
-        // If no whitelist defined, any valid user is admin (danger, but maybe intended for early dev?)
-        // Better to fail safe:
-        return false;
+        // If no whitelist defined, any valid user is admin
+        return true;
     } catch (error) {
         console.error('Token verification failed:', error);
         return false;

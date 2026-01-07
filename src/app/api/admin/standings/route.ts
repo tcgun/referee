@@ -9,6 +9,35 @@ export async function POST(request: Request) {
             const firestore = getAdminDb();
             const body = await req.json();
 
+            // Handle bulk updates (array)
+            if (Array.isArray(body)) {
+                const batch = firestore.batch();
+                const results = [];
+
+                for (const item of body) {
+                    const validationResult = standingSchema.partial().safeParse(item);
+                    if (!validationResult.success) {
+                        return NextResponse.json({
+                            error: 'Validation failed for item: ' + (item.id || 'unknown'),
+                            details: validationResult.error.format()
+                        }, { status: 400 });
+                    }
+
+                    const data = validationResult.data;
+                    if (!data.id) {
+                        return NextResponse.json({ error: 'ID is required for all items' }, { status: 400 });
+                    }
+
+                    const docRef = firestore.collection('standings').doc(data.id);
+                    batch.set(docRef, data, { merge: true });
+                    results.push(data.id);
+                }
+
+                await batch.commit();
+                return NextResponse.json({ success: true, count: results.length, ids: results });
+            }
+
+            // Handle single item update (existing logic)
             const validationResult = standingSchema.partial().safeParse(body);
             if (!validationResult.success) {
                 return NextResponse.json({ error: 'Validation failed', details: validationResult.error.format() }, { status: 400 });

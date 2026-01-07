@@ -128,8 +128,13 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
         try {
             setLoading(true);
 
-            // Let's modify the API logic or just loop client-side (easier given current setup).
-            const validItems = gridItems.filter(item => item.id && item.id.trim() !== '');
+            const validItems = gridItems
+                .map((item, index) => ({
+                    ...item,
+                    rank: index + 1,
+                    teamName: item.teamName || item.id
+                }))
+                .filter(item => item.id && item.id.trim() !== '');
 
             if (validItems.length === 0) {
                 toast.warning('Kaydedilecek geçerli veri bulunamadı. Lütfen tabloyu doldurun.');
@@ -137,41 +142,33 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
                 return;
             }
 
-            // First delete all (reset) or just upsert?
-            // Upsert is safer. But handling Rank changes relies on overwriting.
+            console.log('Sending bulk payload:', validItems);
 
-            let savedCount = 0;
-            for (const item of validItems) {
-                // Ensure ID is teamName used as doc ID usually
-                // item.id should be generic ID (e.g. 'gal')
-                // item.teamName should be display name
+            const res = await fetch('/api/admin/standings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-key': apiKey,
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                },
+                body: JSON.stringify(validItems),
+            });
 
-                // If ID is empty, user didn't fill it correctly
-                if (!item.id) continue;
+            if (!res.ok) {
+                const rawText = await res.text();
+                console.error('Bulk save failed:', res.status, 'Raw:', rawText);
 
-                // Make sure rank matches index+1 if strictly forced
-                const rank = gridItems.indexOf(item) + 1;
-
-                const payload = { ...item, rank, teamName: item.teamName || item.id };
-                console.log('Sending payload:', payload);
-
-                const res = await fetch('/api/admin/standings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
-                    body: JSON.stringify(payload),
-                });
-
-                if (!res.ok) {
-                    const errData = await res.json();
-                    console.error('Save failed for team:', item.id, errData);
-                    toast.error(`Kayıt hatası (${item.id}): ${errData.error || 'Server Error'}`);
-                } else {
-                    savedCount++;
+                let errMsg = 'Sunucu Hatası';
+                try {
+                    const errData = JSON.parse(rawText);
+                    errMsg = errData.error || rawText;
+                } catch (e) {
+                    errMsg = rawText || `Status ${res.status}`;
                 }
+                toast.error(`Kayıt hatası: ${errMsg}`);
+            } else {
+                toast.success(`${validItems.length} takım başarıyla kaydedildi! ✅`);
             }
-
-            toast.success(`${savedCount} takım başarıyla kaydedildi! ✅`);
-            // fetchStandings(); // Removed to prevent "disappearing" due to race condition. Local state is accurate.
 
         } catch (error) {
             console.error(error);
