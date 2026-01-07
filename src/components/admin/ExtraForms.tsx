@@ -51,43 +51,64 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
 
     const handleBulkPaste = async () => {
         if (!bulkText.trim()) return;
-        const lines = bulkText.split('\n').filter(l => l.trim() && !l.includes('O\tG\tB\tM'));
+        const allLines = bulkText.split('\n').map(l => l.trim()).filter(l => l);
         const newItems: Standing[] = [...gridItems];
         const { resolveTeamId, getTeamName } = await import('@/lib/teams');
 
         let currentIndex = 0;
-        for (const line of lines) {
+        for (let i = 0; i < allLines.length; i++) {
             if (currentIndex >= 18) break;
+            const line = allLines[i];
 
-            // Expected format (roughly): [Rank] [TeamName] [TeamNameRepeat?] [O G B M AG YG AV P]
-            // We'll use a regex or split approach to find the numeric block
-            const parts = line.split('\t');
-            if (parts.length < 8) continue;
+            // Stats line identification: 8+ numbers (O G B M AG YG AV P)
+            // Using a loose filter to handle both tab and space separation
+            const numbers = line.split(/\s+/).filter(p => p.match(/^-?\d+$/));
 
-            const nameIdx = parts.findIndex(p => p.match(/[a-zA-ZçğıöşüÇĞİÖŞÜ]/));
-            const stats = parts.filter(p => p.match(/^-?\d+$/));
+            if (numbers.length >= 8) {
+                // We found a stats row. Now find the team name.
+                let candidateName = "";
 
-            if (stats.length >= 6) {
-                const teamNameRaw = parts[nameIdx] || 'Bilinmeyen';
-                const teamId = resolveTeamId(teamNameRaw) || teamNameRaw.toLowerCase().replace(/\s+/g, '-');
+                // Look BACKWARDS for the team name (up to 4 lines)
+                for (let j = 1; j <= 4; j++) {
+                    const prevIdx = i - j;
+                    if (prevIdx < 0) break;
+                    const prev = allLines[prevIdx];
 
-                newItems[currentIndex] = {
-                    ...newItems[currentIndex],
-                    id: teamId,
-                    teamName: getTeamName(teamId) || teamNameRaw,
-                    played: parseInt(stats[1]),
-                    won: parseInt(stats[2]),
-                    drawn: parseInt(stats[3]),
-                    lost: parseInt(stats[4]),
-                    goalDiff: parseInt(stats[stats.length - 2]),
-                    points: parseInt(stats[stats.length - 1]),
-                    rank: currentIndex + 1
-                };
-                currentIndex++;
+                    // A candidate name should not be just a number and should be long enough
+                    if (prev && isNaN(Number(prev)) && prev.length > 2 && !prev.includes('\t')) {
+                        candidateName = prev;
+                        break;
+                    }
+                }
+
+                // If not found backwards, check if it's on the SAME line (tab separated usually)
+                if (!candidateName) {
+                    const parts = line.split('\t');
+                    candidateName = parts.find(p => p.match(/[a-zA-ZçğıöşüÇĞİÖŞÜ]/)) || "";
+                }
+
+                if (candidateName) {
+                    const teamId = resolveTeamId(candidateName) || candidateName.toLowerCase().replace(/\s+/g, '-');
+                    const cleanName = getTeamName(teamId);
+
+                    newItems[currentIndex] = {
+                        ...newItems[currentIndex],
+                        id: teamId,
+                        teamName: cleanName,
+                        played: parseInt(numbers[0]) || 0,
+                        won: parseInt(numbers[1]) || 0,
+                        drawn: parseInt(numbers[2]) || 0,
+                        lost: parseInt(numbers[3]) || 0,
+                        goalDiff: parseInt(numbers[6]) || 0, // AV is index 6 usually
+                        points: parseInt(numbers[7]) || 0,   // P is index 7 usually
+                        rank: currentIndex + 1
+                    };
+                    currentIndex++;
+                }
             }
         }
         setGridItems(newItems);
-        toast.info('Veriler işlendi, kaydetmeyi unutmayın!');
+        toast.info(`${currentIndex} takım verisi başarıyla aktarıldı. Kaydetmeyi unutmayın!`);
     };
 
     const handleGridChange = (index: number, field: keyof Standing, val: any) => {
