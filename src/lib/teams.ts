@@ -7,7 +7,8 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
     'kon': {
         name: 'Konyaspor',
         colors: { primary: '#008000', secondary: '#FFFFFF' },
-        short: 'kon'
+        short: 'kon',
+        aliases: ['tümosan konyaspor', 'tumosan konyaspor']
     },
     'gal': {
         name: 'Galatasaray',
@@ -23,7 +24,7 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
         name: 'Başakşehir Futbol Kulübü',
         colors: { primary: '#E56B25', secondary: '#163962' },
         short: 'bas',
-        aliases: ['basaksehir', 'rams', 'ibfk', 'medipol', 'rams basaksehir']
+        aliases: ['basaksehir', 'rams', 'ibfk', 'medipol', 'rams başakşehir', 'rams babşakşehir', 'başakşehir']
     },
     'ant': {
         name: 'Antalyaspor',
@@ -113,39 +114,40 @@ export function resolveTeamId(input: string): string | null {
     if (!input) return null;
     const search = input.toLowerCase().trim();
 
-    // 1. Direct shortcode match
-    for (const [id, data] of Object.entries(SUPER_LIG_TEAMS)) {
-        if (data.short === search) return id;
-        if (data.aliases?.includes(search)) return id;
-    }
-
-    // 2. Direct ID match
-    if (SUPER_LIG_TEAMS[search]) return search;
-
-    // 3. Normalized name match (Bidirectional)
+    // Helper: Normalize string (remove tr chars, non-alphanumeric)
     const normalize = (s: string) => {
         let n = s.toLowerCase();
-        // Replace Turkish chars FIRST
         n = n.replace(/ı/g, 'i')
             .replace(/ğ/g, 'g')
             .replace(/ü/g, 'u')
             .replace(/ş/g, 's')
             .replace(/ö/g, 'o')
             .replace(/ç/g, 'c')
-            .replace(/İ/g, 'i'); // Handle capital I with dot if passed
-        // Then strip non-alphanumeric
+            .replace(/İ/g, 'i');
         return n.replace(/[^a-z0-9]/g, '');
     };
 
     const searchNorm = normalize(search);
 
+    // 1. Direct shortcode match
+    for (const [id, data] of Object.entries(SUPER_LIG_TEAMS)) {
+        if (data.short === search) return id;
+
+        // Check aliases with normalization
+        if (data.aliases) {
+            if (data.aliases.includes(search)) return id;
+            if (data.aliases.some(alias => normalize(alias) === searchNorm)) return id;
+        }
+    }
+
+    // 2. Direct ID match
+    if (SUPER_LIG_TEAMS[search]) return search;
+
+    // 3. Name fuzzy match
     for (const [id, data] of Object.entries(SUPER_LIG_TEAMS)) {
         const teamNameNorm = normalize(data.name);
-        const teamIdNorm = normalize(id);
-
-        // Case A: Team Name contains Input (standard search)
-        // Case B (Sponsors): Input contains Team Name (e.g. "Corendon Alanyaspor" contains "alanyaspor")
-        if (teamNameNorm.includes(searchNorm) || searchNorm.includes(teamNameNorm) || teamIdNorm.includes(searchNorm)) {
+        // Normalized inclusion check (bidirectional)
+        if (teamNameNorm.includes(searchNorm) || searchNorm.includes(teamNameNorm)) {
             return id;
         }
     }
