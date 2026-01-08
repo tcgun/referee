@@ -17,7 +17,7 @@ interface IncidentFormProps {
 export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncidents, onSuccess }: IncidentFormProps) => {
     const [matchId, setMatchId] = useState('week1-gfk-gs');
     const [incident, setIncident] = useState<Partial<Incident>>({
-        id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none', varRecommendation: 'none', correctDecision: ''
+        id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none', varRecommendation: 'none'
     });
 
     if (defaultMatchId && matchId !== defaultMatchId) {
@@ -38,7 +38,7 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
         if (res.ok) {
             toast.success('Pozisyon Başarıyla Eklendi! ✅');
             setIncident({
-                id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none', varRecommendation: 'none', correctDecision: '',
+                id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none', varRecommendation: 'none',
                 varDecision: '', favorOf: '', against: '', videoUrl: ''
             });
             if (onSuccess) onSuccess();
@@ -115,10 +115,7 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
                         <option value="Ofsayt">Ofsayt</option>
                     </select>
                 </div>
-                <div className="col-span-2 space-y-1">
-                    <label className="text-xs font-bold text-green-700">Hakem Ne Yapmalıydı?</label>
-                    <input placeholder="Örn: Net Penaltı" className="border border-green-300 bg-green-50 p-2 w-full rounded text-gray-900" value={incident.correctDecision || ''} onChange={e => setIncident({ ...incident, correctDecision: e.target.value })} />
-                </div>
+
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -134,7 +131,7 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
 
             <div className="mt-2">
                 <label className="text-xs font-bold text-gray-500">Verilmesi Gereken Karar</label>
-                <input placeholder="Örn: Net Penaltı" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.finalDecision || ''} onChange={e => setIncident({ ...incident, finalDecision: e.target.value })} />
+                <input placeholder="Örn: NET PENALTI" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.finalDecision || ''} onChange={e => setIncident({ ...incident, finalDecision: e.target.value.toLocaleUpperCase('tr-TR') })} />
             </div>
 
             <div className='flex gap-2'>

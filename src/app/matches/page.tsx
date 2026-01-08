@@ -110,25 +110,63 @@ export default function MatchesListingPage() {
                 </div>
 
                 {/* Week Selector */}
-                <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar">
-                    {availableWeeks.map(week => (
-                        <button
-                            key={week}
-                            onClick={() => setSelectedWeek(week)}
-                            className={`flex-shrink-0 px-6 py-2 rounded-full text-sm font-black transition-all border ${selectedWeek === week
-                                ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105'
-                                : 'bg-card text-muted-foreground border-border hover:border-primary/50'
-                                }`}
-                        >
-                            {week}. HAFTA
-                        </button>
-                    ))}
+                <div className="space-y-4">
+                    {/* Groups Navigation */}
+                    <div className="flex gap-4 border-b border-border pb-2">
+                        {[
+                            { id: 'h1', label: '1. Yarı (1-17)', range: [1, 17] },
+                            { id: 'h2', label: '2. Yarı (18-34)', range: [18, 34] }
+                        ].map(group => {
+                            const isActive = selectedWeek && selectedWeek >= group.range[0] && selectedWeek <= group.range[1];
+                            return (
+                                <button
+                                    key={group.id}
+                                    onClick={() => {
+                                        // Set to first week of group if not in range
+                                        if (!isActive) setSelectedWeek(group.range[0]);
+                                    }}
+                                    className={`text-[10px] font-black uppercase tracking-widest pb-1 transition-all ${isActive ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                >
+                                    {group.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Week Buttons Grid */}
+                    <div className="flex flex-wrap gap-2">
+                        {Array.from({ length: 34 }, (_, i) => i + 1).map(week => {
+                            const isFirstHalf = week <= 17;
+                            const currentGroup = (selectedWeek && selectedWeek <= 17) ? 'h1' : 'h2';
+                            const inCurrentGroup = (currentGroup === 'h1' && isFirstHalf) || (currentGroup === 'h2' && !isFirstHalf);
+
+                            if (!inCurrentGroup) return null;
+
+                            const hasData = availableWeeks.includes(week);
+                            const isSelected = selectedWeek === week;
+
+                            return (
+                                <button
+                                    key={week}
+                                    onClick={() => setSelectedWeek(week)}
+                                    className={`min-w-[42px] h-10 rounded-lg text-xs font-black transition-all border flex items-center justify-center ${isSelected
+                                        ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105 z-10'
+                                        : hasData
+                                            ? 'bg-card text-foreground border-border hover:border-primary/50'
+                                            : 'bg-muted/30 text-muted-foreground/50 border-transparent opacity-60'
+                                        }`}
+                                >
+                                    {week}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 <div className="space-y-6">
                     {selectedWeek === null ? (
                         <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
-                            <span className="text-muted-foreground font-medium">Henüz maç verisi bulunamadı.</span>
+                            <span className="text-muted-foreground font-medium">Lütfen bir hafta seçiniz.</span>
                         </div>
                     ) : filteredMatches.length === 0 ? (
                         <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">

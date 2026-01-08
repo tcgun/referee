@@ -45,7 +45,7 @@ function AdminContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
-    const [activeTab, setActiveTab] = useState<'setup' | 'matches' | 'incidents' | 'extras' | 'officials'>('setup');
+    const [activeTab, setActiveTab] = useState<'setup' | 'matches' | 'incidents' | 'extras' | 'officials' | 'standings'>('setup');
 
     // Sync tab with URL and LocalStorage
     useEffect(() => {
@@ -227,10 +227,11 @@ function AdminContent() {
                 <div className="flex gap-2 mb-8 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm w-fit mx-auto">
                     {[
                         { id: 'setup', label: 'Kurulum & Veri' },
-                        { id: 'matches', label: 'Takım & Maç' },
+                        { id: 'matches', label: 'Maç Ekle' },
                         { id: 'incidents', label: 'Pozisyon & Yorum' },
                         { id: 'officials', label: 'Hakemler' },
-                        { id: 'extras', label: 'Puan & PFDK' }
+                        { id: 'extras', label: 'PFDK' },
+                        { id: 'standings', label: 'Puan Durumu' }
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -297,19 +298,29 @@ function AdminContent() {
                         </div>
                     )}
 
-                    {/* EXTRAS TAB */}
+                    {/* EXTRAS (PFDK) TAB */}
                     {activeTab === 'extras' && (
                         <div className="grid md:grid-cols-2 gap-6">
-                            <StandingForm apiKey={apiKey} authToken={authToken} />
                             <StatementForm apiKey={apiKey} authToken={authToken} />
                             <DisciplinaryWrapper apiKey={apiKey} authToken={authToken} />
-                            <RefereeStatsForm apiKey={apiKey} authToken={authToken} />
                         </div>
                     )}
 
                     {/* OFFICIALS TAB */}
                     {activeTab === 'officials' && (
-                        <OfficialForm apiKey={apiKey} authToken={authToken} />
+                        <div className="space-y-8">
+                            <OfficialForm apiKey={apiKey} authToken={authToken} />
+                            <div className="grid md:grid-cols-1 gap-6">
+                                <RefereeStatsForm apiKey={apiKey} authToken={authToken} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* STANDINGS TAB */}
+                    {activeTab === 'standings' && (
+                        <div className="max-w-4xl mx-auto">
+                            <StandingForm apiKey={apiKey} authToken={authToken} />
+                        </div>
                     )}
 
                 </div>

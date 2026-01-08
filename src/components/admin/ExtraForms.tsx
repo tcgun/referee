@@ -608,6 +608,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
 export const MatchSelect = ({ value, onChange, className = "" }: { value: string, onChange: (val: string) => void, className?: string }) => {
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(false);
+    const [selectedWeek, setSelectedWeek] = useState<number | string>('');
 
     useEffect(() => {
         const fetchMatches = async () => {
@@ -628,6 +629,16 @@ export const MatchSelect = ({ value, onChange, className = "" }: { value: string
         fetchMatches();
     }, []);
 
+    // Helper to find week of current match
+    useEffect(() => {
+        if (value && matches.length > 0) {
+            const found = matches.find(m => m.id === value);
+            if (found && found.week) {
+                setSelectedWeek(found.week);
+            }
+        }
+    }, [value, matches]);
+
     // Group matches by week
     const groupedMatches: Record<number, Match[]> = {};
     matches.forEach(m => {
@@ -637,25 +648,42 @@ export const MatchSelect = ({ value, onChange, className = "" }: { value: string
     });
 
     const weeks = Object.keys(groupedMatches).map(Number).sort((a, b) => b - a);
+    const currentWeekMatches = selectedWeek ? (groupedMatches[Number(selectedWeek)] || []) : [];
 
     return (
-        <select
-            className={`border border-gray-300 p-2 w-full rounded font-mono text-sm ${className}`}
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            disabled={loading}
-        >
-            <option value="">{loading ? 'Yükleniyor...' : 'Maç Seçiniz...'}</option>
-            {weeks.map(week => (
-                <optgroup key={week} label={`${week}. Hafta`}>
-                    {groupedMatches[week].map(m => (
+        <div className={`flex gap-2 ${className}`}>
+            <div className="w-1/3">
+                <select
+                    className="border border-gray-300 p-2 w-full rounded font-mono text-sm"
+                    value={selectedWeek}
+                    onChange={e => {
+                        setSelectedWeek(e.target.value);
+                        onChange(''); // Reset match selection when week changes
+                    }}
+                    disabled={loading}
+                >
+                    <option value="">Hafta...</option>
+                    {weeks.map(week => (
+                        <option key={week} value={week}>{week}. Hafta</option>
+                    ))}
+                </select>
+            </div>
+            <div className="w-2/3">
+                <select
+                    className="border border-gray-300 p-2 w-full rounded font-mono text-sm"
+                    value={value}
+                    onChange={e => onChange(e.target.value)}
+                    disabled={loading || !selectedWeek}
+                >
+                    <option value="">{loading ? 'Yükleniyor...' : (selectedWeek ? 'Maç Seçiniz...' : 'Önce Hafta Seçin')}</option>
+                    {currentWeekMatches.map(m => (
                         <option key={m.id} value={m.id}>
-                            {m.homeTeamName} - {m.awayTeamName} ({m.id})
+                            {m.homeTeamName} - {m.awayTeamName}
                         </option>
                     ))}
-                </optgroup>
-            ))}
-        </select>
+                </select>
+            </div>
+        </div>
     );
 };
 

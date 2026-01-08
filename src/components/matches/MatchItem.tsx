@@ -33,9 +33,25 @@ export const MatchItem = ({ match, headerColor }: { match: MatchGroupedOpinions,
                         {/* Home */}
                         <span className="text-sm font-bold text-foreground text-right flex-1 truncate">{match.homeTeam || 'Ev Sahibi'}</span>
 
-                        {/* Score Badge */}
-                        <div className="bg-slate-900 border border-slate-700 px-3 py-1 rounded-md text-sm font-black text-white tracking-widest min-w-[60px] text-center shadow-inner">
-                            {match.score && !match.score.includes('undefined') && match.score !== 'v' ? match.score : 'vs'}
+                        {/* Score & Date Container */}
+                        <div className="flex flex-col items-center gap-1 min-w-[100px]">
+                            {/* Score Badge */}
+                            <div className="bg-slate-900 border border-slate-700 px-3 py-1 rounded-md text-sm font-black text-white tracking-widest w-full text-center shadow-inner">
+                                {match.score && !match.score.includes('undefined') && match.score !== 'v' ? match.score : 'vs'}
+                            </div>
+
+                            {/* Date & Time */}
+                            {match.date && (
+                                <div className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-border/30">
+                                    {new Date(match.date).toLocaleString('tr-TR', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}
+                                </div>
+                            )}
                         </div>
 
                         {/* Away */}
