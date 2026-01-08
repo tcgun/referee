@@ -1,9 +1,21 @@
+/**
+ * API Route for Match Management.
+ * Handles GET, POST (Create/Update), and DELETE operations for Matches.
+ * Secured with Admin Guard and validated with Zod schemas.
+ *
+ * @module api/admin/matches
+ */
+
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/firebase/admin';
 import { withAdminGuard } from '@/lib/api-wrapper';
 import { matchSchema } from '@/lib/validations';
-import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * GET: Retrieve a specific match by ID.
+ * @param {Request} request
+ * @returns {Promise<NextResponse>} Match data or error.
+ */
 export async function GET(request: Request) {
     return withAdminGuard(request, async (req) => {
         const firestore = getAdminDb();
@@ -14,8 +26,6 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'ID is required' }, { status: 400 });
         }
 
-        console.log(`[API] Fetching match id: "${id}" (len: ${id.length})`); // DEBUG LOG
-
         const snap = await firestore.collection('matches').doc(id).get();
         if (!snap.exists) {
             return NextResponse.json({ error: 'Match not found' }, { status: 404 });
@@ -25,10 +35,24 @@ export async function GET(request: Request) {
     });
 }
 
+/**
+ * POST: Create or Update a match.
+ * Validates input using `matchSchema` (partial allowed for updates).
+ * Uses `set` with `merge: true`.
+ *
+ * @param {Request} request
+ * @returns {Promise<NextResponse>} Success status and ID.
+ */
 export async function POST(request: Request) {
     return withAdminGuard(request, async (req) => {
         const firestore = getAdminDb();
-        const body = await req.json();
+
+        let body;
+        try {
+            body = await req.json();
+        } catch (e) {
+            return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+        }
 
         // Allow partial updates for flexibility
         const validationResult = matchSchema.partial().safeParse(body);
@@ -37,14 +61,13 @@ export async function POST(request: Request) {
         }
 
         const data = validationResult.data;
-        // Ensure ID presence (if new doc, use provided or generate?)
-        // Schema checks ID existence, but if partial, maybe ID is missing?
-        // Basic rule: ID must be known to update/create.
+
         if (!data.id) {
-            // Check if we can generate one or if it's required. Schema says required string.
-            // If user sends partial without ID, we can't update.
             return NextResponse.json({ error: 'ID is required for update/create' }, { status: 400 });
         }
+
+        // Security: Strip out any fields that shouldn't be manually set if any (Schema handles most)
+        // Here we trust the Admin schema validation.
 
         await firestore.collection('matches').doc(data.id).set(data, { merge: true });
 
@@ -52,6 +75,13 @@ export async function POST(request: Request) {
     });
 }
 
+/**
+ * DELETE: Deletes a match and its sub-collections (incidents, opinions).
+ * Performs a recursive delete since Firestore shallow deletes by default.
+ *
+ * @param {Request} request
+ * @returns {Promise<NextResponse>} Success status.
+ */
 export async function DELETE(request: Request) {
     return withAdminGuard(request, async (req) => {
         const firestore = getAdminDb();
@@ -70,21 +100,26 @@ export async function DELETE(request: Request) {
          * We need to manually delete incidents and their opinions.
          */
 
-        // 1. Get all incidents
-        const incidentsSnap = await matchRef.collection('incidents').get();
+        try {
+            // 1. Get all incidents
+            const incidentsSnap = await matchRef.collection('incidents').get();
 
-        // 2. Process all incidents in parallel
-        await Promise.all(incidentsSnap.docs.map(async (incDoc) => {
-            // 3. Get and delete all opinions for each incident in parallel
-            const opinionsSnap = await incDoc.ref.collection('opinions').get();
-            await Promise.all(opinionsSnap.docs.map(opDoc => opDoc.ref.delete()));
+            // 2. Process all incidents in parallel
+            await Promise.all(incidentsSnap.docs.map(async (incDoc) => {
+                // 3. Get and delete all opinions for each incident in parallel
+                const opinionsSnap = await incDoc.ref.collection('opinions').get();
+                await Promise.all(opinionsSnap.docs.map(opDoc => opDoc.ref.delete()));
 
-            // 4. Delete the incident document
-            await incDoc.ref.delete();
-        }));
+                // 4. Delete the incident document
+                await incDoc.ref.delete();
+            }));
 
-        // 5. Finally delete the match document itself
-        await matchRef.delete();
+            // 5. Finally delete the match document itself
+            await matchRef.delete();
+        } catch (error) {
+            console.error('Delete operation failed:', error);
+            return NextResponse.json({ error: 'Failed to delete match completely' }, { status: 500 });
+        }
 
         return NextResponse.json({ success: true });
     });
