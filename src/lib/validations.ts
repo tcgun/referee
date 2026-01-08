@@ -1,18 +1,35 @@
+/**
+ * Zod Schemas for data validation.
+ * Ensures data integrity for Teams, Matches, Incidents, Opinions, Standings, Statements, and Disciplinary Actions.
+ *
+ * @module lib/validations
+ */
+
 import { z } from 'zod';
 
-// Team Schema
+// Helper regex patterns
+const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const SEASON_REGEX = /^\d{4}-\d{4}$/;
+const SCORE_REGEX = /^\d+\s*-\s*\d+$/;
+
+/**
+ * Schema for Team data.
+ */
 export const teamSchema = z.object({
     id: z.string().min(1).max(50).regex(/^[a-z0-9-]+$/, 'ID must be lowercase alphanumeric with hyphens'),
     name: z.string().min(1).max(100),
     logo: z.string().url().optional().or(z.literal('')),
     colors: z.object({
-        primary: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Primary color must be a valid hex color'),
-        secondary: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Secondary color must be a valid hex color'),
-        text: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Text color must be a valid hex color'),
+        primary: z.string().regex(HEX_COLOR_REGEX, 'Primary color must be a valid hex color'),
+        secondary: z.string().regex(HEX_COLOR_REGEX, 'Secondary color must be a valid hex color'),
+        text: z.string().regex(HEX_COLOR_REGEX, 'Text color must be a valid hex color'),
     }),
 });
 
-// Match Schema
+/**
+ * Schema for Match data.
+ */
 export const matchSchema = z.object({
     id: z.string().min(1).max(100),
     homeTeamId: z.string().min(1).max(50),
@@ -25,14 +42,14 @@ export const matchSchema = z.object({
             const parsed = new Date(val);
             return isNaN(parsed.getTime()) ? val : parsed.toISOString();
         }
-        return val;
+        return String(val);
     }),
     week: z.number().int().min(1).max(40),
-    season: z.string().regex(/^\d{4}-\d{4}$/, 'Season must be in format YYYY-YYYY'),
+    season: z.string().regex(SEASON_REGEX, 'Season must be in format YYYY-YYYY'),
     stadium: z.string().min(1).max(200),
     referee: z.string().min(1).max(100),
     varReferee: z.string().min(1).max(100).optional(),
-    score: z.string().regex(/^\d+\s*-\s*\d+$/).optional(), // Format: "2-1" or "2 - 1"
+    score: z.string().regex(SCORE_REGEX).optional(), // Format: "2-1" or "2 - 1"
     homeScore: z.number().int().min(0).optional(),
     awayScore: z.number().int().min(0).optional(),
     stats: z.object({
@@ -98,7 +115,9 @@ export const matchSchema = z.object({
     status: z.enum(['draft', 'published']).optional(),
 });
 
-// Incident Schema
+/**
+ * Schema for Incident/Position data.
+ */
 export const incidentSchema = z.object({
     id: z.string().min(1).max(100),
     matchId: z.string().min(1).max(100),
@@ -106,8 +125,8 @@ export const incidentSchema = z.object({
     description: z.string().min(1).max(1000),
     refereeDecision: z.string().min(1).max(200),
     varDecision: z.string().max(200).optional(),
-    varRecommendation: z.enum(['none', 'review', 'monitor_only']).optional(), // none: Yok, review: İnceleme Önerisi, monitor_only: Sadece Takip (Opsiyonel)
-    correctDecision: z.string().max(200).optional(), // Hakem ne yapmalıydı?
+    varRecommendation: z.enum(['none', 'review', 'monitor_only']).optional(),
+    correctDecision: z.string().max(200).optional(),
     finalDecision: z.string().min(1).max(200),
     favorOf: z.string().max(50).optional(),
     against: z.string().max(50).optional(),
@@ -115,12 +134,14 @@ export const incidentSchema = z.object({
     videoUrl: z.string().url().optional().or(z.literal('')),
 });
 
-// Opinion Schema
+/**
+ * Schema for Critic Opinions.
+ */
 export const opinionSchema = z.object({
     id: z.string().min(1).max(100),
     matchId: z.string().min(1).max(100),
-    incidentId: z.string().min(1).max(100).optional(), // Made optional to support migration to positionId
-    positionId: z.string().min(1).max(100).optional(), // New link
+    incidentId: z.string().min(1).max(100).optional(),
+    positionId: z.string().min(1).max(100).optional(),
     criticName: z.string().min(1).max(100),
     opinion: z.string().max(5000).optional().or(z.literal('')),
     shortOpinion: z.string().max(500).optional(),
@@ -129,7 +150,9 @@ export const opinionSchema = z.object({
     type: z.enum(['trio', 'general']).optional(),
 });
 
-// Standing Schema
+/**
+ * Schema for League Standings.
+ */
 export const standingSchema = z.object({
     id: z.string().min(1).max(50),
     teamName: z.string().min(1).max(100),
@@ -144,20 +167,22 @@ export const standingSchema = z.object({
     rank: z.number().int().min(1).optional(),
 });
 
-// Statement Schema
+/**
+ * Schema for Statements (TFF/Clubs).
+ */
 export const statementSchema = z.object({
     id: z.string().min(1).max(100),
     title: z.string().min(1).max(200),
     content: z.string().min(1).max(5000),
     entity: z.string().min(1).max(100),
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in format YYYY-MM-DD'),
+    date: z.string().regex(DATE_REGEX, 'Date must be in format YYYY-MM-DD'),
     url: z.string().url().optional().or(z.literal('')),
     type: z.enum(['tff', 'club']),
 });
 
-
-
-// Disciplinary Action Schema
+/**
+ * Schema for Disciplinary Actions (PFDK).
+ */
 export const disciplinaryActionSchema = z.object({
     id: z.string().min(1).max(100),
     teamName: z.string().max(100).optional().or(z.literal('')),
@@ -166,5 +191,5 @@ export const disciplinaryActionSchema = z.object({
     matchId: z.string().max(100).optional(),
     type: z.enum(['pfdk', 'performance', 'penalty']).optional(),
     penalty: z.string().max(200).optional(),
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in format YYYY-MM-DD'),
+    date: z.string().regex(DATE_REGEX, 'Date must be in format YYYY-MM-DD'),
 });

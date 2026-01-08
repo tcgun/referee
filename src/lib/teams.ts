@@ -1,4 +1,23 @@
-export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: string; secondary: string }; short: string; aliases?: string[] }> = {
+/**
+ * Utility functions for Team Management.
+ * Handles team data, colors, and resolving team identifiers from user input.
+ *
+ * @module lib/teams
+ */
+
+interface TeamColors {
+    primary: string;
+    secondary: string;
+}
+
+interface TeamData {
+    name: string;
+    colors: TeamColors;
+    short: string;
+    aliases?: string[];
+}
+
+export const SUPER_LIG_TEAMS: Record<string, TeamData> = {
     'bes': {
         name: 'Beşiktaş',
         colors: { primary: '#000000', secondary: '#ffffff' },
@@ -100,34 +119,59 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
     }
 };
 
-export function getTeamColors(teamId: string) {
+/**
+ * Retrieves the primary and secondary colors for a given team.
+ * Falls back to default gray colors if team not found.
+ *
+ * @param {string} teamId - The ID of the team (e.g., 'gal', 'fen').
+ * @returns {TeamColors} Object containing primary and secondary hex colors.
+ */
+export function getTeamColors(teamId: string): TeamColors {
     const team = SUPER_LIG_TEAMS[teamId] || { colors: { primary: '#333333', secondary: '#cccccc' } };
     return team.colors;
 }
 
-export function getTeamName(teamId: string) {
+/**
+ * Retrieves the full name of a team.
+ * Returns the input ID if team is not found.
+ *
+ * @param {string} teamId - The ID of the team.
+ * @returns {string} The full team name or the ID itself.
+ */
+export function getTeamName(teamId: string): string {
     const team = SUPER_LIG_TEAMS[teamId];
     return team ? team.name : teamId;
 }
 
+/**
+ * Normalizes a string for searching: lowercases, replaces Turkish characters, removes non-alphanumerics.
+ *
+ * @param {string} s - Input string.
+ * @returns {string} Normalized string.
+ */
+function normalizeString(s: string): string {
+    return s.toLowerCase()
+        .replace(/ı/g, 'i')
+        .replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u')
+        .replace(/ş/g, 's')
+        .replace(/ö/g, 'o')
+        .replace(/ç/g, 'c')
+        .replace(/İ/g, 'i')
+        .replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Attempts to resolve a user input string to a valid Team ID.
+ * Checks against short codes, IDs, aliases, and fuzzy name matches.
+ *
+ * @param {string} input - The search string (e.g., "Galatasaray", "Cimbom").
+ * @returns {string | null} The Team ID if found, otherwise null.
+ */
 export function resolveTeamId(input: string): string | null {
     if (!input) return null;
     const search = input.toLowerCase().trim();
-
-    // Helper: Normalize string (remove tr chars, non-alphanumeric)
-    const normalize = (s: string) => {
-        let n = s.toLowerCase();
-        n = n.replace(/ı/g, 'i')
-            .replace(/ğ/g, 'g')
-            .replace(/ü/g, 'u')
-            .replace(/ş/g, 's')
-            .replace(/ö/g, 'o')
-            .replace(/ç/g, 'c')
-            .replace(/İ/g, 'i');
-        return n.replace(/[^a-z0-9]/g, '');
-    };
-
-    const searchNorm = normalize(search);
+    const searchNorm = normalizeString(search);
 
     // 1. Direct shortcode match
     for (const [id, data] of Object.entries(SUPER_LIG_TEAMS)) {
@@ -136,7 +180,7 @@ export function resolveTeamId(input: string): string | null {
         // Check aliases with normalization
         if (data.aliases) {
             if (data.aliases.includes(search)) return id;
-            if (data.aliases.some(alias => normalize(alias) === searchNorm)) return id;
+            if (data.aliases.some(alias => normalizeString(alias) === searchNorm)) return id;
         }
     }
 
@@ -145,7 +189,7 @@ export function resolveTeamId(input: string): string | null {
 
     // 3. Name fuzzy match
     for (const [id, data] of Object.entries(SUPER_LIG_TEAMS)) {
-        const teamNameNorm = normalize(data.name);
+        const teamNameNorm = normalizeString(data.name);
         // Normalized inclusion check (bidirectional)
         if (teamNameNorm.includes(searchNorm) || searchNorm.includes(teamNameNorm)) {
             return id;

@@ -1,6 +1,7 @@
 /**
- * Simple in-memory rate limiter for API endpoints
- * Note: In production with multiple server instances, consider using Redis (Upstash)
+ * Simple in-memory rate limiter for API endpoints.
+ *
+ * @module lib/rate-limit
  */
 
 interface RateLimitEntry {
@@ -10,15 +11,17 @@ interface RateLimitEntry {
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
 
-// Clean up old entries every 5 minutes
-setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of rateLimitStore.entries()) {
-        if (now > entry.resetTime) {
-            rateLimitStore.delete(key);
+// Clean up old entries every 5 minutes to prevent memory leaks
+if (typeof setInterval !== 'undefined') {
+    setInterval(() => {
+        const now = Date.now();
+        for (const [key, entry] of rateLimitStore.entries()) {
+            if (now > entry.resetTime) {
+                rateLimitStore.delete(key);
+            }
         }
-    }
-}, 5 * 60 * 1000);
+    }, 5 * 60 * 1000);
+}
 
 export interface RateLimitResult {
     success: boolean;
@@ -28,20 +31,21 @@ export interface RateLimitResult {
 }
 
 /**
- * Check rate limit for an identifier (IP address or user ID)
- * @param identifier - Unique identifier (e.g., IP address)
- * @param maxRequests - Maximum requests allowed
- * @param windowMs - Time window in milliseconds
- * @returns Rate limit result
+ * Checks the rate limit for a specific identifier (IP or User ID).
+ * Implements a fixed-window counter algorithm.
+ *
+ * @param {string} identifier - Unique identifier (e.g., IP address).
+ * @param {number} [maxRequests=10] - Maximum allowed requests per window.
+ * @param {number} [windowMs=10000] - Duration of the window in milliseconds.
+ * @returns {RateLimitResult} Status of the rate limit check.
  */
 export function checkRateLimit(
     identifier: string,
     maxRequests: number = 10,
-    windowMs: number = 10000 // 10 seconds default
+    windowMs: number = 10000
 ): RateLimitResult {
     const now = Date.now();
-    const key = identifier;
-    const entry = rateLimitStore.get(key);
+    const entry = rateLimitStore.get(identifier);
 
     if (!entry || now > entry.resetTime) {
         // Create new entry or reset expired entry
@@ -49,7 +53,7 @@ export function checkRateLimit(
             count: 1,
             resetTime: now + windowMs,
         };
-        rateLimitStore.set(key, newEntry);
+        rateLimitStore.set(identifier, newEntry);
         return {
             success: true,
             limit: maxRequests,
@@ -79,7 +83,10 @@ export function checkRateLimit(
 }
 
 /**
- * Get client IP address from request
+ * Extracts the client IP address from the request headers.
+ *
+ * @param {Request} request - The incoming HTTP request.
+ * @returns {string} The detected IP address or 'unknown'.
  */
 export function getClientIP(request: Request): string {
     // Try various headers that proxies/load balancers use
@@ -94,8 +101,5 @@ export function getClientIP(request: Request): string {
         return realIP;
     }
 
-    // Fallback to 'unknown' if we can't determine IP
     return 'unknown';
 }
-
-
