@@ -4,14 +4,24 @@ import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 type ApiHandler = (request: Request) => Promise<NextResponse>;
 
+/**
+ * Admin API rotaları için güvenlik katmanı.
+ * Rate limiting, Secret Key kontrolü ve Admin Token doğrulamasını sağlar.
+ * 
+ * Security layer for Admin API routes.
+ * Provides rate limiting, Secret Key check, and Admin Token verification.
+ * 
+ * @param request - Gelen istek
+ * @param handler - Çalıştırılacak asıl API işleyicisi
+ */
 export async function withAdminGuard(
     request: Request,
     handler: ApiHandler
 ): Promise<NextResponse> {
     try {
-        // 1. Rate Limit
+        // 1. Rate Limit (İstek Sınırlama)
         const clientIP = getClientIP(request);
-        const rateLimit = checkRateLimit(`admin-api:${clientIP}`, 60, 60000); // 60 req/min
+        const rateLimit = checkRateLimit(`admin-api:${clientIP}`, 60, 60000); // 60 req/min (Dakikada 60 istek)
 
         if (!rateLimit.success) {
             return NextResponse.json(
@@ -20,20 +30,15 @@ export async function withAdminGuard(
             );
         }
 
-        // 2. Secret Key Check (Layer 1)
+        // 2. Secret Key Check (Layer 1 - Gizli Anahtar Kontrolü)
         const secretKey = request.headers.get('x-admin-key');
         if (!verifyAdminKey(secretKey)) {
             return NextResponse.json({ error: 'Unauthorized: Invalid Secret Key' }, { status: 401 });
         }
 
-        // 3. User Token Check (Layer 2 - Strong Auth)
-        // We log if missing but valid secret key might be allowed for legacy/dev contexts if ADMIN_UIDS is empty
-        // logic in auth.ts: if ADMIN_UIDS defined, verifyAdminToken checks against it.
-        // We expect Authorization: Bearer <token>
+        // 3. User Token Check (Layer 2 - Strong Auth / Kullanıcı Token Kontrolü)
+        // Eğer ADMIN_UIDS tanımlıysa token doğrulaması zorunludur.
         const authHeader = request.headers.get('Authorization');
-
-        // If ADMIN_UIDS env is set, we ENFORCE token check.
-        // If not set, we skip it (warn in logs).
         const enforceToken = (process.env.ADMIN_UIDS || '').length > 0;
 
         if (enforceToken) {
@@ -45,12 +50,11 @@ export async function withAdminGuard(
             const isValidToken = await verifyAdminToken(token || null);
 
             if (!isValidToken) {
-                // Determine why it failed logic is in auth.ts but we can infer
                 return NextResponse.json({ error: 'Unauthorized: Invalid Admin Token (Check UID Whitelist)', code: 'INVALID_TOKEN' }, { status: 403 });
             }
         }
 
-        // 4. Run Handler
+        // 4. Run Handler (İşleyiciyi Çalıştır)
         return await handler(request);
 
     } catch (error) {

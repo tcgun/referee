@@ -100,21 +100,40 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
     }
 };
 
+/**
+ * Verilen takım ID'sine göre takımın renklerini döndürür.
+ * Returns team colors based on the provided team ID.
+ * @param teamId - Takım kimliği (örn: 'gal', 'fen')
+ * @returns {object} - { primary: string, secondary: string }
+ */
 export function getTeamColors(teamId: string) {
     const team = SUPER_LIG_TEAMS[teamId] || { colors: { primary: '#333333', secondary: '#cccccc' } };
     return team.colors;
 }
 
+/**
+ * Verilen takım ID'sine göre tam takım ismini döndürür.
+ * Returns full team name based on the provided team ID.
+ * @param teamId - Takım kimliği
+ * @returns {string} - Tam takım ismi veya ID
+ */
 export function getTeamName(teamId: string) {
     const team = SUPER_LIG_TEAMS[teamId];
     return team ? team.name : teamId;
 }
 
+/**
+ * Girilen metne göre en uygun takım ID'sini bulmaya çalışır.
+ * Attempts to resolve the most appropriate team ID based on input text.
+ * @param input - Arama metni (takım ismi, kısaltma veya alias)
+ * @returns {string | null} - Bulunan takım ID'si veya null
+ */
 export function resolveTeamId(input: string): string | null {
     if (!input) return null;
     const search = input.toLowerCase().trim();
 
     // Helper: Normalize string (remove tr chars, non-alphanumeric)
+    // Yardımcı: Metni normalize et (Türkçe karakterleri ve alfasayısal olmayanları temizle)
     const normalize = (s: string) => {
         let n = s.toLowerCase();
         n = n.replace(/ı/g, 'i')
@@ -129,24 +148,24 @@ export function resolveTeamId(input: string): string | null {
 
     const searchNorm = normalize(search);
 
-    // 1. Direct shortcode match
+    // 1. Doğrudan kısa kod eşleşmesi / Direct shortcode match
     for (const [id, data] of Object.entries(SUPER_LIG_TEAMS)) {
         if (data.short === search) return id;
 
-        // Check aliases with normalization
+        // Alias (takma isim) kontrolü
         if (data.aliases) {
             if (data.aliases.includes(search)) return id;
             if (data.aliases.some(alias => normalize(alias) === searchNorm)) return id;
         }
     }
 
-    // 2. Direct ID match
+    // 2. Doğrudan ID eşleşmesi / Direct ID match
     if (SUPER_LIG_TEAMS[search]) return search;
 
-    // 3. Name fuzzy match
+    // 3. İsim benzerliği eşleşmesi / Name fuzzy match
     for (const [id, data] of Object.entries(SUPER_LIG_TEAMS)) {
         const teamNameNorm = normalize(data.name);
-        // Normalized inclusion check (bidirectional)
+        // Normalize edilmiş içerik kontrolü (çift yönlü)
         if (teamNameNorm.includes(searchNorm) || searchNorm.includes(teamNameNorm)) {
             return id;
         }
