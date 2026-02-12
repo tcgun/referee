@@ -12,6 +12,10 @@ interface IncidentWithOpinions extends Incident {
     opinions: Opinion[];
 }
 
+const normalizeName = (name: string) => {
+    return name.replace(/i/g, 'İ').toLocaleUpperCase('tr-TR').trim().replace(/\s+/g, ' ');
+};
+
 export default function MatchClient() {
     const params = useParams();
     const searchParams = useSearchParams();
@@ -71,7 +75,7 @@ export default function MatchClient() {
                 incidentsList.sort((a, b) => parseMinute(a.minute) - parseMinute(b.minute));
                 setIncidents(incidentsList);
 
-                const pfdkQ = query(collection(db, 'disciplinary_actions'), where('matchId', '==', matchId));
+                const pfdkQ = query(collection(db, 'disciplinary_actions'), where('matchId', 'in', [matchId, `d-${matchId}`]));
                 const pfdkSnap = await getDocs(pfdkQ);
                 const relevantActions = pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction));
                 setDisciplinary(relevantActions.filter(d => d.type !== 'performance'));
@@ -119,47 +123,49 @@ export default function MatchClient() {
             </div>
         </div>
     );
-    if (!match) return <div className="p-8 text-center text-red-500 font-bold">Maç bulunamadı.</div>;
+    if (!match) return <div className="p-8 text-center text-red-500 font-bold bg-[#0d1117] min-h-screen">Maç bulunamadı.</div>;
 
     const homeColors = getTeamColors(match.homeTeamId);
     const awayColors = getTeamColors(match.awayTeamId);
 
     return (
-        <div className="min-h-screen bg-background pb-12">
-            <div className="bg-card border-b border-border shadow-sm mb-6 pt-4">
+        <div className="min-h-screen bg-[#0d1117] text-white pb-12">
+            <div className="bg-[#161b22] border-b border-white/5 shadow-2xl mb-6 pt-4">
                 <div className="max-w-7xl mx-auto px-4 pb-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-4">
                         <div className="w-full md:flex-1 text-center md:text-right order-1 md:order-1">
-                            <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground leading-none break-words">
+                            <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-white leading-none break-words">
                                 {match.homeTeamName}
                             </h1>
                         </div>
-                        <div className="flex flex-col items-center shrink-0 mx-0 md:mx-2 order-2 md:order-2 my-2 md:my-0">
-                            <div className="text-4xl md:text-6xl font-black font-mono tracking-tighter text-foreground px-4 py-1">
+                        <div className="flex flex-col items-center shrink-0 mx-0 md:mx-4 order-2 md:order-2 my-4 md:my-0">
+                            <div className="text-4xl md:text-6xl font-black font-mono tracking-tighter text-white px-4 py-1 mb-2">
                                 {(match.homeScore !== undefined && match.awayScore !== undefined) ? `${match.homeScore} - ${match.awayScore}` : (match.score && match.score !== 'v' ? match.score : 'vs')}
                             </div>
-                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/50 px-2 py-0.5 rounded mb-1">
-                                {match.date ? new Date(match.date).toLocaleString('tr-TR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' }) : '-'}
-                            </div>
-                            {match.stadium && (
-                                <div className="text-[9px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-1 flex items-center gap-1">
-                                    <svg className="w-3 h-3 text-muted-foreground/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V7l8-4 8 4v14" /></svg>
-                                    {match.stadium}
+                            <div className="flex flex-col items-center gap-1 text-center">
+                                <div className="text-sm font-bold text-gray-300 tracking-wide">
+                                    {match.date ? new Date(match.date).toLocaleString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
                                 </div>
-                            )}
+                                {match.stadium && (
+                                    <div className="text-xs font-medium text-gray-500 uppercase tracking-widest flex items-center gap-1.5 mt-1">
+                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V7l8-4 8 4v14" /></svg>
+                                        {match.stadium}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="w-full md:flex-1 text-center md:text-left order-3 md:order-3">
-                            <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground leading-none break-words">
+                            <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-white leading-none break-words">
                                 {match.awayTeamName}
                             </h1>
                         </div>
                     </div>
-                    <div className="flex gap-0.5 bg-muted/30 p-0.5 rounded-lg w-full mt-4 md:mt-6 justify-between md:justify-center">
+                    <div className="flex gap-1 bg-[#1d2129] p-1 rounded-xl w-full mt-4 md:mt-8 justify-between md:justify-center border border-white/10">
                         {['summary', 'lineups', 'pfdk', 'performance'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(activeTab === tab ? null : tab as any)}
-                                className={`flex-1 py-1.5 rounded text-[7px] md:text-[10px] font-black uppercase tracking-tighter transition-all whitespace-nowrap text-center ${activeTab === tab ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/50'}`}
+                                className={`flex-1 py-2 px-1 rounded-lg text-[8px] md:text-[11px] font-black uppercase tracking-tighter transition-all whitespace-nowrap text-center border-2 border-transparent ${activeTab === tab ? 'bg-primary text-black border-black shadow-neo-sm scale-[1.02] z-10' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
                             >
                                 {tab === 'summary' ? 'İSTATİSTİK' : tab === 'lineups' ? 'KADRO' : tab === 'pfdk' ? 'PFDK' : 'HAKEM PERFORMANSI'}
                             </button>
@@ -172,12 +178,12 @@ export default function MatchClient() {
                 <div className="w-full">
                     {activeTab === 'summary' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm h-fit">
-                                <div className="bg-muted/30 px-4 py-2 border-b border-border flex items-center justify-between">
-                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-foreground">HAKEM KADROSU</h3>
-                                    <div className="text-[9px] font-bold text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">OFFICIALS</div>
+                            <div className="bg-[#161b22] border-2 border-white/20 rounded-xl overflow-hidden shadow-neo h-fit">
+                                <div className="bg-[#1d2129] px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                                    <h3 className="text-[11px] font-black uppercase tracking-widest text-white">HAKEM KADROSU</h3>
+                                    <div className="text-[9px] font-bold text-gray-500 bg-white/5 px-2 py-0.5 rounded border border-white/5">OFFICIALS</div>
                                 </div>
-                                <div className="divide-y divide-border/50">
+                                <div className="divide-y divide-white/5">
                                     <OfficialItem role="HAKEM" name={match.referee || match.officials?.referees?.[0]} />
                                     {(match.officials?.assistants?.length ? match.officials.assistants : match.officials?.referees?.slice(1, 3))?.map((asst, i) => (
                                         <OfficialItem key={`asst-${i}`} role={`YARDIMCI ${i + 1}`} name={asst} />
@@ -187,20 +193,52 @@ export default function MatchClient() {
                                     {(match.officials?.avarReferees?.length ? match.officials.avarReferees : match.officials?.varReferees?.slice(1))?.map((avar, i) => (
                                         <OfficialItem key={`avar-${i}`} role="AVAR" name={avar} />
                                     ))}
-                                    {match.officials?.observers?.map((obs, i) => (
-                                        <OfficialItem key={`obs-${i}`} role="GÖZLEMCİ" name={obs} />
-                                    ))}
+
                                     {match.officials?.representatives?.map((rep, i) => (
                                         <OfficialItem key={`rep-${i}`} role="TEMSİLCİ" name={rep} />
                                     ))}
                                 </div>
                             </div>
 
+                            {/* Match Events Timeline */}
+                            {match.events && match.events.length > 0 && (
+                                <div className="bg-[#161b22] border-2 border-white/20 rounded-xl overflow-hidden shadow-neo h-fit">
+                                    <div className="bg-[#1d2129] px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                                        <h3 className="text-[11px] font-black uppercase tracking-widest text-white">MAÇ OLAYLARI</h3>
+                                        <div className="text-[9px] font-bold text-gray-500 bg-white/5 px-2 py-0.5 rounded border border-white/5">TIMELINE</div>
+                                    </div>
+                                    <div className="p-4 space-y-4">
+                                        {/* Sort events by minute (numeric) */}
+                                        {match.events.sort((a, b) => parseInt(a.minute) - parseInt(b.minute)).map((ev, i) => (
+                                            <div key={i} className={`flex items-center gap-3 text-xs ${ev.teamId === 'away' ? 'flex-row-reverse text-right' : ''}`}>
+                                                <div className={`font-mono font-black text-sm w-10 h-10 flex items-center justify-center shrink-0 rounded-lg bg-white/5 border border-white/10 ${ev.teamId === 'home' ? 'text-blue-400' : 'text-red-400'}`}>
+                                                    {ev.minute}'
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="font-black text-white uppercase tracking-tight">{ev.player}</div>
+                                                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em] flex items-center gap-1 mt-0.5">
+                                                        {ev.type === 'goal' && <><span className="text-base">⚽</span> GOL</>}
+                                                        {ev.type === 'yellow_card' && <><span className="w-2.5 h-3.5 bg-yellow-400 rounded-sm inline-block shadow-[0_0_8px_rgba(250,204,21,0.3)]"></span> SARI KART</>}
+                                                        {ev.type === 'red_card' && <><span className="w-2.5 h-3.5 bg-red-600 rounded-sm inline-block shadow-[0_0_8px_rgba(220,38,38,0.3)]"></span> KIRMIZI KART</>}
+                                                        {ev.type === 'substitution_in' && <><span className="text-green-500 font-black">↑</span> OYUNA GİRME</>}
+                                                        {ev.type === 'substitution_out' && <><span className="text-red-500 font-black">↓</span> OYUNDAN ÇIKMA</>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {match.stats && (
                                 <div className="space-y-4">
-                                    <div className="bg-card border border-border rounded-xl p-4">
-                                        <h3 className="text-xs font-bold text-center mb-4 uppercase text-foreground">Maç İstatistikleri</h3>
-                                        <div className="space-y-3">
+                                    <div className="bg-[#161b22] border-2 border-white/20 rounded-xl p-5 shadow-neo">
+                                        <h3 className="text-xs font-black text-center mb-6 uppercase tracking-[0.2em] text-white flex items-center gap-3">
+                                            <span className="h-px bg-white/10 flex-1"></span>
+                                            İSTATİSTİKLER
+                                            <span className="h-px bg-white/10 flex-1"></span>
+                                        </h3>
+                                        <div className="space-y-4">
                                             <StatBar label="Topla Oynama" home={match.stats.homePossession || 50} away={match.stats.awayPossession || 50} homeColor={homeColors?.primary} awayColor={awayColors?.primary} suffix="%" />
                                             <StatBar label="Toplam Şut" home={match.stats.homeShots || 0} away={match.stats.awayShots || 0} homeColor={homeColors?.primary} awayColor={awayColors?.primary} />
                                             <StatBar label="İsabetli Şut" home={match.stats.homeShotsOnTarget || 0} away={match.stats.awayShotsOnTarget || 0} homeColor={homeColors?.primary} awayColor={awayColors?.primary} />
@@ -219,59 +257,143 @@ export default function MatchClient() {
                     )}
 
                     {activeTab === 'lineups' && match?.lineups && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-card border border-border rounded-xl p-4">
-                                <h3 className="text-sm font-bold text-center mb-4 uppercase text-foreground">Ev Sahibi</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-[#161b22] border-2 border-white/20 rounded-xl p-5 shadow-neo">
+                                <h3 className="text-sm font-black text-center mb-6 uppercase tracking-[0.2em] text-white flex items-center gap-3">
+                                    <span className="h-px bg-white/10 flex-1"></span>
+                                    EV SAHİBİ
+                                    <span className="h-px bg-white/10 flex-1"></span>
+                                </h3>
                                 <div className="space-y-1">
-                                    {match.lineups.home?.map((player, i) => (
-                                        <div key={i} className="flex gap-2 text-xs py-1 border-b border-border/50">
-                                            <span className="font-mono text-muted-foreground px-1">{player.number}</span>
-                                            <span className="font-bold">{player.name}</span>
-                                        </div>
-                                    ))}
+                                    {match.lineups.home?.map((player, i) => {
+                                        const pName = normalizeName(player.name);
+                                        const events = match.events?.filter(e => normalizeName(e.player) === pName && e.teamId === 'home');
+                                        return (
+                                            <div key={i} className="flex items-center justify-between text-[11px] py-2 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-2 rounded-lg group">
+                                                <div className="flex gap-3 items-center">
+                                                    <span className="font-mono text-gray-500 w-5 text-center">{player.number}</span>
+                                                    <span className="font-black text-white group-hover:text-primary transition-colors">{player.name}</span>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    {events?.map((ev, idx) => (
+                                                        <span key={idx} title={`${ev.type} - ${ev.minute}'`}>
+                                                            {ev.type === 'goal' && '⚽'}
+                                                            {ev.type === 'yellow_card' && <span className="inline-block w-2 h-3 bg-yellow-400 rounded-[1px] border border-black/10"></span>}
+                                                            {ev.type === 'red_card' && <span className="inline-block w-2 h-3 bg-red-600 rounded-[1px] border border-black/10"></span>}
+                                                            {ev.type === 'substitution_out' && <span className="text-red-500 font-bold">↓</span>}
+                                                            {ev.type === 'substitution_in' && <span className="text-green-500 font-bold">↑</span>}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                     {match.lineups.homeSubs && match.lineups.homeSubs.length > 0 && (
                                         <>
-                                            <div className="mt-4 mb-2 text-xs font-black text-muted-foreground uppercase text-center border-b border-border/30 pb-1">Yedekler</div>
-                                            {match.lineups.homeSubs.map((player, i) => (
-                                                <div key={`sub-${i}`} className="flex gap-2 text-xs py-1 border-b border-border/50 text-muted-foreground">
-                                                    <span className="font-mono px-1">{player.number}</span>
-                                                    <span>{player.name}</span>
-                                                </div>
-                                            ))}
+                                            <div className="mt-8 mb-4 text-[10px] font-black text-gray-500 uppercase text-center flex items-center gap-3">
+                                                <span className="h-px bg-white/10 flex-1"></span>
+                                                YEDEKLER
+                                                <span className="h-px bg-white/10 flex-1"></span>
+                                            </div>
+                                            {match.lineups.homeSubs.map((player, i) => {
+                                                const pName = normalizeName(player.name);
+                                                const events = match.events?.filter(e => normalizeName(e.player) === pName && e.teamId === 'home');
+                                                return (
+                                                    <div key={`sub-${i}`} className="flex items-center justify-between text-[11px] py-1.5 border-b border-white/5 last:border-0 text-gray-400 px-2">
+                                                        <div className="flex gap-3 items-center">
+                                                            <span className="font-mono w-5 text-center text-gray-600">{player.number}</span>
+                                                            <span className="font-bold">{player.name}</span>
+                                                        </div>
+                                                        <div className="flex gap-1">
+                                                            {events?.map((ev, idx) => (
+                                                                <span key={idx} title={`${ev.type} - ${ev.minute}'`}>
+                                                                    {ev.type === 'goal' && '⚽'}
+                                                                    {ev.type === 'yellow_card' && <span className="inline-block w-2.5 h-3.5 bg-yellow-400 rounded-[1px] border border-black/10"></span>}
+                                                                    {ev.type === 'red_card' && <span className="inline-block w-2.5 h-3.5 bg-red-600 rounded-[1px] border border-black/10"></span>}
+                                                                    {ev.type === 'substitution_out' && <span className="text-red-500 font-black">↓</span>}
+                                                                    {ev.type === 'substitution_in' && <span className="text-green-500 font-black">↑</span>}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </>
                                     )}
                                     {match.lineups.homeCoach && (
-                                        <div className="mt-4 pt-4 border-t border-border/20 text-center">
-                                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">TEKNİK DİREKTÖR</div>
-                                            <div className="text-sm font-bold text-foreground uppercase">{match.lineups.homeCoach}</div>
+                                        <div className="mt-8 pt-6 border-t border-white/10 text-center">
+                                            <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">TEKNİK DİREKTÖR</div>
+                                            <div className="text-sm font-black text-white uppercase tracking-tighter">{match.lineups.homeCoach}</div>
                                         </div>
                                     )}
                                 </div>
                             </div>
-                            <div className="bg-card border border-border rounded-xl p-4">
-                                <h3 className="text-sm font-bold text-center mb-4 uppercase text-foreground">Deplasman</h3>
+                            <div className="bg-[#161b22] border-2 border-white/20 rounded-xl p-5 shadow-neo">
+                                <h3 className="text-sm font-black text-center mb-6 uppercase tracking-[0.2em] text-white flex items-center gap-3">
+                                    <span className="h-px bg-white/10 flex-1"></span>
+                                    DEPLASMAN
+                                    <span className="h-px bg-white/10 flex-1"></span>
+                                </h3>
                                 <div className="space-y-1">
-                                    {match.lineups.away?.map((player, i) => (
-                                        <div key={i} className="flex gap-2 text-xs py-1 border-b border-border/50">
-                                            <span className="font-mono text-muted-foreground px-1">{player.number}</span>
-                                            <span className="font-bold">{player.name}</span>
-                                        </div>
-                                    ))}
+                                    {match.lineups.away?.map((player, i) => {
+                                        const pName = normalizeName(player.name);
+                                        const events = match.events?.filter(e => normalizeName(e.player) === pName && e.teamId === 'away');
+                                        return (
+                                            <div key={i} className="flex items-center justify-between text-[11px] py-2 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-2 rounded-lg group">
+                                                <div className="flex gap-3 items-center">
+                                                    <span className="font-mono text-gray-500 w-5 text-center">{player.number}</span>
+                                                    <span className="font-black text-white group-hover:text-primary transition-colors">{player.name}</span>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    {events?.map((ev, idx) => (
+                                                        <span key={idx} title={`${ev.type} - ${ev.minute}'`}>
+                                                            {ev.type === 'goal' && '⚽'}
+                                                            {ev.type === 'yellow_card' && <span className="inline-block w-2 h-3 bg-yellow-400 rounded-[1px] border border-black/10"></span>}
+                                                            {ev.type === 'red_card' && <span className="inline-block w-2 h-3 bg-red-600 rounded-[1px] border border-black/10"></span>}
+                                                            {ev.type === 'substitution_out' && <span className="text-red-500 font-bold">↓</span>}
+                                                            {ev.type === 'substitution_in' && <span className="text-green-500 font-bold">↑</span>}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                     {match.lineups.awaySubs && match.lineups.awaySubs.length > 0 && (
                                         <>
-                                            <div className="mt-4 mb-2 text-xs font-black text-muted-foreground uppercase text-center border-b border-border/30 pb-1">Yedekler</div>
-                                            {match.lineups.awaySubs.map((player, i) => (
-                                                <div key={`sub-${i}`} className="flex gap-2 text-xs py-1 border-b border-border/50 text-muted-foreground">
-                                                    <span className="font-mono px-1">{player.number}</span>
-                                                    <span>{player.name}</span>
-                                                </div>
-                                            ))}
+                                            <div className="mt-8 mb-4 text-[10px] font-black text-gray-500 uppercase text-center flex items-center gap-3">
+                                                <span className="h-px bg-white/10 flex-1"></span>
+                                                YEDEKLER
+                                                <span className="h-px bg-white/10 flex-1"></span>
+                                            </div>
+                                            {match.lineups.awaySubs.map((player, i) => {
+                                                const pName = normalizeName(player.name);
+                                                const events = match.events?.filter(e => normalizeName(e.player) === pName && e.teamId === 'away');
+                                                return (
+                                                    <div key={`sub-${i}`} className="flex items-center justify-between text-[11px] py-1.5 border-b border-white/5 last:border-0 text-gray-400 px-2">
+                                                        <div className="flex gap-3 items-center">
+                                                            <span className="font-mono w-5 text-center text-gray-600">{player.number}</span>
+                                                            <span className="font-bold">{player.name}</span>
+                                                        </div>
+                                                        <div className="flex gap-1">
+                                                            {events?.map((ev, idx) => (
+                                                                <span key={idx} title={`${ev.type} - ${ev.minute}'`}>
+                                                                    {ev.type === 'goal' && '⚽'}
+                                                                    {ev.type === 'yellow_card' && <span className="inline-block w-2.5 h-3.5 bg-yellow-400 rounded-[1px] border border-black/10"></span>}
+                                                                    {ev.type === 'red_card' && <span className="inline-block w-2.5 h-3.5 bg-red-600 rounded-[1px] border border-black/10"></span>}
+                                                                    {ev.type === 'substitution_out' && <span className="text-red-500 font-black">↓</span>}
+                                                                    {ev.type === 'substitution_in' && <span className="text-green-500 font-black">↑</span>}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </>
                                     )}
                                     {match.lineups.awayCoach && (
-                                        <div className="mt-4 pt-4 border-t border-border/20 text-center">
-                                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">TEKNİK DİREKTÖR</div>
-                                            <div className="text-sm font-bold text-foreground uppercase">{match.lineups.awayCoach}</div>
+                                        <div className="mt-8 pt-6 border-t border-white/10 text-center">
+                                            <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">TEKNİK DİREKTÖR</div>
+                                            <div className="text-sm font-black text-white uppercase tracking-tighter">{match.lineups.awayCoach}</div>
                                         </div>
                                     )}
                                 </div>
@@ -297,7 +419,7 @@ export default function MatchClient() {
                                                     <h4 className="font-bold text-sm text-foreground">{action.subject}</h4>
                                                 </div>
                                                 <p className="text-sm text-muted-foreground leading-relaxed italic mb-4">"{action.reason}"</p>
-                                                {action.penalty && (
+                                                {action.penalty ? (
                                                     <div className="bg-red-50/50 dark:bg-red-900/10 border-l-4 border-red-500 pl-4 py-2 rounded-r-lg">
                                                         <ul className="space-y-2">
                                                             {action.penalty.replace(/ - /g, '\n').split('\n').map((item, idx) => {
@@ -311,6 +433,13 @@ export default function MatchClient() {
                                                                 );
                                                             })}
                                                         </ul>
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-yellow-400/10 border-l-4 border-yellow-400 pl-4 py-2 rounded-r-lg">
+                                                        <div className="text-xs font-bold text-yellow-500 flex items-center gap-2">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0"></span>
+                                                            <span className="uppercase leading-normal">TEDBİRLİ OLARAK PFDK'YA SEVK EDİLMİŞTİR</span>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
@@ -520,14 +649,31 @@ function TrioIcon({ judgment }: { judgment: string }) {
     return <svg className="w-6 h-6 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 9V14M12 17.01L12.01 16.9989" /></svg>;
 }
 
-function StatBar({ label, home, away, homeColor, awayColor, suffix = '' }: { label: string, home: number | string, away: number | string, homeColor?: string, awayColor?: string, suffix?: string }) {
+function StatBar({ label, home, away, suffix = '' }: { label: string, home: number | string, away: number | string, homeColor?: string, awayColor?: string, suffix?: string }) {
     const total = Number(home) + Number(away);
     const hPercent = total > 0 ? (Number(home) / total) * 100 : 50;
     const aPercent = total > 0 ? (Number(away) / total) * 100 : 50;
+
+    // Admin Panel Style: Blue vs Red by default
+    let hColor = '#3b82f6'; // blue-500
+    let aColor = '#ef4444'; // red-500
+
+    // Card specific colors (Yellow/Red)
+    if (label === 'Sarı Kart') {
+        hColor = '#facc15'; // yellow-400
+        aColor = '#facc15cc'; // yellow-400 with opacity to distinguish
+    } else if (label === 'Kırmızı Kart') {
+        hColor = '#ef4444'; // red-500
+        aColor = '#ef4444cc'; // red-500 with opacity
+    }
+
     return (
         <div className="text-xs">
             <div className="flex justify-between mb-1 font-bold"><span>{home}{suffix}</span><span className="text-muted-foreground uppercase text-[10px] tracking-widest">{label}</span><span>{away}{suffix}</span></div>
-            <div className="flex h-1.5 rounded-full overflow-hidden bg-muted"><div style={{ width: `${hPercent}%`, backgroundColor: homeColor || '#3b82f6' }} /><div style={{ width: `${aPercent}%`, backgroundColor: awayColor || '#ef4444' }} /></div>
+            <div className="flex h-1.5 rounded-full overflow-hidden bg-white/10">
+                <div style={{ width: `${hPercent}%`, backgroundColor: hColor }} className="transition-all duration-500 h-full" />
+                <div style={{ width: `${aPercent}%`, backgroundColor: aColor }} className="transition-all duration-500 h-full" />
+            </div>
         </div>
     );
 }

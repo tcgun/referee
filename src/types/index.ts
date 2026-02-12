@@ -100,7 +100,15 @@ export interface Match {
     };
     lineups?: MatchLineups;
     status?: 'draft' | 'published';
+    events?: MatchEvent[];
     refereeStats?: RefereeStats;
+}
+
+export interface MatchEvent {
+    type: 'goal' | 'yellow_card' | 'red_card' | 'substitution_in' | 'substitution_out';
+    minute: string; // "77.dk", "90+2.dk"
+    player: string;
+    teamId: 'home' | 'away'; // relative to match
 }
 
 export interface RefereeStats {
@@ -180,4 +188,5 @@ export interface DisciplinaryAction {
     type?: 'pfdk' | 'performance'; // 'pfdk' is default
     penalty?: string; // Short summary
     date: string;
+    note?: string; // Full legal text
 }

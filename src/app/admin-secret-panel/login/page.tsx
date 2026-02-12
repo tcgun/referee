@@ -71,7 +71,7 @@ export default function AdminLoginPage() {
                         <Lock className="w-8 h-8 text-primary" />
                     </div>
                     <h1 className="text-2xl font-black text-white tracking-tighter uppercase italic">
-                        REFEREE<span className="text-primary">LIG</span> <span className="text-xs font-bold bg-white/10 px-2 py-0.5 rounded ml-1 text-slate-400">ADMIN</span>
+                        VARSAYIM <span className="text-xs font-bold bg-white/10 px-2 py-0.5 rounded ml-1 text-slate-400">ADMIN</span>
                     </h1>
                     <p className="text-slate-500 text-sm mt-2 font-medium">Lütfen yetkili bilgilerinizle giriş yapın.</p>
                 </div>
@@ -100,7 +100,7 @@ export default function AdminLoginPage() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="w-full bg-slate-800/50 border border-white/5 rounded-2xl py-3.5 pl-12 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all font-medium"
-                                    placeholder="admin@refereelig.com"
+                                    placeholder="admin@varsayim.com"
                                 />
                             </div>
                         </div>
@@ -140,7 +140,7 @@ export default function AdminLoginPage() {
                 </div>
 
                 <div className="mt-8 text-center text-[10px] text-slate-600 font-bold uppercase tracking-widest space-y-2">
-                    <p>&copy; 2026 REFEREELIG DATA SYSTEMS</p>
+                    <p>&copy; 2026 VARSAYIM DATA SYSTEMS</p>
                     <div className="h-px w-12 bg-slate-800 mx-auto"></div>
                     <p className="opacity-50">UNAUTHORIZED ACCESS IS STRICTLY MONITORED</p>
                 </div>

@@ -1,36 +1,32 @@
 @import "tailwindcss";
 
 :root {
-  /* Softer, Professional Dark Theme (Zinc Palette based) */
-  --background: #09090b;
-  /* Zinc 950 - Softer than pure black */
-  --foreground: #FAFAFA;
-  /* Zinc 50 - Off-white, easier on eyes */
+  /* Neo-Brutalist / Pop Theme */
+  --background: #0d1117;
+  --foreground: #FFFFFF;
 
-  --primary: #ffffff;
-  --primary-foreground: #09090b;
+  /* Vibrant Pink for Primary Actions & Shadows */
+  --primary: #FF5DAD;
+  --primary-foreground: #000000;
 
-  --secondary: #27272a;
-  /* Zinc 800 */
-  --secondary-foreground: #FAFAFA;
+  /* Yellow for Highlights */
+  --secondary: #FFDD00;
+  --secondary-foreground: #000000;
 
-  --muted: #27272a;
-  /* Zinc 800 */
-  --muted-foreground: #a1a1aa;
-  /* Zinc 400 */
+  /* Muted / Secondary Background */
+  --muted: #1d2129;
+  --muted-foreground: #94a3b8;
 
-  --accent: #27272a;
-  --accent-foreground: #FAFAFA;
+  --accent: #FFDD00;
+  --accent-foreground: #000000;
 
-  --card: #18181b;
-  /* Zinc 900 */
-  --card-foreground: #FAFAFA;
+  --card: #161b22;
+  --card-foreground: #FFFFFF;
 
-  --border: #27272a;
-  /* Zinc 800 */
-  --input: #27272a;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.1);
 
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 }
 
 @theme inline {
@@ -53,53 +49,47 @@
   --font-mono: var(--font-mono), ui-monospace, monospace;
 }
 
-/* Ensure consistent dark mode preference */
-@media (prefers-color-scheme: light) {
-  :root {
-    /* Keep dark mode active even on light preference for consistency, or provide a real light mode?
-      User said "general colors are disturbing". Let's provide a real LIGHT mode for system light preference users,
-      as usually forcing dark mode is what disturbs people who prefer light.
-   */
-    --background: #ffffff;
-    --foreground: #09090b;
-    --primary: #18181b;
-    --primary-foreground: #fafafa;
-    --secondary: #f4f4f5;
-    --muted: #f4f4f5;
-    --muted-foreground: #71717a;
-    --card: #ffffff;
-    --card-foreground: #09090b;
-    --border: #e4e4e7;
-    --input: #e4e4e7;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  /* Prevent horizontal scroll */
+  width: 100%;
 }
 
-/* Utilities */
+/* Neo-Brutalist Utilities */
+@layer utilities {
+  .shadow-neo {
+    box-shadow: 4px 4px 0px 0px var(--primary);
+  }
+
+  .shadow-neo-sm {
+    box-shadow: 2px 2px 0px 0px var(--primary);
+  }
+
+  .shadow-neo-lg {
+    box-shadow: 6px 6px 0px 0px var(--primary);
+  }
+
+  .border-neo {
+    border: 2px solid var(--border);
+  }
+}
+
+/* Glass/Card Utilities - Adapted for Pop Style */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-}
-
-.dark .glass-panel {
-  background: rgba(24, 24, 27, 0.7);
+  background: #161b22;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 4px 4px 0px 0px var(--primary);
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
-/* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

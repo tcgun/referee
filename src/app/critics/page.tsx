@@ -94,29 +94,33 @@ export default function CriticsPage() {
 
     return (
         <main className="min-h-screen bg-background pb-20 pt-8">
-            <div className="max-w-4xl mx-auto px-4 space-y-8">
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase text-purple-500">YORUMCULAR</h1>
-                    <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">Bağımsız Hakem Yorumcuları ve Uzman Görüşleri</p>
+            <div className="max-w-4xl mx-auto px-4 space-y-12">
+                <div className="flex flex-col gap-1 pb-6 border-b border-white/5">
+                    <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase leading-none">
+                        YORUMCULAR & <span className="text-primary">UZMANLAR</span>
+                    </h1>
+                    <p className="text-muted-foreground text-[11px] font-bold tracking-[0.3em] uppercase opacity-90">
+                        BAĞIMSIZ HAKEM ANALİZLERİ VE GÖRÜŞLERİ
+                    </p>
                 </div>
 
                 <div className="space-y-12">
                     {grouped.length === 0 ? (
-                        <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
-                            <span className="text-muted-foreground font-medium">Henüz yorumcu verisi bulunamadı.</span>
+                        <div className="text-center py-20 bg-card border border-dashed border-white/10 rounded-2xl">
+                            <span className="text-muted-foreground font-medium italic">Henüz yorumcu verisi bulunamadı.</span>
                         </div>
                     ) : grouped.map((group) => (
                         <section key={group.week} className="space-y-4">
                             <div className="flex items-center gap-4">
-                                <div className="bg-purple-600 text-white px-3 py-1 rounded text-xs font-black uppercase tracking-widest shadow-lg">
+                                <div className="bg-secondary text-black px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest shadow-neo-sm">
                                     {group.week}. HAFTA
                                 </div>
-                                <div className="h-px bg-border flex-1"></div>
+                                <div className="h-px bg-white/10 flex-1"></div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {group.matches.map((match) => (
-                                    <div key={match.matchId} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                        <MatchItem match={match} headerColor="text-purple-500" />
+                                    <div key={match.matchId} className="bg-card border border-white/20 rounded-xl overflow-hidden shadow-neo border-2 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all">
+                                        <MatchItem match={match} headerColor="text-primary" />
                                     </div>
                                 ))}
                             </div>

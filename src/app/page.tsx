@@ -139,7 +139,7 @@ export default function Home() {
   );
 
   return (
-    <main className="min-h-screen bg-background pb-20 pt-8">
+    <main className="min-h-screen bg-black pb-20 pt-8">
       <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-6">
 
         {/* Simple Header instead of Hero */}

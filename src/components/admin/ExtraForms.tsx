@@ -421,6 +421,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
         type: 'pfdk', matchId: ''
     });
     const [pfdkTarget, setPfdkTarget] = useState<'player' | 'staff' | 'club' | 'other'>('player');
+    const [decisionType, setDecisionType] = useState<'referral' | 'penalty'>('penalty');
 
     // Effect to populate form when editItem changes
     useEffect(() => {
@@ -433,11 +434,13 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
                 if (editItem.subject === 'Kulüp') setPfdkTarget('club');
                 else setPfdkTarget('player');
             }
+            setDecisionType(editItem.penalty ? 'penalty' : 'referral');
         } else {
             setAction({
                 teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
                 type: 'pfdk', matchId: ''
             });
+            setDecisionType('penalty');
         }
     }, [editItem]);
 
@@ -447,6 +450,10 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
         let finalAction = { ...action };
         if (finalAction.type === 'pfdk' && pfdkTarget === 'club') {
             finalAction.subject = 'Kulüp';
+        }
+
+        if (decisionType === 'referral') {
+            finalAction.penalty = '';
         }
 
         // --- DATA CLEANING START ---
@@ -492,6 +499,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
                     teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
                     type: 'pfdk', matchId: ''
                 });
+                setDecisionType('penalty');
             }
         } else {
             const errData = await res.json();
@@ -526,6 +534,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
                             type: 'pfdk', matchId: ''
                         });
                         setPfdkTarget('player');
+                        setDecisionType('penalty');
                         if (onCancelEdit) onCancelEdit();
                     }}
                     className="bg-gray-200 text-gray-700 font-bold px-3 py-2 rounded text-sm mb-0.5 hover:bg-gray-300"
@@ -535,11 +544,18 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
             </div>
 
             {action.type === 'pfdk' && (
-                <div className="flex gap-2 mb-1">
-                    <button type="button" onClick={() => setPfdkTarget('player')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'player' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Futbolcu</button>
-                    <button type="button" onClick={() => setPfdkTarget('staff')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'staff' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Teknik/İdari</button>
-                    <button type="button" onClick={() => { setPfdkTarget('club'); setAction(prev => ({ ...prev, subject: 'Kulüp' })); }} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'club' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Kulüp</button>
-                    <button type="button" onClick={() => { setPfdkTarget('other'); setAction(prev => ({ ...prev, matchId: '' })); }} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'other' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Diğer</button>
+                <div className="space-y-2 mb-2">
+                    <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                        <button type="button" onClick={() => setDecisionType('referral')} className={`flex-1 py-1.5 rounded-md text-xs font-black uppercase transition-all ${decisionType === 'referral' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>SEVK HAREKETLERİ</button>
+                        <button type="button" onClick={() => setDecisionType('penalty')} className={`flex-1 py-1.5 rounded-md text-xs font-black uppercase transition-all ${decisionType === 'penalty' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>CEZA KARARLARI</button>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <button type="button" onClick={() => setPfdkTarget('player')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'player' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Futbolcu</button>
+                        <button type="button" onClick={() => setPfdkTarget('staff')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'staff' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Teknik/İdari</button>
+                        <button type="button" onClick={() => { setPfdkTarget('club'); setAction(prev => ({ ...prev, subject: 'Kulüp' })); }} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'club' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Kulüp</button>
+                        <button type="button" onClick={() => { setPfdkTarget('other'); setAction(prev => ({ ...prev, matchId: '' })); }} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'other' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Diğer</button>
+                    </div>
                 </div>
             )}
 
@@ -574,15 +590,43 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
                 />
             )}
 
-            <textarea placeholder="Sevk Nedeni (Gerekçe)" className="border border-gray-300 p-2 w-full rounded h-24" value={action.reason} onChange={e => setAction({ ...action, reason: e.target.value })} required />
+            <textarea
+                placeholder="Karar Metni (Tamamı) - Buraya yapıştırınca tırnak içindeki kısım otomatik 'Gerekçe' alanına dolacaktır."
+                className="border border-blue-200 bg-blue-50 p-2 w-full rounded h-32 text-xs font-mono mb-2"
+                value={action.note || ''}
+                onChange={e => setAction({ ...action, note: e.target.value })}
+                onPaste={e => {
+                    e.preventDefault();
+                    const pastedText = e.clipboardData.getData('text');
+                    let newReason = action.reason;
 
-            {action.type === 'pfdk' && (
+                    // Tırnak içindeki ifadeyi yakala: “...” veya "..."
+                    const quoteMatch = pastedText.match(/[“"”]([^”"“]+)[”"”]/);
+                    if (quoteMatch && quoteMatch[1]) {
+                        newReason = quoteMatch[1].trim();
+                        toast.success('Gerekçe ayıklandı: ' + newReason);
+                    }
+
+                    setAction(prev => ({ ...prev, note: pastedText, reason: newReason }));
+                }}
+            />
+
+            <textarea
+                placeholder={decisionType === 'referral' ? "Sevk Gerekçesi (Kısa - Özet)" : "Ceza Gerekçesi (Özet)"}
+                className="border border-gray-300 p-2 w-full rounded h-24 font-bold"
+                value={action.reason}
+                onChange={e => setAction({ ...action, reason: e.target.value })}
+                required
+            />
+
+            {action.type === 'pfdk' && decisionType === 'penalty' && (
                 <div className="relative">
                     <textarea
                         placeholder="Verilen Ceza (Kısa Özet) - Örn: 2 Maç Men"
                         className="border border-red-200 bg-red-50 p-2 w-full rounded text-red-800 placeholder-red-300 font-bold min-h-[60px]"
                         value={action.penalty || ''}
                         onChange={e => setAction({ ...action, penalty: e.target.value })}
+                        required
                     />
                     <button
                         type="button"
@@ -597,7 +641,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
 
             <input type="date" className="border border-gray-300 p-2 w-full rounded" value={action.date} onChange={e => setAction({ ...action, date: e.target.value })} />
 
-            <button className="p-2 rounded w-full text-white font-bold bg-red-600 hover:bg-red-700">
+            <button className={`p-2 rounded w-full text-white font-bold transition-colors ${decisionType === 'referral' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'}`}>
                 {editItem ? 'Güncelle' : 'Kaydet'}
             </button>
         </form>

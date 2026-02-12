@@ -79,36 +79,40 @@ export default function PfdkPage() {
 
     return (
         <main className="min-h-screen bg-background pb-20 pt-8">
-            <div className="max-w-2xl mx-auto px-4 space-y-8">
-                <div className="flex flex-col gap-2 text-center">
-                    <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase text-red-500">PFDK KARARLARI</h1>
-                    <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">Profesyonel Futbol Disiplin Kurulu Sevk ve Ceza Raporları</p>
+            <div className="max-w-2xl mx-auto px-4 space-y-12">
+                <div className="flex flex-col gap-1 pb-6 border-b border-white/5">
+                    <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase leading-none">
+                        PFDK <span className="text-primary">KARARLARI</span>
+                    </h1>
+                    <p className="text-muted-foreground text-[11px] font-bold tracking-[0.3em] uppercase opacity-90">
+                        PROFESYONEL FUTBOL DİSİPLİN KURULU RAPORLARI
+                    </p>
                 </div>
 
-                <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-                    <div className="bg-gray-50/50 p-4 border-b border-border">
-                        <h2 className="text-xs font-black text-muted-foreground uppercase tracking-widest">TARİH LİSTESİ</h2>
+                <div className="bg-[#161b22] border-2 border-white/20 rounded-xl overflow-hidden shadow-neo">
+                    <div className="bg-white/5 p-4 border-b border-white/10">
+                        <h2 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">ARŞİV VE RAPORLAR</h2>
                     </div>
                     {dates.length === 0 ? (
-                        <div className="p-12 text-center text-muted-foreground text-sm">Kayıt bulunamadı.</div>
+                        <div className="p-12 text-center text-muted-foreground text-sm italic">Kayıt bulunamadı.</div>
                     ) : (
-                        <div className="divide-y divide-border">
+                        <div className="divide-y divide-white/10">
                             {dates.map(date => {
                                 // Convert DD.MM.YYYY to DD-MM-YYYY for URL
                                 const urlDate = date.replaceAll('.', '-');
                                 return (
-                                    <Link key={date} href={`/pfdk/${urlDate}`} className="block p-5 hover:bg-gray-50 transition-colors group">
+                                    <Link key={date} href={`/pfdk/${urlDate}`} className="block p-5 hover:bg-white/5 transition-all group">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 font-bold text-xs group-hover:bg-red-100 group-hover:scale-110 transition-all">
+                                                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-primary font-bold text-lg group-hover:bg-primary/20 group-hover:scale-110 shadow-neo-sm transition-all">
                                                     📄
                                                 </div>
                                                 <div>
-                                                    <span className="block text-lg font-black text-gray-800 group-hover:text-red-600 transition-colors">{date}</span>
-                                                    <span className="text-xs font-bold text-gray-400 uppercase">PFDK KARARLARI</span>
+                                                    <span className="block text-lg font-black text-white group-hover:text-primary transition-colors">{date}</span>
+                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">CEZA RAPORU</span>
                                                 </div>
                                             </div>
-                                            <div className="text-gray-300 group-hover:text-red-500 group-hover:translate-x-1 transition-all">
+                                            <div className="text-white/20 group-hover:text-primary group-hover:translate-x-1 transition-all">
                                                 ➔
                                             </div>
                                         </div>

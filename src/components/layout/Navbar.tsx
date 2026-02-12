@@ -20,25 +20,25 @@ export default function Navbar() {
     ];
 
     return (
-        <nav className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 text-white shadow-lg backdrop-blur-md bg-opacity-90">
-            <div className="max-w-7xl mx-auto px-4 md:px-6 h-14 flex items-center justify-between">
+        <nav className="sticky top-0 z-50 bg-[#0d1117] border-b border-white/10 text-white overflow-visible">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-start gap-4">
 
                 {/* Logo Area */}
-                <Link href="/" className="font-black text-xl tracking-tighter hover:opacity-80 transition-opacity">
-                    REFEREE<span className="text-blue-500">LIG</span>
+                <Link href="/" className="font-black text-2xl tracking-tighter hover:scale-105 transition-transform bg-secondary border-2 border-black p-1 -rotate-3 shadow-neo-sm ml-[-10px] z-50 text-black">
+                    VARSAYIM
                 </Link>
 
                 {/* Desktop Links */}
-                <div className="hidden md:flex gap-1">
+                <div className="hidden md:flex gap-2 lg:gap-4 items-center">
                     {links.map((link) => {
                         const isActive = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
                         return (
                             <Link
                                 key={link.href}
                                 href={link.href}
-                                className={`px-4 py-2 rounded-md text-[10px] font-bold uppercase tracking-widest transition-colors ${isActive
-                                    ? 'bg-blue-600 text-white'
-                                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                                className={`px-2 py-1.5 border-2 border-black font-black uppercase tracking-wide text-[10px] rounded-md transition-all whitespace-nowrap ${isActive
+                                    ? 'bg-secondary text-black shadow-neo-sm translate-x-[-2px] translate-y-[-2px] -rotate-1'
+                                    : 'bg-[#18181B] text-white/80 border-white/10 hover:bg-secondary hover:text-black hover:shadow-neo-sm hover:translate-x-[-2px] hover:translate-y-[-2px] hover:-rotate-1'
                                     }`}
                             >
                                 {link.label}
@@ -49,14 +49,14 @@ export default function Navbar() {
 
                 {/* Mobile Menu Button */}
                 <button
-                    className="md:hidden text-slate-300 hover:text-white focus:outline-none"
+                    className="md:hidden p-2 border-2 border-white/20 rounded bg-[#18181B] text-white hover:bg-secondary hover:text-black transition-colors ml-auto"
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         {isMobileMenuOpen ? (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
                         ) : (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 6h16M4 12h16M4 18h16" />
                         )}
                     </svg>
                 </button>
@@ -64,8 +64,8 @@ export default function Navbar() {
 
             {/* Mobile Menu Dropdown */}
             {isMobileMenuOpen && (
-                <div className="md:hidden bg-slate-900 border-b border-slate-800 absolute w-full left-0 top-14 shadow-xl">
-                    <div className="flex flex-col p-2 space-y-1">
+                <div className="md:hidden bg-[#0d1117] border-b border-white/20 absolute w-full left-0 top-16 shadow-2xl z-50">
+                    <div className="flex flex-col p-4 space-y-3">
                         {links.map((link) => {
                             const isActive = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
                             return (
@@ -73,9 +73,9 @@ export default function Navbar() {
                                     key={link.href}
                                     href={link.href}
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`px-4 py-3 rounded-md text-xs font-bold uppercase tracking-widest transition-colors ${isActive
-                                        ? 'bg-blue-600 text-white'
-                                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                                    className={`px-4 py-3 border-2 font-bold uppercase tracking-widest transition-all ${isActive
+                                        ? 'bg-secondary text-black border-black shadow-neo-sm'
+                                        : 'bg-[#18181B] text-white border-white/10 hover:bg-secondary hover:text-black'
                                         }`}
                                 >
                                     {link.label}

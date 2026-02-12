@@ -53,10 +53,10 @@ export const OfficialList: React.FC<OfficialListProps> = ({
     );
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-[#161b22] rounded-xl shadow-sm border border-white/10 overflow-hidden text-white">
             {/* Header & Filter Controls */}
-            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex flex-wrap gap-4 justify-between items-center">
-                <h3 className="font-bold text-slate-800">
+            <div className="p-5 border-b border-white/10 bg-[#1d2129]/50 flex flex-wrap gap-4 justify-between items-center">
+                <h3 className="font-bold text-white">
                     Kayıtlı Yetkililer ({filteredOfficials.length})
                 </h3>
 
@@ -64,13 +64,13 @@ export const OfficialList: React.FC<OfficialListProps> = ({
                     <input
                         type="text"
                         placeholder="İsim Ara..."
-                        className="bg-white border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 min-w-[120px]"
+                        className="bg-[#121214] border border-white/10 text-white text-xs rounded-lg focus:ring-secondary focus:border-secondary block p-1.5 min-w-[120px] placeholder:text-white/30"
                         value={search}
                         onChange={e => onSearchChange(e.target.value)}
                     />
                     <button
                         onClick={() => onFilterRoleChange('all')}
-                        className={`px-3 py-1 rounded text-xs font-bold whitespace-nowrap transition-colors ${filterRole === 'all' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        className={`px-3 py-1 rounded text-xs font-bold whitespace-nowrap transition-colors ${filterRole === 'all' ? 'bg-secondary text-black' : 'bg-[#12141a] text-white/70 hover:bg-secondary hover:text-black'
                             }`}
                     >
                         Tümü
@@ -93,14 +93,14 @@ export const OfficialList: React.FC<OfficialListProps> = ({
                 {loading ? (
                     <div className="p-12 text-center text-slate-400 animate-pulse">Yükleniyor...</div>
                 ) : paginatedOfficials.length === 0 ? (
-                    <div className="p-12 text-center text-slate-400 text-sm">
+                    <div className="p-12 text-center text-white/40 text-sm">
                         {officials.length === 0 ? 'Henüz kayıtlı yetkili yok.' : 'Kriterlere uygun kayıt bulunamadı.'}
                     </div>
                 ) : (
                     paginatedOfficials.map(official => (
-                        <div key={official.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+                        <div key={official.id} className="p-4 hover:bg-white/5 transition-colors flex items-center justify-between group border-b border-white/5 last:border-0">
                             <div className="space-y-1.5">
-                                <h4 className="font-bold text-slate-800 text-sm">{official.name}</h4>
+                                <h4 className="font-bold text-white text-sm">{official.name}</h4>
                                 <div className="flex flex-wrap gap-1.5">
                                     {official.roles.map(roleId => {
                                         const roleDef = rolesDefinition.find(r => r.id === roleId);

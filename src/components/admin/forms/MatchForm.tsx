@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Match, MatchStats } from '@/types';
+import { Match, MatchStats, MatchEvent } from '@/types';
 import { resolveTeamId, getTeamName } from '@/lib/teams';
+import { parseMatchData } from '@/lib/matchParser';
 import { useRouter } from 'next/navigation';
 import { MatchSelect } from '../ExtraForms';
 import { toast } from 'sonner';
@@ -20,8 +21,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
     const [localDate, setLocalDate] = useState('');
 
     // Local states for raw paste data
-    const [tffRaw, setTffRaw] = useState('');
-    const [lineupRaw, setLineupRaw] = useState('');
+    const [smartRaw, setSmartRaw] = useState('');
     const [statsRaw, setStatsRaw] = useState('');
 
     useEffect(() => {
@@ -137,8 +137,8 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
             // Reset form
             setMatch({ id: '', week: match.week || 1, date: new Date().toISOString(), status: 'draft' });
             setOriginalId('');
-            setTffRaw('');
-            setLineupRaw('');
+            setOriginalId('');
+            setSmartRaw('');
             setStatsRaw('');
         } else {
             const err = await res.json();
@@ -162,51 +162,6 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                 setMatch(data);
                 setOriginalId(data.id);
 
-                let tff = '';
-                if (data.date) {
-                    const d = new Date(data.date);
-                    tff += `${d.toLocaleDateString('tr-TR')} - ${d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}\n`;
-                }
-                if (data.stadium) tff += `${data.stadium}\n`;
-                if (data.officials) {
-                    const { referees, varReferees, observers, representatives } = data.officials;
-                    if (referees?.[0]) tff += `${referees[0]} (Hakem)\n`;
-                    if (referees?.[1]) tff += `${referees[1]} (1. Yardımcı Hakem)\n`;
-                    if (referees?.[2]) tff += `${referees[2]} (2. Yardımcı Hakem)\n`;
-                    if (referees?.[3]) tff += `${referees[3]} (Dördüncü Hakem)\n`;
-                    if (varReferees?.length) {
-                        tff += `${varReferees[0]} (VAR)\n`;
-                        varReferees.slice(1).forEach((v: string) => tff += `${v} (AVAR)\n`);
-                    }
-                    observers?.forEach((o: string) => tff += `${o} (Gözlemci)\n`);
-                    representatives?.forEach((r: string) => tff += `${r} (Temsilci)\n`);
-                }
-                setTffRaw(tff);
-
-                let lineup = '';
-                if (data.lineups) {
-                    const { home, away, homeSubs, awaySubs, homeCoach, awayCoach } = data.lineups;
-                    const maxXI = Math.max(home?.length || 0, away?.length || 0);
-                    for (let i = 0; i < maxXI; i++) {
-                        const h = home?.[i];
-                        const a = away?.[i];
-                        lineup += `${h?.number || ''} ${h?.name || ''} ${a?.name || ''} ${a?.number || ''}\n`;
-                    }
-                    if (homeSubs?.length || awaySubs?.length) {
-                        lineup += "Yedekler\n";
-                        const maxSubs = Math.max(homeSubs?.length || 0, awaySubs?.length || 0);
-                        for (let i = 0; i < maxSubs; i++) {
-                            const h = homeSubs?.[i];
-                            const a = awaySubs?.[i];
-                            lineup += `${h?.number || ''} ${h?.name || ''} ${a?.name || ''} ${a?.number || ''}\n`;
-                        }
-                    }
-                    if (homeCoach || awayCoach) {
-                        lineup += `Teknik Sorumlusu\n${homeCoach || ''} ${awayCoach || ''}\n`;
-                    }
-                }
-                setLineupRaw(lineup);
-
                 let stats = '';
                 if (data.stats) {
                     const m: Record<string, string> = {
@@ -223,6 +178,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                     });
                 }
                 setStatsRaw(stats);
+
 
                 toast.success('Maç başarıyla yüklendi! 📥');
             } else {
@@ -381,7 +337,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                         <button type="button" onClick={handleLoad} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold text-sm shadow-sm transition-all h-[38px]">Getir</button>
                         <button type="button" onClick={handleRenameMatch} className="bg-orange-50 text-orange-600 px-4 py-2 rounded font-bold text-sm border border-orange-200 hover:bg-orange-100 transition-all h-[38px]">ID Değiştir</button>
                         <button type="button" onClick={handleDeleteMatch} className="bg-red-50 text-red-600 px-4 py-2 rounded font-bold text-sm border border-red-200 hover:bg-red-100 transition-all h-[38px]">Sil</button>
-                        <button type="button" onClick={() => { setMatch({ id: '', week: 1, date: new Date().toISOString(), status: 'draft' }); setOriginalId(''); setTffRaw(''); setLineupRaw(''); setStatsRaw(''); }} className="bg-white text-slate-600 px-4 py-2 rounded font-bold text-sm border border-slate-200 hover:bg-slate-50 transition-all h-[38px]">Yeni</button>
+                        <button type="button" onClick={() => { setMatch({ id: '', week: 1, date: new Date().toISOString(), status: 'draft' }); setOriginalId(''); setSmartRaw(''); setStatsRaw(''); }} className="bg-white text-slate-600 px-4 py-2 rounded font-bold text-sm border border-slate-200 hover:bg-slate-50 transition-all h-[38px]">Yeni</button>
                     </div>
                 </div>
 
@@ -454,7 +410,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="grid grid-cols-3 gap-3 pt-2">
                     <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Hafta</label>
                         <input type="text" className="border border-slate-200 p-2 w-full rounded font-bold bg-white text-sm" value={match.week || 1} onChange={e => {
@@ -462,6 +418,22 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                             const num = parseInt(val);
                             setMatch({ ...match, week: isNaN(num) ? val as any : num });
                         }} />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Tarih / Saat</label>
+                        <input
+                            type="datetime-local"
+                            className="border border-slate-200 p-2 w-full rounded font-bold bg-white text-sm"
+                            value={match.date ? (() => {
+                                const d = new Date(match.date);
+                                const offset = d.getTimezoneOffset() * 60000;
+                                return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+                            })() : ''}
+                            onChange={e => {
+                                const d = new Date(e.target.value);
+                                if (!isNaN(d.getTime())) setMatch({ ...match, date: d.toISOString() });
+                            }}
+                        />
                     </div>
                     <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Skor (Alternatif)</label>
@@ -492,209 +464,24 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                 </div>
             </div>
 
-            <div className="bg-blue-50 p-3 rounded mb-4 border border-blue-100 relative">
-                <h4 className="font-bold text-xs text-blue-800 uppercase mb-1">Hızlı Veri Girişi (TFF Kopyala-Yapıştır)</h4>
+            <div className="bg-indigo-50 p-3 rounded mb-4 border border-indigo-100 relative">
+                <h4 className="font-bold text-xs text-indigo-800 uppercase mb-1 flex items-center gap-2">
+                    <span className="text-lg">✨</span> AKILLI MAÇ GİRİŞİ (TÜM VERİLER)
+                </h4>
+                <div className="text-[10px] text-indigo-600 mb-2">
+                    Takımlar, hakemler, kadrolar, goller ve kartları içeren tam metni buraya yapıştırın. Sistem otomatik ayrıştıracaktır.
+                </div>
                 <textarea
-                    className="w-full text-xs p-2 border rounded h-24 font-mono text-gray-700"
-                    placeholder="TFF sayfasından maç detaylarını kopyalayıp buraya yapıştırın..."
-                    value={tffRaw}
+                    className="w-full text-xs p-3 border border-indigo-200 rounded-lg h-48 font-mono text-gray-700 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    placeholder="Tüm maç raporunu buraya yapıştırın..."
+                    value={smartRaw}
                     onChange={(e) => {
                         const text = e.target.value;
-                        setTffRaw(text);
+                        setSmartRaw(text);
                         if (!text.trim()) return;
 
-                        const newMatch = { ...match };
-                        if (!newMatch.officials) newMatch.officials = { referees: [], varReferees: [], observers: [], representatives: [] };
-                        newMatch.officials.referees = ['', '', '', ''];
-                        newMatch.officials.varReferees = [];
-                        newMatch.officials.observers = [];
-                        newMatch.officials.representatives = [];
-
-                        const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-
-                        let foundHomeScore: number | undefined;
-                        let foundAwayScore: number | undefined;
-
-                        // 1. Better Score Extraction
-                        const scores: number[] = [];
-                        for (let i = 0; i < Math.min(lines.length, 15); i++) {
-                            const line = lines[i];
-                            if (/^\d{1,2}$/.test(line)) {
-                                scores.push(parseInt(line));
-                            }
-                        }
-                        if (scores.length >= 2) {
-                            foundHomeScore = scores[0];
-                            foundAwayScore = scores[1];
-                        }
-
-                        if (foundHomeScore !== undefined) newMatch.homeScore = foundHomeScore;
-                        if (foundAwayScore !== undefined) newMatch.awayScore = foundAwayScore;
-                        if (foundHomeScore !== undefined && foundAwayScore !== undefined) {
-                            newMatch.score = `${foundHomeScore} - ${foundAwayScore}`;
-                        }
-
-                        lines.forEach(line => {
-                            if (line.match(/\d{1,2}\.\d{1,2}\.\d{4}/)) {
-                                const parts = line.split('-');
-                                if (parts.length > 0) {
-                                    const datePart = parts[0].trim();
-                                    const timePart = parts[1] ? parts[1].trim() : '00:00';
-                                    const [day, month, year] = datePart.split('.');
-                                    const [hour, minute] = timePart.split(':');
-                                    const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
-                                    if (!isNaN(d.getTime())) newMatch.date = d.toISOString();
-                                }
-                            }
-                            else if (line.includes('(Hakem)')) {
-                                newMatch.referee = line.replace('(Hakem)', '').trim();
-                                newMatch.officials!.referees[0] = newMatch.referee;
-                            }
-                            else if (line.includes('(1. Yardımcı Hakem)')) newMatch.officials!.referees[1] = line.replace('(1. Yardımcı Hakem)', '').trim();
-                            else if (line.includes('(2. Yardımcı Hakem)')) newMatch.officials!.referees[2] = line.replace('(2. Yardımcı Hakem)', '').trim();
-                            else if (line.includes('(Dördüncü Hakem)')) newMatch.officials!.referees[3] = line.replace('(Dördüncü Hakem)', '').trim();
-                            else if (line.includes('(VAR)')) {
-                                newMatch.varReferee = line.replace('(VAR)', '').trim();
-                                newMatch.officials!.varReferees.push(newMatch.varReferee);
-                            }
-                            else if (line.includes('(AVAR)')) newMatch.officials!.varReferees.push(line.replace('(AVAR)', '').trim());
-                            else if (line.includes('(Gözlemci)')) newMatch.officials!.observers.push(line.replace('(Gözlemci)', '').trim());
-                            else if (line.includes('(Temsilci)')) newMatch.officials!.representatives.push(line.replace('(Temsilci)', '').trim());
-                            else if (line.includes('STADYUMU') || line.includes('STADI') || line.includes('PARK') || line.includes('ARENA')) {
-                                if (line.includes(' - ')) newMatch.stadium = line.split(' - ')[0].trim();
-                                else newMatch.stadium = line.trim();
-                            }
-                        });
-
-                        setMatch(newMatch);
-                    }}
-                />
-            </div>
-
-            <div className="bg-green-50 p-3 rounded mb-4 border border-green-100">
-                <h4 className="font-bold text-xs text-green-800 mb-1 uppercase">Kadro Girişi (Beinsport Kopyala-Yapıştır)</h4>
-                <textarea
-                    className="w-full text-xs p-2 border rounded h-24 font-mono text-gray-700"
-                    placeholder="Kadro listesini yapıştırın..."
-                    value={lineupRaw}
-                    onChange={(e) => {
-                        const text = e.target.value;
-                        setLineupRaw(text);
-                        if (!text.trim()) return;
-
-                        const newMatch = { ...match };
-                        if (!newMatch.lineups) newMatch.lineups = { home: [], away: [], homeSubs: [], awaySubs: [], homeCoach: '', awayCoach: '' };
-
-                        const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-                        let foundHomeId = '';
-                        let foundAwayId = '';
-
-                        for (const line of lines) {
-                            if (line.includes(' - ') || line.includes(' vs ')) {
-                                const sep = line.includes(' - ') ? ' - ' : ' vs ';
-                                const parts = line.split(sep);
-                                if (parts.length === 2) {
-                                    const hId = resolveTeamId(parts[0]);
-                                    const aId = resolveTeamId(parts[1]);
-                                    if (hId && aId) { foundHomeId = hId; foundAwayId = aId; break; }
-                                }
-                            }
-                        }
-
-                        if (!foundHomeId || !foundAwayId) {
-                            const orderedTeams: string[] = [];
-                            lines.forEach(line => {
-                                // Skip lines that are purely numbers (scores/minutes) but keep team names
-                                // Some teams have numbers in names (seldom), but resolveTeamId will handle it
-                                if (line.match(/^\d+$/) || line.includes('Teknik') || line.includes('Yedekler')) return;
-                                const tId = resolveTeamId(line);
-                                if (tId && !orderedTeams.includes(tId)) orderedTeams.push(tId);
-                            });
-                            if (orderedTeams.length >= 2) {
-                                foundHomeId = orderedTeams[0];
-                                foundAwayId = orderedTeams[1];
-                            }
-                        }
-
-                        if (foundHomeId && foundAwayId) {
-                            newMatch.homeTeamId = foundHomeId;
-                            newMatch.homeTeamName = getTeamName(foundHomeId);
-                            newMatch.awayTeamId = foundAwayId;
-                            newMatch.awayTeamName = getTeamName(foundAwayId);
-                        }
-
-                        // Also extract date from lineup if present
-                        lines.forEach(line => {
-                            if (line.match(/\d{1,2}\.\d{1,2}\.\d{4}/)) {
-                                const parts = line.split('-');
-                                if (parts.length > 0) {
-                                    const datePart = parts[0].trim();
-                                    const timePart = parts[1] ? parts[1].trim() : '00:00';
-                                    const [day, month, year] = datePart.split('.');
-                                    const [hour, minute] = timePart.split(':');
-                                    const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
-                                    if (!isNaN(d.getTime())) newMatch.date = d.toISOString();
-                                }
-                            }
-                        });
-
-                        newMatch.id = generateMatchId(newMatch);
-
-                        const homeXI: any[] = []; const awayXI: any[] = [];
-                        const homeSubs: any[] = []; const awaySubs: any[] = [];
-                        let hCoach = ''; let aCoach = '';
-                        let section = 'xi';
-                        let buffer = { hNum: null as string | null, hName: null as string | null, aName: null as string | null };
-
-                        const flushRow = (aNum: string | null) => {
-                            if (buffer.hNum && buffer.hName) {
-                                const hP = { number: buffer.hNum, name: buffer.hName };
-                                const aP = { number: aNum || '', name: buffer.aName || '' };
-                                const targetH = section === 'xi' ? homeXI : homeSubs;
-                                const targetA = section === 'xi' ? awayXI : awaySubs;
-                                targetH.push(hP);
-                                if (aP.number || aP.name) targetA.push(aP);
-                            }
-                            buffer = { hNum: null, hName: null, aName: null };
-                        };
-
-                        for (const line of lines) {
-                            const lower = line.toLowerCase();
-                            if (lower.includes('yedekler')) { buffer = { hNum: null, hName: null, aName: null }; section = 'subs'; continue; }
-                            if (lower.includes('teknik direktör') || lower.includes('teknik sorumlusu') || /^(t\.?d\.?)$/i.test(line.trim())) {
-                                buffer = { hNum: null, hName: null, aName: null }; section = 'coach'; continue;
-                            }
-                            if (section === 'coach') {
-                                let clean = line.replace(/(?:Teknik Direktör|Teknik Sorumlusu|T\.D\.|T\.D|TD)/gi, '').trim();
-                                clean = clean.replace(/^[:\-\s]+|[:\-\s]+$/g, '');
-                                if (clean.length < 3 || /^(td|t\.d|t\.d\.)$/i.test(clean)) continue;
-                                const pts = clean.split(/\s{2,}|\t/);
-                                if (pts.length >= 2) { hCoach = pts[0]; aCoach = pts[1]; }
-                                else if (!hCoach) hCoach = clean; else if (!aCoach) aCoach = clean;
-                                continue;
-                            }
-
-                            const fm = line.match(/^(\d+)\s+(.+?)\s+(.+?)\s+(\d+)$/);
-                            if (fm) {
-                                buffer.hNum = fm[1]; buffer.hName = fm[2]; buffer.aName = fm[3]; flushRow(fm[4]);
-                            } else {
-                                const startN = line.match(/^(\d+)\s+(.+)$/);
-                                const endN = line.match(/^(.+?)\s+(\d+)$/);
-                                const justN = line.match(/^(\d+)$/);
-                                if (justN) {
-                                    if (!buffer.hNum) buffer.hNum = justN[1]; else flushRow(justN[1]);
-                                } else if (startN) {
-                                    if (!buffer.hNum) { buffer.hNum = startN[1]; buffer.hName = startN[2]; } else { buffer.aName = startN[2]; flushRow(startN[1]); }
-                                } else if (endN) {
-                                    if (!buffer.hNum) { buffer.hNum = endN[2]; buffer.hName = endN[1]; } else { buffer.aName = endN[1]; flushRow(endN[2]); }
-                                } else {
-                                    if (buffer.hNum && !buffer.hName) buffer.hName = line; else if (buffer.hNum && buffer.hName && !buffer.aName) buffer.aName = line;
-                                }
-                            }
-                        }
-
-                        newMatch.lineups = { home: homeXI, away: awayXI, homeSubs, awaySubs, homeCoach: hCoach || newMatch.lineups.homeCoach, awayCoach: aCoach || newMatch.lineups.awayCoach };
-                        setMatch(newMatch);
+                        const parsedMatch = parseMatchData(text, match);
+                        setMatch(parsedMatch);
                     }}
                 />
             </div>
@@ -703,7 +490,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                 <h4 className="font-bold text-xs text-orange-800 mb-1 uppercase">İstatistik Girişi (TFF Kopyala-Yapıştır)</h4>
                 <textarea
                     className="w-full text-xs p-2 border rounded h-24 font-mono text-gray-700"
-                    placeholder="İstatistikleri yapıştırın..."
+                    placeholder="İstatistikleri yapıştırın (Topla Oynama, Şut vb)..."
                     value={statsRaw}
                     onChange={(e) => {
                         const text = e.target.value;
@@ -721,7 +508,9 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
 
                         let processed = text;
                         Object.keys(map).forEach(key => {
-                            const regex = new RegExp(`(\\d|%)(${key})`, 'g');
+                            // Fix merged lines like "0Topla Oynama" or "0 Topla Oynama"
+                            // Also handles cases where value ends with % or digit or just :
+                            const regex = new RegExp(`(\\d|%|:)\\s*(${key})`, 'g');
                             processed = processed.replace(regex, '$1\n$2');
                         });
                         const lines = processed.split('\n').map(l => l.trim()).filter(l => l);
@@ -730,10 +519,18 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                         for (let i = 0; i < lines.length; i++) {
                             const line = lines[i];
                             let matchedKey: string | undefined;
-                            for (const k in map) { if (line.split(':')[0].trim() === k) { matchedKey = k; break; } }
+                            // Check exact match or starts with key+colon
+                            for (const k in map) {
+                                if (line === k || line.startsWith(k + ':') || line.startsWith(k + ' ')) {
+                                    matchedKey = k;
+                                    break;
+                                }
+                            }
+
                             if (matchedKey) {
                                 let val = line.includes(':') ? line.split(':')[1].trim() : '';
                                 if (!val) {
+                                    // Look ahead for value
                                     for (let j = i + 1; j < lines.length; j++) {
                                         let isNextLabel = false;
                                         for (const k2 in map) { if (lines[j].startsWith(k2)) { isNextLabel = true; break; } }
@@ -762,9 +559,28 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                 />
             </div>
 
+            {match.events && match.events.length > 0 && (
+                <div className="bg-blue-50 p-3 rounded mb-4 border border-blue-100">
+                    <h4 className="font-bold text-xs text-blue-800 mb-2 uppercase">Ayrıştırılan Olaylar (Kontrol)</h4>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {match.events.map((ev, i) => (
+                            <div key={i} className="flex items-center gap-2 text-xs bg-white p-1 rounded border border-blue-100">
+                                <span className={`font-bold w-12 text-right ${ev.teamId === 'home' ? 'text-green-600' : 'text-red-600'}`}>{ev.minute}</span>
+                                <span className="font-bold text-gray-500 uppercase text-[10px] w-16 text-center border p-0.5 rounded bg-gray-50">{ev.type}</span>
+                                <span className="font-medium text-gray-700">{ev.player}</span>
+                                <button type="button" onClick={() => {
+                                    const newEvents = match.events!.filter((_, idx) => idx !== i);
+                                    setMatch({ ...match, events: newEvents });
+                                }} className="ml-auto text-red-400 hover:text-red-600 px-2 font-bold">×</button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="border-t pt-2 mt-2">
                 <h4 className="font-bold text-sm text-gray-600 mb-1">Maç İstatistikleri</h4>
-                <div className="space-y-2 text-sm">
+                <div className="space-y-4 text-sm">
                     {[
                         { label: 'Topla Oynama', key: 'Possession', step: '0.1' },
                         { label: 'Toplam Şut', key: 'Shots', step: '1' },
@@ -776,13 +592,27 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                         { label: 'Faul', key: 'Fouls', step: '1' },
                         { label: 'Sarı Kart', key: 'YellowCards', step: '1', className: 'bg-yellow-50' },
                         { label: 'Kırmızı Kart', key: 'RedCards', step: '1', className: 'bg-red-50' }
-                    ].map(st => (
-                        <div key={st.key} className="grid grid-cols-3 gap-2 items-center">
-                            <input type="number" step={st.step} className={`border p-2 rounded ${st.className || ''}`} value={(match.stats as any)?.[`home${st.key}`] ?? ''} onChange={e => updateStat(`home${st.key}`, e.target.value)} />
-                            <span className="text-center text-[10px] font-bold uppercase">{st.label}</span>
-                            <input type="number" step={st.step} className={`border p-2 rounded ${st.className || ''}`} value={(match.stats as any)?.[`away${st.key}`] ?? ''} onChange={e => updateStat(`away${st.key}`, e.target.value)} />
-                        </div>
-                    ))}
+                    ].map(st => {
+                        const hVal = Number((match.stats as any)?.[`home${st.key}`] || 0);
+                        const aVal = Number((match.stats as any)?.[`away${st.key}`] || 0);
+                        const total = hVal + aVal;
+                        const hPercent = total > 0 ? (hVal / total) * 100 : 50;
+                        const aPercent = total > 0 ? (aVal / total) * 100 : 50;
+
+                        return (
+                            <div key={st.key} className="flex flex-col">
+                                <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center mb-1">
+                                    <input type="number" step={st.step} className={`border p-2 rounded text-center font-mono font-bold ${st.className || ''}`} placeholder="0" value={(match.stats as any)?.[`home${st.key}`] ?? ''} onChange={e => updateStat(`home${st.key}`, e.target.value)} />
+                                    <span className="text-center text-[10px] font-bold uppercase text-slate-400 w-24 truncate">{st.label}</span>
+                                    <input type="number" step={st.step} className={`border p-2 rounded text-center font-mono font-bold ${st.className || ''}`} placeholder="0" value={(match.stats as any)?.[`away${st.key}`] ?? ''} onChange={e => updateStat(`away${st.key}`, e.target.value)} />
+                                </div>
+                                <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-100">
+                                    <div style={{ width: `${hPercent}%` }} className={`transition-all duration-500 ${st.key.includes('Card') ? (st.key.includes('Yellow') ? 'bg-yellow-400' : 'bg-red-500') : 'bg-blue-500'}`}></div>
+                                    <div style={{ width: `${aPercent}%` }} className={`transition-all duration-500 ${st.key.includes('Card') ? (st.key.includes('Yellow') ? 'bg-yellow-400' : 'bg-red-500') : 'bg-red-500'} opacity-80`}></div>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 

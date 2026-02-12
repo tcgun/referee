@@ -57,15 +57,19 @@ export default function StatementsPage() {
 
     return (
         <main className="min-h-screen bg-background pb-20 pt-8">
-            <div className="max-w-4xl mx-auto px-4 space-y-8">
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase text-amber-500">RESMİ AÇIKLAMALAR</h1>
-                    <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">TFF, MHK ve Kulüplerden Gelen Güncel Duyurular</p>
+            <div className="max-w-4xl mx-auto px-4 space-y-12">
+                <div className="flex flex-col gap-1 pb-6 border-b border-white/5">
+                    <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase leading-none">
+                        RESMİ <span className="text-primary">AÇIKLAMALAR</span>
+                    </h1>
+                    <p className="text-muted-foreground text-[11px] font-bold tracking-[0.3em] uppercase opacity-90">
+                        TFF, MHK VE KULÜPLERDEN GÜNCEL DUYURULAR
+                    </p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
                     {sorted.length === 0 ? (
-                        <div className="p-20 text-center bg-card border border-dashed border-border rounded-2xl text-muted-foreground font-medium">
+                        <div className="p-20 text-center bg-card border border-white/10 rounded-2xl text-muted-foreground font-medium italic">
                             Henüz kayıtlı bir açıklama bulunmuyor.
                         </div>
                     ) : sorted.map((st, i) => {
@@ -73,23 +77,23 @@ export default function StatementsPage() {
                         const displayContent = isLong ? st.content.substring(0, 200).trim() + '...' : st.content;
 
                         return (
-                            <div key={st.id || i} className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow group">
+                            <div key={st.id || i} className="bg-[#161b22] border-2 border-white/20 rounded-xl p-6 shadow-neo hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all group">
                                 <Link href={`/statements/${st.id}`} className="block h-full">
                                     <div className="flex items-center justify-between mb-4">
-                                        <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest">
+                                        <span className="bg-secondary text-black text-[9px] font-black px-2 py-0.5 rounded border border-black uppercase tracking-widest shadow-sm">
                                             {st.entity}
                                         </span>
-                                        <span className="text-[11px] font-bold text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
+                                        <span className="text-[9px] font-bold text-gray-500 font-mono">
                                             {st.date}
                                         </span>
                                     </div>
-                                    <h2 className="text-xl font-black text-foreground mb-3 tracking-tight group-hover:text-amber-600 transition-colors uppercase">{st.title}</h2>
-                                    <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap mb-4">
+                                    <h2 className="text-xl font-black text-white mb-3 tracking-tighter group-hover:text-secondary transition-colors uppercase">{st.title}</h2>
+                                    <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap mb-4 line-clamp-3">
                                         {displayContent}
                                     </div>
                                     {isLong && (
-                                        <div className="flex items-center gap-1 text-[11px] font-black text-amber-600 uppercase tracking-tighter hover:gap-2 transition-all">
-                                            Devamını Oku
+                                        <div className="flex items-center gap-1 text-[10px] font-black text-secondary uppercase tracking-widest hover:gap-2 transition-all">
+                                            DEVAMINI OKU
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                                         </div>
                                     )}

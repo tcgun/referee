@@ -22,22 +22,31 @@ const groupByWeek = (matches: MatchGroupedOpinions[]) => {
 };
 
 
-const WidgetCard = ({ title, icon, children, headerColor = "text-foreground" }: { title: string, icon: string, children: React.ReactNode, headerColor?: string }) => (
-    <div className="bg-card backdrop-blur-md text-card-foreground rounded-2xl shadow-lg border border-border h-full flex flex-col overflow-hidden transition-all hover:shadow-xl hover:border-border/50">
-        <div className="p-3 border-b border-border bg-muted/30 flex items-center justify-between">
-            <Link href={title === 'Trio Yorumları' ? '/trio' : title === 'Yorumcular' ? '/critics' : title === 'PFDK & Kararlar' ? '/pfdk' : title === 'Açıklamalar' ? '/statements' : '#'} className="flex items-center gap-2 hover:opacity-75 transition-opacity">
-                <span className="text-xl">{icon}</span>
-                <h3 className={`font-bold text-xs uppercase tracking-wider ${headerColor}`}>
-                    {title}
-                </h3>
+const WidgetCard = ({ title, icon, subtitle, children, headerColor = "text-white" }: { title: string, icon: string, subtitle?: string, children: React.ReactNode, headerColor?: string }) => (
+    <div className="bg-[#161b22] text-white rounded-xl shadow-neo border-2 border-white/20 h-full flex flex-col overflow-hidden transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-neo-lg">
+        <div className="p-4 border-b border-white/10 bg-gradient-to-r from-[#1d2129] to-[#161b22] flex items-center justify-between">
+            <Link href={title === 'Trio Yorumları' ? '/trio' : title === 'Yorumcular' ? '/critics' : title === 'PFDK & Kararlar' ? '/pfdk' : title === 'Açıklamalar' ? '/statements' : '#'} className="group flex items-center gap-3 hover:opacity-90 transition-opacity">
+                <div className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-xl border border-white/10 text-2xl group-hover:scale-110 transition-transform">
+                    {icon}
+                </div>
+                <div>
+                    <h3 className={`font-black text-sm uppercase tracking-tighter leading-none ${headerColor}`}>
+                        {title}
+                    </h3>
+                    {subtitle && (
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                            {subtitle}
+                        </p>
+                    )}
+                </div>
             </Link>
             {(title === 'Trio Yorumları' || title === 'Yorumcular' || title === 'PFDK & Kararlar' || title === 'Açıklamalar') && (
-                <Link href={title === 'Trio Yorumları' ? '/trio' : title === 'Yorumcular' ? '/critics' : title === 'PFDK & Kararlar' ? '/pfdk' : '/statements'} className="text-[9px] font-black text-primary hover:underline tracking-tighter">
+                <Link href={title === 'Trio Yorumları' ? '/trio' : title === 'Yorumcular' ? '/critics' : title === 'PFDK & Kararlar' ? '/pfdk' : '/statements'} className="text-[9px] font-black text-black bg-secondary px-2 py-1 rounded-lg transition-all hover:bg-white hover:scale-105 active:scale-95 shadow-sm">
                     TÜMÜNÜ GÖR
                 </Link>
             )}
         </div>
-        <div className="flex-1 overflow-y-auto no-scrollbar bg-card">
+        <div className="flex-1 overflow-y-auto no-scrollbar bg-[#161b22]">
             {children}
         </div>
     </div>
@@ -48,7 +57,7 @@ const WidgetCard = ({ title, icon, children, headerColor = "text-foreground" }: 
 const ExpandableListSection = ({ groupedOpinions, headerColor }: { groupedOpinions: MatchGroupedOpinions[], headerColor: string }) => {
     const weeks = useMemo(() => groupByWeek(groupedOpinions), [groupedOpinions]);
 
-    if (groupedOpinions.length === 0) return <div className="p-8 text-center text-xs text-muted-foreground">Veri bulunamadı.</div>;
+    if (groupedOpinions.length === 0) return <div className="p-8 text-center text-xs text-gray-400 italic">Veri bulunamadı.</div>;
 
     return (
         <div>
@@ -58,18 +67,18 @@ const ExpandableListSection = ({ groupedOpinions, headerColor }: { groupedOpinio
                 });
 
                 return (
-                    <div key={w.week} className="border-b border-border last:border-0 pb-2">
-                        <div className="bg-muted/20 px-3 py-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest sticky top-0 backdrop-blur-sm z-10 mx-1 rounded mt-1">
+                    <div key={w.week} className="border-b border-white/20 last:border-0 pb-2">
+                        <div className="bg-secondary px-3 py-1 text-[10px] font-black text-black uppercase tracking-widest sticky top-0 z-10 mx-1 rounded-sm border border-black mt-1 shadow-sm">
                             {w.week > 0 ? `${w.week}. HAFTA` : 'GENEL'}
                         </div>
                         <div className="pt-2 px-1">
                             <div className="text-center mb-1">
-                                <span className="text-[9px] font-black text-red-500 uppercase tracking-tight bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
-                                    HAFTANIN EN ÇOK ALEYHE HATA YAPILAN MAÇI
+                                <span className="text-[9px] font-black text-white bg-[#1d2129] uppercase tracking-tight px-2 py-0.5 rounded-sm border border-white/20">
+                                    HAFTANIN EN KRİTİK MAÇI
                                 </span>
                             </div>
 
-                            <div className="border border-red-500/30 rounded-xl overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.1)] bg-gradient-to-b from-red-500/5 to-transparent">
+                            <div className="border border-white/20 rounded-lg overflow-hidden bg-[#1d2129] mt-2">
                                 <MatchItem match={mostCriticalMatch} headerColor={headerColor} />
                             </div>
                         </div>
@@ -81,14 +90,24 @@ const ExpandableListSection = ({ groupedOpinions, headerColor }: { groupedOpinio
 };
 
 export const TrioSection = ({ groupedOpinions }: { groupedOpinions: MatchGroupedOpinions[] }) => (
-    <WidgetCard title="Trio Yorumları" icon="📺" headerColor="text-blue-500">
-        <ExpandableListSection groupedOpinions={groupedOpinions} headerColor="text-blue-500" />
+    <WidgetCard
+        title="Trio Yorumları"
+        icon="📺"
+        subtitle="RESMİ YAYINCI ANALİZLERİ"
+        headerColor="text-white"
+    >
+        <ExpandableListSection groupedOpinions={groupedOpinions} headerColor="text-white" />
     </WidgetCard>
 );
 
 export const GeneralCommentsSection = ({ groupedOpinions }: { groupedOpinions: MatchGroupedOpinions[] }) => (
-    <WidgetCard title="Yorumcular" icon="🎙️" headerColor="text-purple-500">
-        <ExpandableListSection groupedOpinions={groupedOpinions} headerColor="text-purple-500" />
+    <WidgetCard
+        title="Yorumcular"
+        icon="🎙️"
+        subtitle="BAĞIMSIZ UZMAN GÖRÜŞLERİ"
+        headerColor="text-white"
+    >
+        <ExpandableListSection groupedOpinions={groupedOpinions} headerColor="text-white" />
     </WidgetCard>
 );
 
@@ -126,16 +145,16 @@ export const PfdkSection = ({ actions, statements }: { actions: DisciplinaryActi
     }, [actions]);
 
     return (
-        <WidgetCard title="PFDK & Kararlar" icon="⚖️" headerColor="text-red-500">
+        <WidgetCard title="PFDK & Kararlar" icon="⚖️" headerColor="text-white">
             <div className="p-3 grid gap-6">
                 {groupedData.length === 0 ? (
-                    <span className="text-xs text-muted-foreground italic text-center">Kayıt yok.</span>
+                    <span className="text-xs text-gray-400 italic text-center">Kayıt yok.</span>
                 ) : (
                     groupedData.map(({ date, sortedTeams, teamsGroups }) => (
                         <div key={date} className="space-y-3">
-                            <div className="sticky top-0 z-10 bg-card/95 backdrop-blur py-2 border-b border-border">
-                                <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                            <div className="sticky top-0 z-10 bg-[#1d2129] py-2 border-b border-white/20">
+                                <h4 className="text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 bg-secondary"></span>
                                     {date}
                                 </h4>
                             </div>
@@ -144,23 +163,23 @@ export const PfdkSection = ({ actions, statements }: { actions: DisciplinaryActi
                                 {sortedTeams.map(team => (
                                     <div key={team} className="space-y-2">
                                         <div className="flex items-center gap-2 opacity-80">
-                                            <div className="h-px bg-border flex-1"></div>
-                                            <h5 className="text-[10px] font-bold text-foreground uppercase tracking-tight">{team}</h5>
-                                            <div className="h-px bg-border flex-1"></div>
+                                            <div className="h-px bg-white/20 flex-1"></div>
+                                            <h5 className="text-[10px] font-bold text-gray-300 uppercase tracking-tight">{team}</h5>
+                                            <div className="h-px bg-white/20 flex-1"></div>
                                         </div>
 
                                         <div className="space-y-2">
                                             {teamsGroups[team].map((act, i) => {
                                                 const href = act.matchId ? `/matches/${act.matchId}?tab=${act.type === 'performance' ? 'performance' : 'pfdk'}` : null;
                                                 const content = (
-                                                    <div className="bg-muted/30 hover:bg-muted/50 rounded-lg p-2.5 transition-colors border border-transparent hover:border-border/50">
-                                                        <div className="flex justify-between font-bold text-foreground text-xs mb-1">
+                                                    <div className="bg-[#1d2129] hover:bg-secondary/20 rounded-none border border-white/10 p-2.5 transition-colors">
+                                                        <div className="flex justify-between font-black text-white text-xs mb-1">
                                                             <span>{act.subject}</span>
-                                                            {act.type === 'performance' && <span className="text-[9px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-1.5 rounded ml-2">PERFORMANS</span>}
+                                                            {act.type === 'performance' && <span className="text-[9px] bg-white text-black px-1.5 border border-black ml-2">PERFORMANS</span>}
                                                         </div>
-                                                        <p className="text-[11px] text-muted-foreground line-clamp-2 italic leading-relaxed">"{act.reason}"</p>
-                                                        {act.penalty && <div className="mt-1.5 text-[10px] font-bold text-red-600 dark:text-red-400 uppercase flex items-center gap-1">
-                                                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                                                        <p className="text-[11px] text-gray-300 line-clamp-2 italic leading-relaxed">"{act.reason}"</p>
+                                                        {act.penalty && <div className="mt-1.5 text-[10px] font-black text-secondary uppercase flex items-center gap-1">
+                                                            <span className="w-1 h-1 bg-secondary"></span>
                                                             {act.penalty}
                                                         </div>}
                                                     </div>
@@ -176,20 +195,20 @@ export const PfdkSection = ({ actions, statements }: { actions: DisciplinaryActi
                 )}
 
                 {statements && statements.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-border">
+                    <div className="mt-4 pt-4 border-t border-white/20">
                         <div className="flex items-center gap-2 mb-3 px-1">
-                            <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">İLGİLİ AÇIKLAMALAR</span>
-                            <div className="h-px bg-amber-500/20 flex-1"></div>
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest">İLGİLİ AÇIKLAMALAR</span>
+                            <div className="h-0.5 bg-white/20 flex-1"></div>
                         </div>
                         <div className="space-y-2">
                             {statements.map((st, i) => (
-                                <Link key={i} href="/statements" className="block bg-amber-50/30 hover:bg-amber-50/50 dark:bg-amber-900/10 dark:hover:bg-amber-900/20 border border-amber-500/10 rounded-lg p-2.5 transition-colors">
+                                <Link key={i} href="/statements" className="block bg-[#1d2129] hover:bg-secondary/20 border border-white/10 rounded-none p-2.5 transition-colors hover:translate-x-[-2px] hover:translate-y-[-2px]">
                                     <div className="flex justify-between items-center mb-1">
-                                        <span className="text-[9px] font-black text-amber-600 uppercase tracking-wider">{st.entity}</span>
-                                        <span className="text-[9px] text-muted-foreground font-mono">{st.date}</span>
+                                        <span className="text-[9px] font-black text-black uppercase tracking-wider bg-secondary px-1">{st.entity}</span>
+                                        <span className="text-[9px] text-gray-400 font-mono">{st.date}</span>
                                     </div>
-                                    <h4 className="font-bold text-[11px] text-foreground mb-1 line-clamp-1">{st.title}</h4>
-                                    <p className="text-[10px] text-muted-foreground line-clamp-1 leading-tight">{st.content}</p>
+                                    <h4 className="font-black text-[11px] text-white mb-1 line-clamp-1">{st.title}</h4>
+                                    <p className="text-[10px] text-gray-300 line-clamp-1 leading-tight">{st.content}</p>
                                 </Link>
                             ))}
                         </div>
@@ -201,19 +220,24 @@ export const PfdkSection = ({ actions, statements }: { actions: DisciplinaryActi
 };
 
 export const StatementsSection = ({ statements }: { statements: Statement[] }) => (
-    <WidgetCard title="Açıklamalar" icon="📢" headerColor="text-amber-500">
-        <div className="divide-y divide-border">
+    <WidgetCard
+        title="Açıklamalar"
+        icon="📢"
+        subtitle="TFF VE KULÜP DUYURULARI"
+        headerColor="text-white"
+    >
+        <div className="divide-y divide-white/10">
             {statements.map((st, i) => (
-                <Link key={i} href="/statements" className="p-3 hover:bg-muted/50 transition-colors block group">
+                <Link key={i} href="/statements" className="p-3 hover:bg-white/5 transition-colors block group">
                     <div className="flex justify-between items-center mb-1">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-primary">{st.entity}</span>
-                        <span className="text-[9px] text-muted-foreground">{st.date}</span>
+                        <span className="text-[9px] font-black uppercase tracking-wider text-black bg-secondary border border-black px-1">{st.entity}</span>
+                        <span className="text-[9px] text-gray-400 font-mono">{st.date}</span>
                     </div>
-                    <h4 className="font-bold text-xs text-foreground mb-1 line-clamp-1 group-hover:text-primary transition-colors">{st.title}</h4>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{st.content}</p>
+                    <h4 className="font-bold text-xs text-white mb-1 line-clamp-1">{st.title}</h4>
+                    <p className="text-xs text-gray-300 line-clamp-2">{st.content}</p>
                 </Link>
             ))}
-            {statements.length === 0 && <div className="p-4 text-center text-xs text-muted-foreground">Açıklama yok.</div>}
+            {statements.length === 0 && <div className="p-4 text-center text-xs text-gray-500">Açıklama yok.</div>}
         </div>
     </WidgetCard>
 );

@@ -14,14 +14,14 @@ const monoFont = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "RefereeLig - Süper Lig Hakem Analizi",
-    template: "%s | RefereeLig"
+    default: "Varsayım - Süper Lig Hakem Analizi",
+    template: "%s | Varsayım"
   },
   description: "Türkiye Süper Lig hakem kararlarının analizi, VAR pozisyonları, uzman yorumları ve PFDK kararları.",
   keywords: ["hakem", "süper lig", "VAR", "hakem analizi", "futbol", "Türkiye"],
-  authors: [{ name: "RefereeLig" }],
+  authors: [{ name: "Varsayım" }],
   openGraph: {
-    title: "RefereeLig - Süper Lig Hakem Performans Analizi",
+    title: "Varsayım - Süper Lig Hakem Performans Analizi",
     description: "Türkiye Süper Lig hakem kararlarının analizi, VAR pozisyonları, uzman yorumları ve PFDK kararları.",
     type: "website",
   },
@@ -39,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${sansFont.variable} ${monoFont.variable} antialiased bg-background text-foreground`}
+        className={`${sansFont.variable} ${monoFont.variable} antialiased bg-black text-white overflow-x-hidden w-full`}
       >
         <Navbar />
         {children}

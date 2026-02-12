@@ -159,17 +159,17 @@ export default function OfficialsPage() {
     return (
         <main className="min-h-screen bg-background pb-20 pt-8 text-foreground">
             <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-6 text-foreground">
-                <header className="mb-0 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border/40">
-                    <div>
-                        <h1 className="text-3xl font-black tracking-tighter uppercase">
+                <header className="mb-0 flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-white/5">
+                    <div className="space-y-1">
+                        <h1 className="text-4xl font-black tracking-tighter uppercase leading-none">
                             HAKEM VE GÖREVLİ <span className="text-primary">DÜNYASI</span>
                         </h1>
-                        <p className="text-muted-foreground text-[10px] font-bold tracking-widest mt-1 opacity-70">
+                        <p className="text-muted-foreground text-[11px] font-bold tracking-[0.3em] uppercase opacity-90">
                             2024-2025 SEZONU İSTATİSTİK MERKEZİ (V4)
                         </p>
                     </div>
 
-                    <div className="flex bg-muted/80 backdrop-blur-sm p-1.5 rounded-2xl border border-border flex-wrap gap-1 shadow-inner">
+                    <div className="flex bg-[#161b22] p-1.5 rounded-2xl border border-white/10 flex-wrap gap-1 shadow-2xl">
                         {[
                             { id: 'referees', label: 'Hakemler' },
                             { id: 'representatives', label: 'Temsilciler' },
@@ -232,10 +232,10 @@ export default function OfficialsPage() {
                             <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                                 <span className="w-8 h-px bg-primary/30"></span> Hakem İstatistikleri
                             </h3>
-                            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-                                <div className="overflow-x-auto">
+                            <div className="bg-card border border-border rounded-xl shadow-sm">
+                                <div className="overflow-x-auto lg:overflow-visible">
                                     <table className="w-full text-sm text-left">
-                                        <thead className="bg-muted text-muted-foreground text-[10px] uppercase font-black tracking-wider border-b border-border">
+                                        <thead className="sticky top-0 z-20 bg-muted text-muted-foreground text-[10px] uppercase font-black tracking-wider border-b border-border shadow-md">
                                             <tr>
                                                 <th className="p-4">Ad Soyad / Bölge</th>
                                                 <th className="p-4 text-center">Reyting</th>
@@ -258,24 +258,24 @@ export default function OfficialsPage() {
                                             {paginate(data.referees).map((ref: OfficialStat, i: number) => (
                                                 <tr key={i} className="hover:bg-muted/50 transition-colors">
                                                     <td className="p-4">
-                                                        <div className="font-bold text-sm tracking-tight">{ref.name}</div>
+                                                        <div className="font-bold text-sm tracking-tight text-white">{ref.name}</div>
                                                         <div className="text-[10px] text-muted-foreground uppercase font-black opacity-60">{ref.region || '-'}</div>
                                                     </td>
                                                     <td className="p-4 text-center">
-                                                        <span className="px-2 py-1 rounded-md bg-amber-50 text-amber-600 text-[10px] font-black border border-amber-200 shadow-sm">
+                                                        <span className="px-2 py-1 rounded-md bg-amber-950/30 text-amber-500 text-[10px] font-black border border-amber-900/50 shadow-sm">
                                                             ★ {ref.rating || '-'}
                                                         </span>
                                                     </td>
                                                     <td className="p-4 text-center">
                                                         {renderTopTeams(ref.topTeams)}
                                                     </td>
-                                                    <td className={`p-4 text-center ${ref.roles.referee > 0 ? 'text-foreground font-bold' : 'text-muted-foreground/30'}`}>{ref.roles.referee}</td>
-                                                    <td className={`p-4 text-center ${ref.roles.assistant > 0 ? 'text-foreground' : 'text-muted-foreground/30'}`}>{ref.roles.assistant}</td>
-                                                    <td className={`p-4 text-center ${ref.roles.fourth > 0 ? 'text-foreground' : 'text-muted-foreground/30'}`}>{ref.roles.fourth}</td>
-                                                    <td className={`p-4 text-center ${ref.roles.var > 0 ? 'text-foreground font-bold' : 'text-muted-foreground/30'}`}>{ref.roles.var}</td>
-                                                    <td className={`p-4 text-center ${ref.roles.avar > 0 ? 'text-foreground' : 'text-muted-foreground/30'}`}>{ref.roles.avar}</td>
-                                                    <td className="p-4 text-center font-black text-lg bg-slate-900 border-x border-slate-800 text-white font-mono">{ref.matches}</td>
-                                                    <td className="p-4 text-center font-bold bg-red-900 text-white border-x border-red-800">{ref.errors}</td>
+                                                    <td className={`p-4 text-center ${ref.roles.referee > 0 ? 'text-white font-bold' : 'text-muted-foreground/30'}`}>{ref.roles.referee}</td>
+                                                    <td className={`p-4 text-center ${ref.roles.assistant > 0 ? 'text-white' : 'text-muted-foreground/30'}`}>{ref.roles.assistant}</td>
+                                                    <td className={`p-4 text-center ${ref.roles.fourth > 0 ? 'text-white' : 'text-muted-foreground/30'}`}>{ref.roles.fourth}</td>
+                                                    <td className={`p-4 text-center ${ref.roles.var > 0 ? 'text-white font-bold' : 'text-muted-foreground/30'}`}>{ref.roles.var}</td>
+                                                    <td className={`p-4 text-center ${ref.roles.avar > 0 ? 'text-white' : 'text-muted-foreground/30'}`}>{ref.roles.avar}</td>
+                                                    <td className="p-4 text-center font-black text-lg bg-[#12141a] border-x border-white/5 text-white font-mono">{ref.matches}</td>
+                                                    <td className="p-4 text-center font-bold bg-red-950/40 text-red-200 border-x border-red-900/40">{ref.errors}</td>
                                                     <td className="p-4 text-center text-orange-500 font-medium">{ref.controversial}</td>
                                                     <td className="p-4 text-center text-green-500 font-medium">{ref.correct}</td>
                                                 </tr>
@@ -294,34 +294,36 @@ export default function OfficialsPage() {
                                 <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                                     <span className="w-8 h-px bg-primary/30"></span> Temsilci İstatistikleri
                                 </h3>
-                                <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="bg-muted text-muted-foreground text-[10px] uppercase font-black tracking-wider border-b border-border">
-                                            <tr>
-                                                <th className="p-4">Temsilci / Bölge</th>
-                                                <th className="p-4 text-center">En Çok Görev</th>
-                                                <th className="p-4 text-center">Görev</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-border font-medium">
-                                            {paginate(data.representatives).map((rep: any, i: number) => (
-                                                <tr key={i} className="hover:bg-muted/50 transition-colors">
-                                                    <td className="p-4">
-                                                        <div className="font-bold text-sm">{rep.name}</div>
-                                                        <div className="text-[10px] text-muted-foreground uppercase font-black opacity-60">{rep.region || '-'}</div>
-                                                    </td>
-                                                    <td className="p-4 text-center">
-                                                        {renderTopTeams(rep.topTeams)}
-                                                    </td>
-                                                    <td className="p-4 text-center font-black text-lg bg-slate-900 text-white font-mono w-24">
-                                                        {rep.matches}
-                                                    </td>
+                                <div className="bg-card border border-border rounded-xl shadow-sm">
+                                    <div className="overflow-x-auto lg:overflow-visible">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="sticky top-0 z-20 bg-muted text-muted-foreground text-[10px] uppercase font-black tracking-wider border-b border-border shadow-md">
+                                                <tr>
+                                                    <th className="p-4">Temsilci / Bölge</th>
+                                                    <th className="p-4 text-center">En Çok Görev</th>
+                                                    <th className="p-4 text-center">Görev</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody className="divide-y divide-border font-medium">
+                                                {paginate(data.representatives).map((rep: any, i: number) => (
+                                                    <tr key={i} className="hover:bg-muted/50 transition-colors">
+                                                        <td className="p-4">
+                                                            <div className="font-bold text-sm">{rep.name}</div>
+                                                            <div className="text-[10px] text-muted-foreground uppercase font-black opacity-60">{rep.region || '-'}</div>
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            {renderTopTeams(rep.topTeams)}
+                                                        </td>
+                                                        <td className="p-4 text-center font-black text-lg bg-slate-900 text-white font-mono w-24">
+                                                            {rep.matches}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <PaginationControls totalItems={data.representatives.length} />
                                 </div>
-                                <PaginationControls totalItems={data.representatives.length} />
                             </div>
                         )}
 
@@ -330,34 +332,36 @@ export default function OfficialsPage() {
                                 <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                                     <span className="w-8 h-px bg-primary/30"></span> Gözlemci İstatistikleri
                                 </h3>
-                                <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="bg-muted text-muted-foreground text-[10px] uppercase font-black tracking-wider border-b border-border">
-                                            <tr>
-                                                <th className="p-4">Gözlemci / Bölge</th>
-                                                <th className="p-4 text-center">En Çok Görev</th>
-                                                <th className="p-4 text-center">Görev</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-border font-medium">
-                                            {paginate(data.observers).map((obs: any, i: number) => (
-                                                <tr key={i} className="hover:bg-muted/50 transition-colors">
-                                                    <td className="p-4">
-                                                        <div className="font-bold text-sm">{obs.name}</div>
-                                                        <div className="text-[10px] text-muted-foreground uppercase font-black opacity-60">{obs.region || '-'}</div>
-                                                    </td>
-                                                    <td className="p-4 text-center">
-                                                        {renderTopTeams(obs.topTeams)}
-                                                    </td>
-                                                    <td className="p-4 text-center font-black text-lg bg-slate-900 text-white font-mono w-24">
-                                                        {obs.matches}
-                                                    </td>
+                                <div className="bg-card border border-border rounded-xl shadow-sm">
+                                    <div className="overflow-x-auto lg:overflow-visible">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="sticky top-0 z-20 bg-muted text-muted-foreground text-[10px] uppercase font-black tracking-wider border-b border-border shadow-md">
+                                                <tr>
+                                                    <th className="p-4">Gözlemci / Bölge</th>
+                                                    <th className="p-4 text-center">En Çok Görev</th>
+                                                    <th className="p-4 text-center">Görev</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody className="divide-y divide-border font-medium">
+                                                {paginate(data.observers).map((obs: any, i: number) => (
+                                                    <tr key={i} className="hover:bg-muted/50 transition-colors">
+                                                        <td className="p-4">
+                                                            <div className="font-bold text-sm">{obs.name}</div>
+                                                            <div className="text-[10px] text-muted-foreground uppercase font-black opacity-60">{obs.region || '-'}</div>
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            {renderTopTeams(obs.topTeams)}
+                                                        </td>
+                                                        <td className="p-4 text-center font-black text-lg bg-slate-900 text-white font-mono w-24">
+                                                            {obs.matches}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <PaginationControls totalItems={data.observers.length} />
                                 </div>
-                                <PaginationControls totalItems={data.observers.length} />
                             </div>
                         )}
                     </div>

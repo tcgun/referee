@@ -63,25 +63,25 @@ export function SummaryStatsRow() {
         <div className="grid grid-cols-1 md:grid-cols-10 gap-4 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="md:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {cards.slice(0, 2).map((card, idx) => (
-                    <div key={idx} className={`rounded-xl border p-4 flex items-center justify-between shadow-sm transition-transform hover:scale-[1.02] ${card.color}`}>
+                    <div key={idx} className={`rounded-xl border border-white/10 p-4 flex items-center justify-between shadow-neo-sm hover:shadow-neo transition-all transform hover:-translate-y-1 bg-[#161b22]`}>
                         <div>
-                            <h3 className="text-[10px] font-black uppercase opacity-70 tracking-widest mb-1">{card.title}</h3>
-                            <div className="text-lg font-black leading-tight mb-0.5">{card.value}</div>
-                            <div className="text-xs font-medium opacity-80">{card.subValue}</div>
+                            <h3 className="text-[10px] font-black uppercase text-white/50 tracking-widest mb-1">{card.title}</h3>
+                            <div className="text-lg font-black leading-tight mb-0.5 text-white">{card.value}</div>
+                            <div className="text-xs font-bold text-white/40">{card.subValue}</div>
                         </div>
-                        <div className="text-2xl opacity-20 grayscale-0">
+                        <div className="text-2xl opacity-100 grayscale-0 p-2 bg-secondary border-2 border-black rounded-lg shadow-sm">
                             {card.icon}
                         </div>
                     </div>
                 ))}
             </div>
-            <div className={`md:col-span-3 rounded-xl border p-4 flex items-center justify-between shadow-sm transition-transform hover:scale-[1.02] ${cards[2].color}`}>
+            <div className={`md:col-span-3 rounded-xl border border-white/10 p-4 flex items-center justify-between shadow-neo-sm hover:shadow-neo transition-all transform hover:-translate-y-1 bg-[#161b22]`}>
                 <div>
-                    <h3 className="text-[10px] font-black uppercase opacity-70 tracking-widest mb-1">{cards[2].title}</h3>
-                    <div className="text-lg font-black leading-tight mb-0.5">{cards[2].value}</div>
-                    <div className="text-xs font-medium opacity-80">{cards[2].subValue}</div>
+                    <h3 className="text-[10px] font-black uppercase text-white/50 tracking-widest mb-1">{cards[2].title}</h3>
+                    <div className="text-lg font-black leading-tight mb-0.5 text-white">{cards[2].value}</div>
+                    <div className="text-xs font-bold text-white/40">{cards[2].subValue}</div>
                 </div>
-                <div className="text-2xl opacity-20 grayscale-0">
+                <div className="text-2xl opacity-100 grayscale-0 p-2 bg-secondary border-2 border-black rounded-lg shadow-sm">
                     {cards[2].icon}
                 </div>
             </div>
