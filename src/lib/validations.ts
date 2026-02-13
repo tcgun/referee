@@ -192,6 +192,7 @@ export const disciplinaryActionSchema = z.object({
     type: z.enum(['pfdk', 'performance', 'penalty']).optional(),
     penalty: z.string().max(1000).optional(), // Increased max length for flexibility
     date: z.string().regex(REGEX_DATE, MSG_DATE),
-    week: z.number().int().min(1).max(40).optional(), // Added for weekly grouping
+    week: z.number().int().min(0).max(40).optional(), // Updated min to 0 for cup/general
     note: z.string().max(10000).optional().or(z.literal('')), // Full legal text
+    competition: z.enum(['league', 'cup']).optional(),
 });

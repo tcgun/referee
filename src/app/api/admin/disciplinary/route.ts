@@ -42,22 +42,35 @@ export async function POST(request: Request) {
         const id = data.id || `d-${matchId.replace('d-', '')}-${subjectSlug}-${uniqueSuffix}`;
 
         // Ensure week is present if matchId exists
-        let finalWeek = data.week;
+        let finalWeek = data.week ?? null;
         if (!finalWeek && matchId) {
             const matchSnap = await firestore.collection('matches').doc(matchId.replace('d-', '')).get();
             if (matchSnap.exists) {
-                finalWeek = matchSnap.data()?.week;
+                finalWeek = matchSnap.data()?.week || null;
             }
         }
 
-        await firestore.collection('disciplinary_actions').doc(id).set({
+        const saveData: any = {
             ...data,
             id,
-            matchId,
-            week: finalWeek
-        }, { merge: true });
+            matchId: matchId || null,
+            week: finalWeek,
+            updatedAt: new Date().toISOString()
+        };
 
-        return NextResponse.json({ success: true, id });
+        // Remove undefined fields to prevent Firestore crashes
+        Object.keys(saveData).forEach(key => saveData[key] === undefined && delete saveData[key]);
+
+        try {
+            await firestore.collection('disciplinary_actions').doc(id).set(saveData, { merge: true });
+            return NextResponse.json({ success: true, id });
+        } catch (dbError: any) {
+            console.error('Firestore Save Error:', dbError);
+            return NextResponse.json({
+                error: 'Database operation failed',
+                message: dbError.message
+            }, { status: 500 });
+        }
     });
 }
 
