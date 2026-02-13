@@ -243,6 +243,8 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
         let awayStr = '';
         let dateStr = '';
 
+        const updates: any = { week: weekVal };
+
         const shortcodeMatch = idInput.match(/^(w|c)(\d+)([a-z]{3})([a-z]{3})$/);
 
         if (shortcodeMatch) {
@@ -271,7 +273,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
             }
         }
 
-        const updates: any = { week: weekVal };
+        updates.week = weekVal;
         let finalHomeId = homeStr;
         let finalAwayId = awayStr;
 
