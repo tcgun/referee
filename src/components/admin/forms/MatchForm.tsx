@@ -21,7 +21,8 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
         week: 1,
         date: new Date().toISOString(),
         status: 'draft',
-        competition: 'league'
+        competition: 'league',
+        group: ''
     });
     const [originalId, setOriginalId] = useState<string>('');
     const [localDate, setLocalDate] = useState('');
@@ -46,9 +47,19 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
         }
     }, [match.date]);
 
+    // Auto-generate ID for new matches
+    useEffect(() => {
+        if (!originalId) {
+            const newId = generateMatchId(match);
+            if (newId && newId !== match.id) {
+                setMatch(prev => ({ ...prev, id: newId }));
+            }
+        }
+    }, [match.homeTeamId, match.awayTeamId, match.date, match.week, match.competition, match.group, originalId]);
+
     // Update form when preloaded data changes
     useEffect(() => {
-        if (preloadedMatch && match.id !== preloadedMatch.id) {
+        if (preloadedMatch && (!match.id || match.id !== preloadedMatch.id)) {
             setMatch(preloadedMatch);
             setOriginalId(preloadedMatch.id || '');
         }
@@ -80,14 +91,19 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
 
         if (payload.stats) {
             const cleanStats: any = {};
+            let hasValue = false;
             Object.entries(payload.stats).forEach(([key, val]) => {
-                if (val === '' || val === null || val === undefined) {
-                    cleanStats[key] = undefined;
-                } else {
+                if (val !== '' && val !== null && val !== undefined) {
                     cleanStats[key] = Number(val);
+                    hasValue = true;
                 }
             });
-            payload.stats = cleanStats;
+            // If No stats provided and it's a cup match, just remove the stats object
+            if (!hasValue && payload.competition === 'cup') {
+                delete payload.stats;
+            } else {
+                payload.stats = cleanStats;
+            }
         }
 
         return payload;
@@ -96,13 +112,15 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
     const generateMatchId = (m: Partial<Match>) => {
         const activeWeek = m.week || 1;
         const prefix = m.competition === 'cup' ? 'cup' : 'week';
+        const groupPart = (m.competition === 'cup' && m.group) ? `-${m.group}` : '';
+
         if (m.homeTeamId && m.awayTeamId && m.date) {
             const d = new Date(m.date);
             if (!isNaN(d.getTime())) {
                 const yyyy = d.getFullYear();
                 const mm = String(d.getMonth() + 1).padStart(2, '0');
                 const dd = String(d.getDate()).padStart(2, '0');
-                return `${prefix}${activeWeek}-${m.homeTeamId}-${m.awayTeamId}-${yyyy}-${mm}-${dd}`;
+                return `${prefix}${activeWeek}${groupPart}-${m.homeTeamId}-${m.awayTeamId}-${yyyy}-${mm}-${dd}`;
             }
         }
         return m.id || '';
@@ -121,7 +139,8 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                     const mm = String(d.getMonth() + 1).padStart(2, '0');
                     const dd = String(d.getDate()).padStart(2, '0');
                     const prefix = match.competition === 'cup' ? 'cup' : 'week';
-                    activeId = `${prefix}${match.week || 1}-${match.homeTeamId}-${match.awayTeamId}-${yyyy}-${mm}-${dd}`;
+                    const groupPart = (match.competition === 'cup' && match.group) ? `-${match.group}` : '';
+                    activeId = `${prefix}${match.week || 1}${groupPart}-${match.homeTeamId}-${match.awayTeamId}-${yyyy}-${mm}-${dd}`;
                     setMatch(prev => ({ ...prev, id: activeId }));
                 }
             }
@@ -148,9 +167,9 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                 week: match.week || 1,
                 date: new Date().toISOString(),
                 status: 'draft',
-                competition: match.competition || 'league'
+                competition: match.competition || 'league',
+                group: match.group || ''
             });
-            setOriginalId('');
             setOriginalId('');
             setSmartRaw('');
             setStatsRaw('');
@@ -245,31 +264,42 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
 
         const updates: any = { week: weekVal };
 
-        const shortcodeMatch = idInput.match(/^(w|c)(\d+)([a-z]{3})([a-z]{3})$/);
+        const shortcodeMatch = idInput.match(/^(w|week|l|league|c|cup)(\d+)([abc]?)([a-z0-9şçöğüı]{3})([a-z0-9şçöğüı]{3})$/);
 
         if (shortcodeMatch) {
             weekVal = parseInt(shortcodeMatch[2]);
-            homeStr = shortcodeMatch[3];
-            awayStr = shortcodeMatch[4];
-            if (shortcodeMatch[1] === 'c') {
+            const groupCode = shortcodeMatch[3];
+            homeStr = shortcodeMatch[4];
+            awayStr = shortcodeMatch[5];
+            if (['c', 'cup'].includes(shortcodeMatch[1])) {
                 updates.competition = 'cup';
+                if (groupCode) updates.group = groupCode.toUpperCase();
             } else {
                 updates.competition = 'league';
             }
         } else {
             const parts = idInput.split('-');
             if (parts.length >= 2) {
-                if (parts[0].startsWith('week') || parts[0].startsWith('cup')) {
-                    const isCup = parts[0].startsWith('cup');
-                    const w = parseInt(parts[0].replace(isCup ? 'cup' : 'week', ''));
-                    if (!isNaN(w)) weekVal = w;
-                    homeStr = parts[1];
-                    awayStr = parts[2] || '';
-                    updates.competition = isCup ? 'cup' : 'league';
+                const isCup = parts[0].startsWith('cup') || parts[0].startsWith('c');
+
+                const prefixMatch = parts[0].match(/^(?:week|cup|league|l|c|w)(\d+)(?:-([abc]))?$/i);
+                if (prefixMatch) {
+                    weekVal = parseInt(prefixMatch[1]);
+                    if (prefixMatch[2]) updates.group = prefixMatch[2].toUpperCase();
+
+                    if (isCup && parts[1]?.length === 1 && ['a', 'b', 'c'].includes(parts[1].toLowerCase()) && !updates.group) {
+                        updates.group = parts[1].toUpperCase();
+                        homeStr = parts[2] || '';
+                        awayStr = parts[3] || '';
+                    } else {
+                        homeStr = parts[1] || '';
+                        awayStr = parts[2] || '';
+                    }
                 } else {
                     homeStr = parts[0];
                     awayStr = parts[1] || '';
                 }
+                updates.competition = isCup ? 'cup' : 'league';
             }
         }
 
@@ -305,7 +335,9 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
             }
         }
 
-        let finalId = `week${weekVal}`;
+        let finalId = `${match.competition === 'cup' ? 'cup' : 'week'}${weekVal}`;
+        if (match.competition === 'cup' && updates.group) finalId += `-${updates.group}`;
+
         if (finalHomeId) finalId += `-${finalHomeId}`;
         if (finalAwayId) finalId += `-${finalAwayId}`;
 
@@ -375,16 +407,48 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                         <MatchSelect
                             value={match.id || ''}
                             competition={match.competition || 'league'}
-                            onChange={val => setMatch({ ...match, id: val })}
+                            group={match.group}
+                            onChange={(val, week) => {
+                                const updates: any = { id: val };
+                                if (week) updates.week = week;
+                                setMatch(prev => ({ ...prev, ...updates }));
+                            }}
                         />
                     </div>
                     <div className="flex items-end gap-2">
                         <button type="button" onClick={handleLoad} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold text-sm shadow-sm transition-all h-[38px]">Getir</button>
                         <button type="button" onClick={handleRenameMatch} className="bg-orange-50 text-orange-600 px-4 py-2 rounded font-bold text-sm border border-orange-200 hover:bg-orange-100 transition-all h-[38px]">ID Değiştir</button>
                         <button type="button" onClick={handleDeleteMatch} className="bg-red-50 text-red-600 px-4 py-2 rounded font-bold text-sm border border-red-200 hover:bg-red-100 transition-all h-[38px]">Sil</button>
-                        <button type="button" onClick={() => { setMatch({ id: '', week: 1, date: new Date().toISOString(), status: 'draft', competition: match.competition || 'league' }); setOriginalId(''); setSmartRaw(''); setStatsRaw(''); }} className="bg-white text-slate-600 px-4 py-2 rounded font-bold text-sm border border-slate-200 hover:bg-slate-50 transition-all h-[38px]">Yeni</button>
+                        <button type="button" onClick={() => { setMatch({ id: '', week: 1, date: new Date().toISOString(), status: 'draft', competition: match.competition || 'league', group: match.group || '' }); setOriginalId(''); setSmartRaw(''); setStatsRaw(''); }} className="bg-white text-slate-600 px-4 py-2 rounded font-bold text-sm border border-slate-200 hover:bg-slate-50 transition-all h-[38px]">Yeni</button>
                     </div>
                 </div>
+
+                {match.competition === 'cup' && (
+                    <div className="flex gap-2 bg-white p-2 rounded-lg border border-red-100">
+                        <div className="flex-1 flex flex-col gap-1">
+                            <label className="text-[10px] font-bold text-red-600 uppercase">Grup Seçimi</label>
+                            <div className="flex gap-1">
+                                {['A', 'B', 'C'].map(g => (
+                                    <button
+                                        key={g}
+                                        type="button"
+                                        onClick={() => setMatch({ ...match, group: g })}
+                                        className={`flex-1 py-1 rounded font-bold text-xs border transition-all ${match.group === g ? 'bg-red-600 text-white border-red-600 shadow-sm' : 'bg-white text-red-600 border-red-200 hover:bg-red-50'}`}
+                                    >
+                                        {g} GRUBU
+                                    </button>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => setMatch({ ...match, group: '' })}
+                                    className={`flex-1 py-1 rounded font-bold text-xs border transition-all ${!match.group ? 'bg-slate-600 text-white border-slate-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                                >
+                                    FİNAL/DİĞER
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Maç Kayıt ID (week1-takim-takim)</label>
@@ -394,11 +458,14 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                         value={match.id || ''}
                         onChange={e => {
                             let val = e.target.value;
+                            if (/^l\d/.test(val) && !val.startsWith('league')) {
+                                val = val.replace(/^l(\d+)/, 'week$1');
+                            }
                             if (/^w\d/.test(val) && !val.startsWith('week')) {
                                 val = val.replace(/^w(\d+)/, 'week$1');
                             }
                             let nextWeek = match.week;
-                            const weekMatch = val.match(/^week(\d+)/);
+                            const weekMatch = val.match(/(?:league|week|cup)(\d+)/);
                             if (weekMatch) {
                                 nextWeek = parseInt(weekMatch[1]);
                             }

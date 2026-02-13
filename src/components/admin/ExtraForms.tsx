@@ -418,7 +418,7 @@ interface DisciplinaryFormProps extends BaseProps {
 export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, onSuccess }: DisciplinaryFormProps) => {
     const [action, setAction] = useState<Partial<DisciplinaryAction>>({
         teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-        type: 'pfdk', matchId: '', note: '', competition: 'league'
+        type: 'pfdk', matchId: '', note: '', competition: 'league', group: ''
     });
     const [pfdkTarget, setPfdkTarget] = useState<'player' | 'staff' | 'club' | 'other'>('player');
     const [decisionType, setDecisionType] = useState<'referral' | 'penalty'>('penalty');
@@ -438,7 +438,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
         } else {
             setAction({
                 teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-                type: 'pfdk', matchId: '', note: '', competition: 'league'
+                type: 'pfdk', matchId: '', note: '', competition: 'league', group: ''
             });
             setDecisionType('penalty');
         }
@@ -534,12 +534,35 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
                 </button>
             </div>
 
+            {action.competition === 'cup' && (
+                <div className="flex gap-1 mb-2 bg-gray-50 p-1 rounded-md border border-gray-200">
+                    {['A', 'B', 'C'].map(g => (
+                        <button
+                            key={g}
+                            type="button"
+                            onClick={() => setAction({ ...action, group: g })}
+                            className={`flex-1 py-1 rounded font-bold text-[10px] transition-all ${action.group === g ? 'bg-red-600 text-white border-red-600 shadow-sm' : 'bg-white text-gray-500 hover:bg-gray-100'}`}
+                        >
+                            {g} GRUBU
+                        </button>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={() => setAction({ ...action, group: '' })}
+                        className={`flex-1 py-1 rounded font-bold text-[10px] transition-all ${!action.group ? 'bg-gray-600 text-white shadow-sm' : 'bg-white text-gray-500 hover:bg-gray-100'}`}
+                    >
+                        DİĞER
+                    </button>
+                </div>
+            )}
+
             <div className="flex gap-2 items-end">
                 <div className="flex-1 space-y-1">
                     <label className="text-xs font-bold text-gray-500">Bağlı Maç (Maçsız Sevk için boş bırakın)</label>
                     <MatchSelect
                         value={action.matchId || ''}
                         competition={action.competition || 'league'}
+                        group={action.group}
                         onChange={(id, week) => setAction({ ...action, matchId: id, week: week })}
                         className={`mb-2 ${pfdkTarget === 'other' ? 'opacity-50 pointer-events-none bg-gray-100' : ''}`}
                     />
@@ -561,52 +584,58 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
                 </button>
             </div>
 
-            {action.type === 'pfdk' && (
-                <div className="space-y-2 mb-2">
-                    <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-                        <button type="button" onClick={() => setDecisionType('referral')} className={`flex-1 py-1.5 rounded-md text-xs font-black uppercase transition-all ${decisionType === 'referral' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>SEVK HAREKETLERİ</button>
-                        <button type="button" onClick={() => setDecisionType('penalty')} className={`flex-1 py-1.5 rounded-md text-xs font-black uppercase transition-all ${decisionType === 'penalty' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>CEZA KARARLARI</button>
+            {
+                action.type === 'pfdk' && (
+                    <div className="space-y-2 mb-2">
+                        <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                            <button type="button" onClick={() => setDecisionType('referral')} className={`flex-1 py-1.5 rounded-md text-xs font-black uppercase transition-all ${decisionType === 'referral' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>SEVK HAREKETLERİ</button>
+                            <button type="button" onClick={() => setDecisionType('penalty')} className={`flex-1 py-1.5 rounded-md text-xs font-black uppercase transition-all ${decisionType === 'penalty' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>CEZA KARARLARI</button>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button type="button" onClick={() => setPfdkTarget('player')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'player' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Futbolcu</button>
+                            <button type="button" onClick={() => setPfdkTarget('staff')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'staff' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Teknik/İdari</button>
+                            <button type="button" onClick={() => { setPfdkTarget('club'); setAction(prev => ({ ...prev, subject: 'Kulüp' })); }} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'club' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Kulüp</button>
+                            <button type="button" onClick={() => { setPfdkTarget('other'); setAction(prev => ({ ...prev, matchId: '' })); }} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'other' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Diğer</button>
+                        </div>
                     </div>
+                )
+            }
 
-                    <div className="flex gap-2">
-                        <button type="button" onClick={() => setPfdkTarget('player')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'player' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Futbolcu</button>
-                        <button type="button" onClick={() => setPfdkTarget('staff')} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'staff' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Teknik/İdari</button>
-                        <button type="button" onClick={() => { setPfdkTarget('club'); setAction(prev => ({ ...prev, subject: 'Kulüp' })); }} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'club' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Kulüp</button>
-                        <button type="button" onClick={() => { setPfdkTarget('other'); setAction(prev => ({ ...prev, matchId: '' })); }} className={`flex-1 text-xs py-1 rounded border ${pfdkTarget === 'other' ? 'bg-red-50 border-red-500 text-red-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>Diğer</button>
-                    </div>
-                </div>
-            )}
+            {
+                !(pfdkTarget === 'club') && (
+                    <input
+                        placeholder={`Özne (${pfdkTarget === 'player' ? 'Futbolcu Adı' : 'Yönetici Adı'})`}
+                        className="border border-gray-300 p-2 w-full rounded"
+                        value={action.subject}
+                        onChange={e => setAction({ ...action, subject: e.target.value })}
+                        required
+                    />
+                )
+            }
 
-            {!(pfdkTarget === 'club') && (
-                <input
-                    placeholder={`Özne (${pfdkTarget === 'player' ? 'Futbolcu Adı' : 'Yönetici Adı'})`}
-                    className="border border-gray-300 p-2 w-full rounded"
-                    value={action.subject}
-                    onChange={e => setAction({ ...action, subject: e.target.value })}
-                    required
-                />
-            )}
-
-            {action.type === 'pfdk' && (
-                <input
-                    placeholder="Takım Adı (örn: Galatasaray)"
-                    className="border border-gray-300 p-2 w-full rounded"
-                    value={action.teamName}
-                    onChange={e => setAction({ ...action, teamName: e.target.value })}
-                    onBlur={() => {
-                        if (action.teamName) {
-                            import('@/lib/teams').then(({ resolveTeamId, getTeamName }) => {
-                                const resolvedId = resolveTeamId(action.teamName!);
-                                if (resolvedId) {
-                                    const fullName = getTeamName(resolvedId);
-                                    setAction(prev => ({ ...prev, teamName: fullName }));
-                                }
-                            });
-                        }
-                    }}
-                    required
-                />
-            )}
+            {
+                action.type === 'pfdk' && (
+                    <input
+                        placeholder="Takım Adı (örn: Galatasaray)"
+                        className="border border-gray-300 p-2 w-full rounded"
+                        value={action.teamName}
+                        onChange={e => setAction({ ...action, teamName: e.target.value })}
+                        onBlur={() => {
+                            if (action.teamName) {
+                                import('@/lib/teams').then(({ resolveTeamId, getTeamName }) => {
+                                    const resolvedId = resolveTeamId(action.teamName!);
+                                    if (resolvedId) {
+                                        const fullName = getTeamName(resolvedId);
+                                        setAction(prev => ({ ...prev, teamName: fullName }));
+                                    }
+                                });
+                            }
+                        }}
+                        required
+                    />
+                )
+            }
 
             <textarea
                 placeholder="Karar Metni (Tamamı) - Buraya yazdığınız metin SİLİNMEZ, sitede aynen bu şekilde görünür. Tırnak içindeki kısımlar otomatik olarak 'Gerekçe' alanına kopyalanır."
@@ -637,37 +666,39 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
                 required
             />
 
-            {action.type === 'pfdk' && decisionType === 'penalty' && (
-                <div className="relative">
-                    <textarea
-                        placeholder="Verilen Ceza (Kısa Özet) - Örn: 2 Maç Men"
-                        className="border border-red-200 bg-red-50 p-2 w-full rounded text-red-800 placeholder-red-300 font-bold min-h-[60px]"
-                        value={action.penalty || ''}
-                        onChange={e => setAction({ ...action, penalty: e.target.value })}
-                        required
-                    />
-                    <button
-                        type="button"
-                        onClick={() => setAction(prev => ({ ...prev, penalty: (prev.penalty ? prev.penalty + '\n' : '') + '- ' }))}
-                        className="absolute bottom-2 right-2 bg-red-200 hover:bg-red-300 text-red-800 text-xs px-2 py-1 rounded shadow-sm"
-                        title="Yeni Satır Ekle"
-                    >
-                        + Satır
-                    </button>
-                </div>
-            )}
+            {
+                action.type === 'pfdk' && decisionType === 'penalty' && (
+                    <div className="relative">
+                        <textarea
+                            placeholder="Verilen Ceza (Kısa Özet) - Örn: 2 Maç Men"
+                            className="border border-red-200 bg-red-50 p-2 w-full rounded text-red-800 placeholder-red-300 font-bold min-h-[60px]"
+                            value={action.penalty || ''}
+                            onChange={e => setAction({ ...action, penalty: e.target.value })}
+                            required
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setAction(prev => ({ ...prev, penalty: (prev.penalty ? prev.penalty + '\n' : '') + '- ' }))}
+                            className="absolute bottom-2 right-2 bg-red-200 hover:bg-red-300 text-red-800 text-xs px-2 py-1 rounded shadow-sm"
+                            title="Yeni Satır Ekle"
+                        >
+                            + Satır
+                        </button>
+                    </div>
+                )
+            }
 
             <input type="date" className="border border-gray-300 p-2 w-full rounded" value={action.date} onChange={e => setAction({ ...action, date: e.target.value })} />
 
             <button className={`p-2 rounded w-full text-white font-bold transition-colors ${decisionType === 'referral' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'}`}>
                 {editItem ? 'Güncelle' : 'Kaydet'}
             </button>
-        </form>
+        </form >
     );
 };
 
 // Internal Match Selector Component
-export const MatchSelect = ({ value, onChange, competition = 'league', className = "" }: { value: string, onChange: (val: string, week?: number) => void, competition?: 'league' | 'cup', className?: string }) => {
+export const MatchSelect = ({ value, onChange, competition = 'league', group, className = "" }: { value: string, onChange: (val: string, week?: number) => void, competition?: 'league' | 'cup', group?: string | null, className?: string }) => {
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(false);
     const [selectedWeek, setSelectedWeek] = useState<number | string>('');
@@ -682,12 +713,25 @@ export const MatchSelect = ({ value, onChange, competition = 'league', className
             try {
                 const { collection, getDocs, orderBy, query, where } = await import('firebase/firestore');
                 const { db } = await import('@/firebase/client');
-                const q = query(
-                    collection(db, 'matches'),
-                    where('competition', '==', competition),
-                    where('week', '==', Number(selectedWeek)),
-                    orderBy('date', 'desc')
-                );
+
+                let q;
+                if (competition === 'cup' && group) {
+                    q = query(
+                        collection(db, 'matches'),
+                        where('competition', '==', competition),
+                        where('week', '==', Number(selectedWeek)),
+                        where('group', '==', group),
+                        orderBy('date', 'desc')
+                    );
+                } else {
+                    q = query(
+                        collection(db, 'matches'),
+                        where('competition', '==', competition),
+                        where('week', '==', Number(selectedWeek)),
+                        orderBy('date', 'desc')
+                    );
+                }
+
                 const snap = await getDocs(q);
                 setMatches(snap.docs.map(d => ({ ...d.data(), id: d.id } as Match)));
             } catch (e) {
@@ -697,10 +741,11 @@ export const MatchSelect = ({ value, onChange, competition = 'league', className
             }
         };
         fetchMatchesForWeek();
-    }, [selectedWeek, competition]);
+    }, [selectedWeek, competition, group]);
 
     // Grouping logic removed since we fetch per week
-    const weeks = Array.from({ length: 38 }, (_, i) => i + 1).sort((a, b) => b - a);
+    const maxWeeks = competition === 'cup' ? 4 : 38;
+    const weeks = Array.from({ length: maxWeeks }, (_, i) => i + 1).sort((a, b) => b - a);
     const currentWeekMatches = matches;
 
     return (
@@ -727,12 +772,12 @@ export const MatchSelect = ({ value, onChange, competition = 'league', className
                     value={value}
                     onChange={e => {
                         const matchId = e.target.value;
-                        const match = matches.find(m => m.id === matchId);
-                        onChange(matchId, match?.week);
+                        const m = matches.find(m => m.id === matchId);
+                        onChange(matchId, m?.week);
                     }}
                     disabled={loading || !selectedWeek}
                 >
-                    <option value="">{loading ? 'Yükleniyor...' : (selectedWeek ? 'Maç Seçiniz...' : 'Önce Hafta Seçin')}</option>
+                    <option value="">{loading ? 'Yükleniyor...' : (selectedWeek ? 'Maç Seçiniz...' : (competition === 'cup' ? 'Önce Tur Seçin' : 'Önce Hafta Seçin'))}</option>
                     {currentWeekMatches.map(m => (
                         <option key={m.id} value={m.id}>
                             {m.homeTeamName} - {m.awayTeamName}
@@ -754,6 +799,8 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
     const [matchId, setMatchId] = useState('');
     const [items, setItems] = useState<DisciplinaryAction[]>([]);
     const [loading, setLoading] = useState(false);
+    const [competition, setCompetition] = useState<'league' | 'cup'>('league');
+    const [group, setGroup] = useState('');
 
     // Auto-refresh when refreshTrigger changes, if matchId exists
     useEffect(() => {
@@ -848,15 +895,29 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
                     {loading ? '...' : 'SENKRONİZE ET'}
                 </button>
             </div>
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+                <button type="button" onClick={() => setCompetition('league')} className={`flex-1 py-1 rounded-md text-[9px] font-black uppercase transition-all ${competition === 'league' ? 'bg-slate-800 text-white' : 'text-gray-500'}`}>SÜPER LİG</button>
+                <button type="button" onClick={() => setCompetition('cup')} className={`flex-1 py-1 rounded-md text-[9px] font-black uppercase transition-all ${competition === 'cup' ? 'bg-red-700 text-white' : 'text-gray-500'}`}>TÜRKİYE KUPASI</button>
+            </div>
+
+            {competition === 'cup' && (
+                <div className="flex gap-1 bg-gray-50 p-1 rounded border border-gray-200">
+                    {['A', 'B', 'C'].map(g => (
+                        <button key={g} type="button" onClick={() => setGroup(g)} className={`flex-1 py-0.5 rounded font-bold text-[9px] ${group === g ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'}`}>{g} GRUBU</button>
+                    ))}
+                    <button type="button" onClick={() => setGroup('')} className={`flex-1 py-0.5 rounded font-bold text-[9px] ${!group ? 'bg-gray-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'}`}>DİĞER</button>
+                </div>
+            )}
+
             <div className="flex gap-2">
                 <div className="flex-1">
-                    <MatchSelect value={matchId} onChange={setMatchId} />
+                    <MatchSelect value={matchId} competition={competition} group={group} onChange={setMatchId} />
                 </div>
                 <button onClick={handleFetch} disabled={loading} className="bg-gray-800 text-white px-3 rounded font-bold text-sm">
                     {loading ? '...' : 'Getir'}
                 </button>
                 <button
-                    onClick={() => { setMatchId(''); setItems([]); }}
+                    onClick={() => { setMatchId(''); setItems([]); setGroup(''); }}
                     className="bg-gray-200 text-gray-700 px-3 rounded font-bold text-sm"
                     title="Listeyi ve seçimi temizle"
                 >
@@ -873,6 +934,11 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
                                 <span className={`px-1 rounded text-[9px] uppercase ${item.type === 'performance' ? 'bg-blue-200 text-blue-800' : 'bg-red-200 text-red-800'}`}>
                                     {item.type === 'performance' ? 'PERF' : 'PFDK'}
                                 </span>
+                                {item.group && (
+                                    <span className="bg-red-100 text-red-700 px-1 rounded text-[9px] font-bold">
+                                        GRUB {item.group}
+                                    </span>
+                                )}
                             </div>
                             <div className="text-[10px] text-gray-500 mb-1">{item.teamName ? item.teamName + ' - ' : ''} {item.date}</div>
                             <p className="text-gray-700 italic border-l-2 border-gray-300 pl-1">{item.reason}</p>
@@ -902,6 +968,8 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
 
 export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
     const [matchId, setMatchId] = useState('');
+    const [competition, setCompetition] = useState<'league' | 'cup'>('league');
+    const [group, setGroup] = useState('');
     const [stats, setStats] = useState<RefereeStats>({
         ballInPlayTime: '',
         fouls: 0,
@@ -1112,15 +1180,42 @@ export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
         <form onSubmit={handleSave} className="space-y-4 p-4 border border-gray-200 bg-white rounded shadow-sm">
             <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Hakem Karnesi & Hatalar</h3>
 
+            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 mb-4">
+                <button type="button" onClick={() => setCompetition('league')} className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${competition === 'league' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>SÜPER LİG</button>
+                <button type="button" onClick={() => setCompetition('cup')} className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${competition === 'cup' ? 'bg-red-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>TÜRKİYE KUPASI</button>
+            </div>
+
             <div className="flex gap-2 items-end">
                 <div className="flex-1 space-y-1">
                     <label className="text-xs font-bold text-gray-500">Maç Seçimi</label>
-                    <MatchSelect value={matchId} onChange={setMatchId} />
+                    <MatchSelect value={matchId} competition={competition} group={competition === 'cup' ? group : undefined} onChange={setMatchId} />
                 </div>
                 <button type="button" onClick={handleFetchForEdit} className="bg-gray-800 text-white px-3 py-2 rounded font-bold text-sm mb-0.5">
                     Getir
                 </button>
             </div>
+
+            {competition === 'cup' && (
+                <div className="flex gap-1 mb-2 bg-red-50 p-1 rounded-md border border-red-100 mt-2">
+                    {['A', 'B', 'C'].map(g => (
+                        <button
+                            key={g}
+                            type="button"
+                            onClick={() => setGroup(g)}
+                            className={`flex-1 py-1 rounded font-bold text-[10px] transition-all ${group === g ? 'bg-red-600 text-white shadow-sm' : 'bg-white text-red-600 hover:bg-red-50'}`}
+                        >
+                            {g} GRUBU
+                        </button>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={() => setGroup('')}
+                        className={`flex-1 py-1 rounded font-bold text-[10px] transition-all ${!group ? 'bg-slate-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                    >
+                        DİĞER
+                    </button>
+                </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 pb-2 border-b">
                 <div className="space-y-1">

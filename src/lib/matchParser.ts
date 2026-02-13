@@ -7,6 +7,19 @@ export const parseMatchData = (text: string, currentMatch: Partial<Match>): Part
     const newMatch = { ...currentMatch };
     const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
+    // Detect Competition and Group
+    const lowerText = text.toLocaleLowerCase('tr-TR');
+    if (lowerText.includes('türkiye kupası') || lowerText.includes('turkiye kupasi')) {
+        newMatch.competition = 'cup';
+        // Try to detect group
+        const groupMatch = lowerText.match(/grup\s+([abc])/);
+        if (groupMatch) {
+            newMatch.group = groupMatch[1].toUpperCase();
+        }
+    } else if (lowerText.includes('süper lig') || lowerText.includes('super lig')) {
+        newMatch.competition = 'league';
+    }
+
     // 1. Initialize/Reset Objects
     newMatch.officials = {
         referees: ['', '', '', ''],
@@ -310,19 +323,22 @@ export const parseMatchData = (text: string, currentMatch: Partial<Match>): Part
 
     const generateMatchId = (m: Partial<Match>) => {
         const activeWeek = m.week || 1;
+        const prefix = m.competition === 'cup' ? 'cup' : 'week';
+        const groupPart = (m.competition === 'cup' && m.group) ? `-${m.group}` : '';
+
         if (activeWeek && m.homeTeamId && m.awayTeamId && m.date) {
             const d = new Date(m.date);
             if (!isNaN(d.getTime())) {
                 const yyyy = d.getFullYear();
                 const mm = String(d.getMonth() + 1).padStart(2, '0');
                 const dd = String(d.getDate()).padStart(2, '0');
-                return `week${activeWeek}-${m.homeTeamId}-${m.awayTeamId}-${yyyy}-${mm}-${dd}`;
+                return `${prefix}${activeWeek}${groupPart}-${m.homeTeamId}-${m.awayTeamId}-${yyyy}-${mm}-${dd}`;
             }
         }
         return m.id || '';
     };
 
-    if (!newMatch.id || newMatch.id.startsWith('week1-takim-takim')) {
+    if (!newMatch.id || newMatch.id.startsWith('week1-takim-takim') || newMatch.id.startsWith('cup1-takim-takim')) {
         const newId = generateMatchId(newMatch);
         if (newId) newMatch.id = newId;
     }

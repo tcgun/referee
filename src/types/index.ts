@@ -103,6 +103,7 @@ export interface Match {
     events?: MatchEvent[];
     refereeStats?: RefereeStats;
     competition?: 'league' | 'cup'; // 'league' by default
+    group?: string; // For cup stages (A, B, C)
 }
 
 export interface MatchEvent {
@@ -191,5 +192,6 @@ export interface DisciplinaryAction {
     date: string;
     competition?: 'league' | 'cup'; // 'league' by default
     week?: number; // Added for weekly grouping
+    group?: string; // Added for group grouping (A, B, C)
     note?: string; // Full legal text
 }

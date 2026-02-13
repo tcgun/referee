@@ -97,6 +97,56 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
         colors: { primary: '#FFD700', secondary: '#CC0000' },
         short: 'kay',
         aliases: ['mondihome kayserispor', 'zecorner kayserispor']
+    },
+    'ist': {
+        name: 'İstanbulspor',
+        colors: { primary: '#FFFF00', secondary: '#000000' },
+        short: 'ist'
+    },
+    'bol': {
+        name: 'Boluspor',
+        colors: { primary: '#008000', secondary: '#FFFFFF' },
+        short: 'bol'
+    },
+    'fet': {
+        name: 'Fethiyespor',
+        colors: { primary: '#0000FF', secondary: '#FFFFFF' },
+        short: 'fet'
+    },
+    'bod': {
+        name: 'Bodrum Futbol Kulübü',
+        colors: { primary: '#008000', secondary: '#FFFFFF' },
+        short: 'bod',
+        aliases: ['bodrumspor']
+    },
+    'igd': {
+        name: 'Iğdır Futbol Kulübü',
+        colors: { primary: '#008000', secondary: '#FFFFFF' },
+        short: 'igd',
+        aliases: ['ığd', 'ığdır']
+    },
+    'ali': {
+        name: 'Aliağa Futbol',
+        colors: { primary: '#FFFF00', secondary: '#000000' },
+        short: 'ali'
+    },
+    'erz': {
+        name: 'Erzurumspor FK',
+        colors: { primary: '#0000FF', secondary: '#FFFFFF' },
+        short: 'erz',
+        aliases: ['erzurumspor', 'erzurum']
+    },
+    'kec': {
+        name: 'Keçiörengücü',
+        colors: { primary: '#800080', secondary: '#FFFFFF' },
+        short: 'kec',
+        aliases: ['keç', 'keçiören']
+    },
+    'bey': {
+        name: 'Beyoğlu Yeni Çarşı Spor',
+        colors: { primary: '#0000FF', secondary: '#FFFFFF' },
+        short: 'bey',
+        aliases: ['beyoğlu']
     }
 };
 
