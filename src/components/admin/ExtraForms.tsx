@@ -418,7 +418,7 @@ interface DisciplinaryFormProps extends BaseProps {
 export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, onSuccess }: DisciplinaryFormProps) => {
     const [action, setAction] = useState<Partial<DisciplinaryAction>>({
         teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-        type: 'pfdk', matchId: '', note: ''
+        type: 'pfdk', matchId: '', note: '', competition: 'league'
     });
     const [pfdkTarget, setPfdkTarget] = useState<'player' | 'staff' | 'club' | 'other'>('player');
     const [decisionType, setDecisionType] = useState<'referral' | 'penalty'>('penalty');
@@ -438,7 +438,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
         } else {
             setAction({
                 teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-                type: 'pfdk', matchId: '', note: ''
+                type: 'pfdk', matchId: '', note: '', competition: 'league'
             });
             setDecisionType('penalty');
         }
@@ -497,7 +497,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
             if (!editItem) {
                 setAction({
                     teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-                    type: 'pfdk', matchId: '', note: ''
+                    type: 'pfdk', matchId: '', note: '', competition: action.competition || 'league'
                 });
                 setDecisionType('penalty');
             }
@@ -517,11 +517,29 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
             )}
             <h3 className="font-bold text-lg text-gray-800 border-b pb-2">{editItem ? 'Kaydı Düzenle' : 'PFDK'}</h3>
 
+            <div className="flex gap-2 bg-slate-50 p-1 rounded-lg border border-slate-200">
+                <button
+                    type="button"
+                    onClick={() => setAction({ ...action, competition: 'league' })}
+                    className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${action.competition === 'league' || !action.competition ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                    SÜPER LİG
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setAction({ ...action, competition: 'cup' })}
+                    className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${action.competition === 'cup' ? 'bg-red-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                    TÜRKİYE KUPASI
+                </button>
+            </div>
+
             <div className="flex gap-2 items-end">
                 <div className="flex-1 space-y-1">
                     <label className="text-xs font-bold text-gray-500">Bağlı Maç (Maçsız Sevk için boş bırakın)</label>
                     <MatchSelect
                         value={action.matchId || ''}
+                        competition={action.competition || 'league'}
                         onChange={(id, week) => setAction({ ...action, matchId: id, week: week })}
                         className={`mb-2 ${pfdkTarget === 'other' ? 'opacity-50 pointer-events-none bg-gray-100' : ''}`}
                     />
@@ -531,7 +549,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
                     onClick={() => {
                         setAction({
                             teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-                            type: 'pfdk', matchId: ''
+                            type: 'pfdk', matchId: '', competition: 'league'
                         });
                         setPfdkTarget('player');
                         setDecisionType('penalty');
@@ -649,7 +667,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
 };
 
 // Internal Match Selector Component
-export const MatchSelect = ({ value, onChange, className = "" }: { value: string, onChange: (val: string, week?: number) => void, className?: string }) => {
+export const MatchSelect = ({ value, onChange, competition = 'league', className = "" }: { value: string, onChange: (val: string, week?: number) => void, competition?: 'league' | 'cup', className?: string }) => {
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(false);
     const [selectedWeek, setSelectedWeek] = useState<number | string>('');
@@ -666,6 +684,7 @@ export const MatchSelect = ({ value, onChange, className = "" }: { value: string
                 const { db } = await import('@/firebase/client');
                 const q = query(
                     collection(db, 'matches'),
+                    where('competition', '==', competition),
                     where('week', '==', Number(selectedWeek)),
                     orderBy('date', 'desc')
                 );

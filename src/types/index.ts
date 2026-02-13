@@ -102,6 +102,7 @@ export interface Match {
     status?: 'draft' | 'published';
     events?: MatchEvent[];
     refereeStats?: RefereeStats;
+    competition?: 'league' | 'cup'; // 'league' by default
 }
 
 export interface MatchEvent {
@@ -188,6 +189,7 @@ export interface DisciplinaryAction {
     type?: 'pfdk' | 'performance'; // 'pfdk' is default
     penalty?: string; // Short summary
     date: string;
+    competition?: 'league' | 'cup'; // 'league' by default
     week?: number; // Added for weekly grouping
     note?: string; // Full legal text
 }

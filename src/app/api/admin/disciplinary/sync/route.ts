@@ -39,20 +39,31 @@ export async function POST(request: Request) {
                 const subjectSlug = slugify(data.subject || 'unknown');
                 const newId = `d-${matchId.replace('d-', '')}-${subjectSlug}`;
 
-                // 3. Create new doc if ID changed or matchId updated
+                // 3. Backfill competition field if missing (legacy records)
+                let competition = data.competition;
+                let competitionUpdated = false;
+                if (!competition) {
+                    competition = 'league';
+                    competitionUpdated = true;
+                }
+
+                // 4. Create new doc if ID changed or matchId/competition updated
                 if (newId !== oldId) {
                     const newRef = firestore.collection('disciplinary_actions').doc(newId);
                     batch.set(newRef, {
                         ...data,
                         id: newId,
-                        matchId: matchId
+                        matchId: matchId,
+                        competition: competition
                     });
                     // Delete old doc
                     batch.delete(doc.ref);
                     count++;
-                } else if (data.matchId !== matchId) {
-                    // Just update matchId if ID is already same (unlikely for UUIDs)
-                    batch.update(doc.ref, { matchId: matchId });
+                } else if (data.matchId !== matchId || competitionUpdated) {
+                    batch.update(doc.ref, {
+                        matchId: matchId,
+                        competition: competition
+                    });
                     count++;
                 }
             }

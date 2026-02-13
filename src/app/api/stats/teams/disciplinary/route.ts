@@ -26,6 +26,11 @@ export async function GET() {
             return 0;
         };
 
+        const competitionStats: Record<string, { totalFine: number, referralCount: number, penaltyCount: number }> = {
+            'league': { totalFine: 0, referralCount: 0, penaltyCount: 0 },
+            'cup': { totalFine: 0, referralCount: 0, penaltyCount: 0 }
+        };
+
         const detectSubjectType = (subject: string): string => {
             const s = (subject || '').toUpperCase();
             if (s.includes('KULÜBÜ') || s.includes('A.Ş.')) return 'KULÜP';
@@ -38,11 +43,19 @@ export async function GET() {
         actions.forEach((act: any) => {
             const team = act.teamName || 'DİĞER';
             const week = act.week || 0;
+            const comp = act.competition || 'league';
             const penaltyVal = parsePenalty(act.penalty);
             const subType = detectSubjectType(act.subject || '');
 
-            // Global Weekly Trend
-            if (week > 0) {
+            // Global Competition Stats
+            if (competitionStats[comp]) {
+                competitionStats[comp].totalFine += penaltyVal;
+                competitionStats[comp].referralCount++;
+                if (act.penalty) competitionStats[comp].penaltyCount++;
+            }
+
+            // Global Weekly Trend (League Only usually, or combined)
+            if (comp === 'league' && week > 0) {
                 weeklyGlobalStats[week] = (weeklyGlobalStats[week] || 0) + penaltyVal;
             }
 
@@ -56,6 +69,8 @@ export async function GET() {
                     referralCount: 0,
                     penaltyCount: 0,
                     totalFine: 0,
+                    leagueFine: 0,
+                    cupFine: 0,
                     reasons: {} as Record<string, number>,
                     subTypes: {} as Record<string, number>
                 };
@@ -65,6 +80,8 @@ export async function GET() {
             if (act.penalty) {
                 teamStats[team].penaltyCount++;
                 teamStats[team].totalFine += penaltyVal;
+                if (comp === 'cup') teamStats[team].cupFine += penaltyVal;
+                else teamStats[team].leagueFine += penaltyVal;
             }
 
             teamStats[team].subTypes[subType] = (teamStats[team].subTypes[subType] || 0) + 1;
@@ -73,7 +90,8 @@ export async function GET() {
             teamStats[team].reasons[reason] = (teamStats[team].reasons[reason] || 0) + 1;
         });
 
-        const leagueTotalFine = Object.values(weeklyGlobalStats).reduce((a, b) => a + b, 0);
+        const leagueTotalFine = competitionStats['league'].totalFine;
+        const cupTotalFine = competitionStats['cup'].totalFine;
 
         const finalizedTeams = Object.values(teamStats).map(stats => {
             const sortedReasons = Object.entries(stats.reasons).sort((a: any, b: any) => b[1] - a[1]);
@@ -90,7 +108,9 @@ export async function GET() {
                 .map(([week, total]) => ({ week: parseInt(week), total }))
                 .sort((a, b) => a.week - b.week),
             subjectBreakdown,
-            leagueTotalFine
+            leagueTotalFine,
+            cupTotalFine,
+            competitionStats
         });
     } catch (error) {
         console.error('Enhanced team stats error:', error);
