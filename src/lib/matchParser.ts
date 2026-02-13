@@ -7,8 +7,13 @@ export const parseMatchData = (text: string, currentMatch: Partial<Match>): Part
     const newMatch = { ...currentMatch };
     const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-    // 1. Initialize Objects if missing
-    if (!newMatch.officials) newMatch.officials = { referees: ['', '', '', ''], varReferees: [], observers: [], representatives: [] };
+    // 1. Initialize/Reset Objects
+    newMatch.officials = {
+        referees: ['', '', '', ''],
+        varReferees: [],
+        observers: [],
+        representatives: []
+    };
     if (!newMatch.lineups) newMatch.lineups = { home: [], away: [], homeSubs: [], awaySubs: [], homeCoach: '', awayCoach: '' };
     if (!newMatch.stats) newMatch.stats = {} as MatchStats;
 
@@ -106,8 +111,16 @@ export const parseMatchData = (text: string, currentMatch: Partial<Match>): Part
             const avName = line.replace(/\(AVAR\)/i, '').trim();
             if (!newMatch.officials!.varReferees.includes(avName)) newMatch.officials!.varReferees.push(avName);
         }
-        else if (line.includes('(Gözlemci)') || lower.includes('(gözlemci)')) newMatch.officials!.observers.push(line.replace(/\(Gözlemci\)/i, '').trim());
-        else if (line.includes('(Temsilci)') || lower.includes('(temsilci)')) newMatch.officials!.representatives.push(line.replace(/\(Temsilci\)/i, '').trim());
+        else if (line.includes('(Gözlemci)') || lower.includes('(gözlemci)')) {
+            const obsName = line.replace(/\(Gözlemci\)/i, '').trim();
+            if (!newMatch.officials!.observers.includes(obsName)) newMatch.officials!.observers.push(obsName);
+        }
+        else if (line.includes('(Temsilci)') || lower.includes('(temsilci)')) {
+            const repName = line.replace(/\(Temsilci\)/i, '').trim();
+            if (!newMatch.officials!.representatives.includes(repName) && repName) {
+                newMatch.officials!.representatives.push(repName);
+            }
+        }
     });
 
     // 5. Lineups Logic - IMPROVED for Coach Parsing

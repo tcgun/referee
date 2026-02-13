@@ -5,7 +5,7 @@ import { doc, getDoc, collection, getDocs, orderBy, query, where } from 'firebas
 import { db } from '@/firebase/client';
 import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
 import { useSearchParams, useParams } from 'next/navigation';
-import { getTeamColors } from '@/lib/teams';
+import { getTeamName, resolveTeamId, getTeamColors, cleanSponsorsInText } from '@/lib/teams';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 interface IncidentWithOpinions extends Incident {
@@ -193,6 +193,13 @@ export default function MatchClient() {
                                     {(match.officials?.avarReferees?.length ? match.officials.avarReferees : match.officials?.varReferees?.slice(1))?.map((avar, i) => (
                                         <OfficialItem key={`avar-${i}`} role="AVAR" name={avar} />
                                     ))}
+
+                                    {match.officials?.observers?.map((obs, i) => (
+                                        <OfficialItem key={`obs-${i}`} role="GÖZLEMCİ" name={obs} />
+                                    ))}
+                                    {(!match.officials?.observers?.length && match.representatives?.observer) && (
+                                        <OfficialItem role="GÖZLEMCİ" name={match.representatives.observer} />
+                                    )}
 
                                     {match.officials?.representatives?.map((rep, i) => (
                                         <OfficialItem key={`rep-${i}`} role="TEMSİLCİ" name={rep} />
@@ -404,47 +411,71 @@ export default function MatchClient() {
                     {activeTab === 'pfdk' && (
                         <div className="space-y-4">
                             {disciplinary.length === 0 ? (
-                                <div className="text-center py-10 bg-muted/20 rounded-xl border border-dashed border-border">
-                                    <span className="text-muted-foreground text-sm font-medium">Bu maç için PFDK kararı bulunmuyor.</span>
+                                <div className="text-center py-10 bg-[#161b22] rounded-xl border-2 border-dashed border-white/10">
+                                    <span className="text-gray-500 text-sm font-black uppercase tracking-widest">Bu maç için PFDK kararı bulunmuyor.</span>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 gap-4">
-                                    {disciplinary.map((action) => (
-                                        <div key={action.id} className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col gap-4 items-start">
-                                            <div className="w-full">
-                                                <div className="flex items-center gap-2 mb-3 border-b border-border pb-2">
-                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${action.teamName ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-700'}`}>
-                                                        {action.teamName || 'Genel'}
-                                                    </span>
-                                                    <h4 className="font-bold text-sm text-foreground">{action.subject}</h4>
-                                                </div>
-                                                <p className="text-sm text-muted-foreground leading-relaxed italic mb-4">"{action.reason}"</p>
-                                                {action.penalty ? (
-                                                    <div className="bg-red-50/50 dark:bg-red-900/10 border-l-4 border-red-500 pl-4 py-2 rounded-r-lg">
-                                                        <ul className="space-y-2">
-                                                            {action.penalty.replace(/ - /g, '\n').split('\n').map((item, idx) => {
-                                                                let cleanItem = item.trim().replace(/^- /, '').replace(/^((PARA )?CEZA(SI)?:\s*)/i, '').replace(/(\d{1,3}(\.\d{3})*)(\.|.-)\s*TL/gi, '$1 TL').replace(/\s+PARA CEZASI/gi, '');
-                                                                if (!cleanItem) return null;
-                                                                return (
-                                                                    <li key={idx} className="text-xs font-bold text-red-700 dark:text-red-400 flex items-start gap-2">
-                                                                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
-                                                                        <span className="uppercase leading-normal">{cleanItem}</span>
-                                                                    </li>
-                                                                );
-                                                            })}
-                                                        </ul>
+                                <div className="grid grid-cols-1 gap-6">
+                                    {disciplinary.map((action) => {
+                                        // Helper to extract quoted text
+                                        const extractQuoted = (text: string) => {
+                                            const regex = /["'“”«»][^"'“”«»]+["'“”«»]/g;
+                                            const matches = text.match(regex);
+                                            return matches ? matches.map(m => m.slice(1, -1).trim()).filter(m => m.length > 2) : [];
+                                        };
+                                        const quoted = extractQuoted(action.reason).map(q => cleanSponsorsInText(q));
+                                        const fullBody = cleanSponsorsInText(action.note || action.reason);
+
+                                        return (
+                                            <div key={action.id} className="bg-[#161b22] border-2 border-white/20 rounded-xl p-6 shadow-neo-sm flex flex-col gap-4">
+                                                <div className="w-full">
+                                                    {/* Full Decision Text - Preserved exactly as entered */}
+                                                    <div className="mb-4">
+                                                        <p className="text-base md:text-lg text-foreground leading-relaxed font-extrabold uppercase tracking-tight whitespace-pre-wrap">
+                                                            {fullBody}
+                                                        </p>
                                                     </div>
-                                                ) : (
-                                                    <div className="bg-yellow-400/10 border-l-4 border-yellow-400 pl-4 py-2 rounded-r-lg">
-                                                        <div className="text-xs font-bold text-yellow-500 flex items-center gap-2">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0"></span>
-                                                            <span className="uppercase leading-normal">TEDBİRLİ OLARAK PFDK'YA SEVK EDİLMİŞTİR</span>
+
+                                                    <div className="flex flex-col gap-4">
+                                                        {/* Penalty Results */}
+                                                        {action.penalty && (
+                                                            <div className="bg-red-500/10 border-l-4 border-red-500 pl-4 py-3 rounded-r-lg">
+                                                                <ul className="space-y-3">
+                                                                    {action.penalty.replace(/ - /g, '\n').split('\n').map((item, idx) => {
+                                                                        let cleanItem = item.trim().replace(/^- /, '').replace(/^((PARA )?CEZA(SI)?:\s*)/i, '').replace(/(\d{1,3}(\.\d{3})*)(\.|.-)\s*TL/gi, '$1 TL').replace(/\s+PARA CEZASI/gi, '');
+                                                                        if (!cleanItem) return null;
+                                                                        return (
+                                                                            <li key={idx} className="text-sm font-black text-red-500 flex items-start gap-2 uppercase tracking-tighter">
+                                                                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>
+                                                                                <span className="leading-tight">{cleanItem}</span>
+                                                                            </li>
+                                                                        );
+                                                                    })}
+                                                                </ul>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Context Badges */}
+                                                        <div className="flex items-center gap-2 flex-wrap pt-2">
+                                                            <span className="bg-gray-100 text-gray-500 text-[10px] font-black px-2 py-1 rounded border border-gray-200 uppercase tracking-widest">
+                                                                {action.subject}
+                                                            </span>
+                                                            {action.teamName && (
+                                                                <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-1 rounded border border-primary/20 uppercase tracking-widest">
+                                                                    {cleanSponsorsInText(getTeamName(resolveTeamId(action.teamName) || action.teamName))}
+                                                                </span>
+                                                            )}
+                                                            {quoted.map((q, idx) => (
+                                                                <span key={idx} className="bg-white text-black text-[10px] md:text-xs font-black px-2.5 py-1 rounded border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)] uppercase">
+                                                                    {q}
+                                                                </span>
+                                                            ))}
                                                         </div>
                                                     </div>
-                                                )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

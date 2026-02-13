@@ -173,3 +173,60 @@ export function resolveTeamId(input: string): string | null {
 
     return null;
 }
+
+/**
+ * Metin içerisindeki sponsor isimlerini ve bilinen takım aliaslarını temizler.
+ * Removes sponsor names and known team aliases from a given text.
+ * @param text - Temizlenecek metin
+ * @returns {string} - Temizlenmiş metin
+ */
+export function cleanSponsorsInText(text: string): string {
+    if (!text) return text;
+    let cleaned = text;
+
+    // 1. Önce spesifik uzun kalıpları ve lig isimlerini temizle (Regex \b kullanmadan)
+    cleaned = cleaned.replace(/TRENDYOL\s+SÜPER\s+LİG/gi, 'SÜPER LİG');
+    cleaned = cleaned.replace(/MEHMET\s+ALİ\s+YILMAZ\s+SEZONU/gi, '');
+    cleaned = cleaned.replace(/MEHMET\s+ALİ\s+YILMAZ/gi, ''); // Ekstra güvenlik
+    cleaned = cleaned.replace(/BAŞAKŞEHİR\s+FUTBOL\s+KULÜBÜ/gi, 'BAŞAKŞEHİR FUTBOL KULÜBÜ'); // İsmi koru
+    cleaned = cleaned.replace(/GAZİANTEP\s+FUTBOL\s+KULÜBÜ/gi, 'GAZİANTEP FUTBOL KULÜBÜ'); // İsmi koru
+    cleaned = cleaned.replace(/FUTBOL\s+A\.Ş\./gi, '');
+    cleaned = cleaned.replace(/A\.Ş\./gi, '');
+
+    // 2. Bilinen sponsorlar listesi
+    const sponsors = [
+        'RAMS', 'TÜMOSAN', 'BİTEXEN', 'BITEXEN', 'HESAPCOM', 'CORENDON',
+        'İKAS', 'IKAS', 'ÇAYKUR', 'CAYKUR', 'MONDİHOME', 'MONDIHOME',
+        'VAVAÇARS', 'VAVACARS', 'SÜRAT KARGO', 'BELLONA', 'KUZEY BORU',
+        'ATAKAŞ', 'ATAKAS', 'YUKATEL', 'NETGLOBAL', 'ZECORNER'
+    ];
+
+    // 3. Kelime bazlı temizlik (Türkçe karakter duyarlı word boundary simülasyonu)
+    sponsors.forEach(s => {
+        // \b Türkçe karakterlerde (İKAS gibi) çalışmadığı için özel regex kullanıyoruz
+        // (?:^|[^a-zA-ZçğıöşüÇĞİÖŞÜİ]) -> Kelime başı veya harf olmayan karakter
+        // (?=[^a-zA-ZçğıöşüÇĞİÖŞÜİ]|$) -> Kelime sonu veya harf olmayan karakter
+        const regex = new RegExp(`(^|[^a-zA-ZçğıöşüÇĞİÖŞÜİ])${s}([^a-zA-ZçğıöşüÇĞİÖŞÜİ]|$)`, 'gi');
+
+        // Eşleşmeyi temizlerken aradaki karakterleri (boşluk, tire vb.) korumaya çalışalım
+        // Ama sponsor ismini ve o bölgedeki ekstra boşluğu silmek istiyoruz
+        cleaned = cleaned.replace(regex, (match, p1, p2) => {
+            // Eğer aradaki karakter tire ise tireyi koru, yoksa boşluk ise temizle
+            const start = p1 === '-' ? '-' : '';
+            const end = p2 === '-' ? '-' : ' ';
+            return start + end;
+        });
+    });
+
+    // 4. Temizlik kalıntılarını toparla
+    cleaned = cleaned.replace(/\s+/g, ' ');
+    cleaned = cleaned.replace(/\s-\s/g, '-'); // Tire etrafındaki gereksiz boşluklar
+    cleaned = cleaned.replace(/-\s/g, '-');
+    cleaned = cleaned.replace(/\s-/g, '-');
+    cleaned = cleaned.trim();
+
+    // Eğer başı veya sonu tire/boşluk ile kaldıysa temizle
+    cleaned = cleaned.replace(/^[- \s]+|[- \s]+$/g, '');
+
+    return cleaned;
+}

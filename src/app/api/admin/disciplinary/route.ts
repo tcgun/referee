@@ -37,9 +37,25 @@ export async function POST(request: Request) {
         };
 
         const subjectSlug = slugify(data.subject || 'unknown');
-        const id = data.id || `d-${matchId.replace('d-', '')}-${subjectSlug}`;
+        // Add a small random suffix to prevent collision on same match/subject
+        const uniqueSuffix = uuidv4().slice(0, 4);
+        const id = data.id || `d-${matchId.replace('d-', '')}-${subjectSlug}-${uniqueSuffix}`;
 
-        await firestore.collection('disciplinary_actions').doc(id).set({ ...data, id, matchId }, { merge: true });
+        // Ensure week is present if matchId exists
+        let finalWeek = data.week;
+        if (!finalWeek && matchId) {
+            const matchSnap = await firestore.collection('matches').doc(matchId.replace('d-', '')).get();
+            if (matchSnap.exists) {
+                finalWeek = matchSnap.data()?.week;
+            }
+        }
+
+        await firestore.collection('disciplinary_actions').doc(id).set({
+            ...data,
+            id,
+            matchId,
+            week: finalWeek
+        }, { merge: true });
 
         return NextResponse.json({ success: true, id });
     });

@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google"; // Using Inter as standard sans
+import { Inter, Outfit } from "next/font/google"; // Using Outfit for a more premium feel
 import "./globals.css";
 
-const sansFont = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin", "latin-ext"],
 });
 
-const monoFont = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
+const outfit = Outfit({
+  variable: "--font-outfit",
+  subsets: ["latin", "latin-ext"],
 });
 
 export const metadata: Metadata = {
@@ -37,9 +37,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="tr">
       <body
-        className={`${sansFont.variable} ${monoFont.variable} antialiased bg-black text-white overflow-x-hidden w-full`}
+        className={`${inter.variable} ${outfit.variable} antialiased bg-black text-white overflow-x-hidden w-full font-sans`}
       >
         <Navbar />
         {children}

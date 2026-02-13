@@ -188,5 +188,6 @@ export interface DisciplinaryAction {
     type?: 'pfdk' | 'performance'; // 'pfdk' is default
     penalty?: string; // Short summary
     date: string;
+    week?: number; // Added for weekly grouping
     note?: string; // Full legal text
 }

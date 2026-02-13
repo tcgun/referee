@@ -232,7 +232,7 @@ export async function GET() {
                     const countB = (role === 'rep' || role === 'obs') ? b.matches : (b.roles?.[role] || 0);
                     return countB - countA;
                 })
-                .slice(0, 10)
+                .slice(0, 20)
                 .map(i => ({ name: i.name, count: (role === 'rep' || role === 'obs') ? i.matches : (i.roles?.[role] || 0) }))
                 .filter(i => i.count > 0);
         };

@@ -190,6 +190,8 @@ export const disciplinaryActionSchema = z.object({
     reason: z.string().min(1).max(5000),
     matchId: z.string().max(100).optional(),
     type: z.enum(['pfdk', 'performance', 'penalty']).optional(),
-    penalty: z.string().max(200).optional(),
+    penalty: z.string().max(1000).optional(), // Increased max length for flexibility
     date: z.string().regex(REGEX_DATE, MSG_DATE),
+    week: z.number().int().min(1).max(40).optional(), // Added for weekly grouping
+    note: z.string().max(10000).optional().or(z.literal('')), // Full legal text
 });

@@ -418,7 +418,7 @@ interface DisciplinaryFormProps extends BaseProps {
 export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, onSuccess }: DisciplinaryFormProps) => {
     const [action, setAction] = useState<Partial<DisciplinaryAction>>({
         teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-        type: 'pfdk', matchId: ''
+        type: 'pfdk', matchId: '', note: ''
     });
     const [pfdkTarget, setPfdkTarget] = useState<'player' | 'staff' | 'club' | 'other'>('player');
     const [decisionType, setDecisionType] = useState<'referral' | 'penalty'>('penalty');
@@ -438,7 +438,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
         } else {
             setAction({
                 teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-                type: 'pfdk', matchId: ''
+                type: 'pfdk', matchId: '', note: ''
             });
             setDecisionType('penalty');
         }
@@ -497,7 +497,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
             if (!editItem) {
                 setAction({
                     teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-                    type: 'pfdk', matchId: ''
+                    type: 'pfdk', matchId: '', note: ''
                 });
                 setDecisionType('penalty');
             }
@@ -522,8 +522,8 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
                     <label className="text-xs font-bold text-gray-500">Bağlı Maç (Maçsız Sevk için boş bırakın)</label>
                     <MatchSelect
                         value={action.matchId || ''}
-                        onChange={(val) => setAction({ ...action, matchId: val })}
-                        className={pfdkTarget === 'other' ? 'opacity-50 pointer-events-none bg-gray-100' : ''}
+                        onChange={(id, week) => setAction({ ...action, matchId: id, week: week })}
+                        className={`mb-2 ${pfdkTarget === 'other' ? 'opacity-50 pointer-events-none bg-gray-100' : ''}`}
                     />
                 </div>
                 <button
@@ -591,23 +591,23 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
             )}
 
             <textarea
-                placeholder="Karar Metni (Tamamı) - Buraya yapıştırınca tırnak içindeki kısım otomatik 'Gerekçe' alanına dolacaktır."
+                placeholder="Karar Metni (Tamamı) - Buraya yazdığınız metin SİLİNMEZ, sitede aynen bu şekilde görünür. Tırnak içindeki kısımlar otomatik olarak 'Gerekçe' alanına kopyalanır."
                 className="border border-blue-200 bg-blue-50 p-2 w-full rounded h-32 text-xs font-mono mb-2"
                 value={action.note || ''}
-                onChange={e => setAction({ ...action, note: e.target.value })}
-                onPaste={e => {
-                    e.preventDefault();
-                    const pastedText = e.clipboardData.getData('text');
-                    let newReason = action.reason;
+                onChange={e => {
+                    const newNote = e.target.value;
+                    let newReason = action.reason || '';
 
-                    // Tırnak içindeki ifadeyi yakala: “...” veya "..."
-                    const quoteMatch = pastedText.match(/[“"”]([^”"“]+)[”"”]/);
-                    if (quoteMatch && quoteMatch[1]) {
-                        newReason = quoteMatch[1].trim();
-                        toast.success('Gerekçe ayıklandı: ' + newReason);
+                    // Extract all quoted parts (including quotes)
+                    // Matches: "...", '...', “...”, ”...”, «...»
+                    const regex = /["'“”«»][^"'“”«»]+["'“”«»]/g;
+                    const matches = newNote.match(regex);
+
+                    if (matches && matches.length > 0) {
+                        newReason = matches.join(' ');
                     }
 
-                    setAction(prev => ({ ...prev, note: pastedText, reason: newReason }));
+                    setAction({ ...action, note: newNote, reason: newReason });
                 }}
             />
 
@@ -649,19 +649,26 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
 };
 
 // Internal Match Selector Component
-export const MatchSelect = ({ value, onChange, className = "" }: { value: string, onChange: (val: string) => void, className?: string }) => {
+export const MatchSelect = ({ value, onChange, className = "" }: { value: string, onChange: (val: string, week?: number) => void, className?: string }) => {
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(false);
     const [selectedWeek, setSelectedWeek] = useState<number | string>('');
 
     useEffect(() => {
-        const fetchMatches = async () => {
+        const fetchMatchesForWeek = async () => {
+            if (!selectedWeek) {
+                setMatches([]);
+                return;
+            }
             setLoading(true);
             try {
-                const { collection, getDocs, orderBy, query } = await import('firebase/firestore');
+                const { collection, getDocs, orderBy, query, where } = await import('firebase/firestore');
                 const { db } = await import('@/firebase/client');
-                // Order by week descending, then date descending for natural feel
-                const q = query(collection(db, 'matches'), orderBy('week', 'desc'), orderBy('date', 'desc'));
+                const q = query(
+                    collection(db, 'matches'),
+                    where('week', '==', Number(selectedWeek)),
+                    orderBy('date', 'desc')
+                );
                 const snap = await getDocs(q);
                 setMatches(snap.docs.map(d => ({ ...d.data(), id: d.id } as Match)));
             } catch (e) {
@@ -670,29 +677,12 @@ export const MatchSelect = ({ value, onChange, className = "" }: { value: string
                 setLoading(false);
             }
         };
-        fetchMatches();
-    }, []);
+        fetchMatchesForWeek();
+    }, [selectedWeek]);
 
-    // Helper to find week of current match
-    useEffect(() => {
-        if (value && matches.length > 0) {
-            const found = matches.find(m => m.id === value);
-            if (found && found.week) {
-                setSelectedWeek(found.week);
-            }
-        }
-    }, [value, matches]);
-
-    // Group matches by week
-    const groupedMatches: Record<number, Match[]> = {};
-    matches.forEach(m => {
-        const w = m.week || 0;
-        if (!groupedMatches[w]) groupedMatches[w] = [];
-        groupedMatches[w].push(m);
-    });
-
-    const weeks = Object.keys(groupedMatches).map(Number).sort((a, b) => b - a);
-    const currentWeekMatches = selectedWeek ? (groupedMatches[Number(selectedWeek)] || []) : [];
+    // Grouping logic removed since we fetch per week
+    const weeks = Array.from({ length: 38 }, (_, i) => i + 1).sort((a, b) => b - a);
+    const currentWeekMatches = matches;
 
     return (
         <div className={`flex gap-2 ${className}`}>
@@ -702,7 +692,7 @@ export const MatchSelect = ({ value, onChange, className = "" }: { value: string
                     value={selectedWeek}
                     onChange={e => {
                         setSelectedWeek(e.target.value);
-                        onChange(''); // Reset match selection when week changes
+                        onChange('', e.target.value ? Number(e.target.value) : undefined); // Reset match selection when week changes
                     }}
                     disabled={loading}
                 >
@@ -716,7 +706,11 @@ export const MatchSelect = ({ value, onChange, className = "" }: { value: string
                 <select
                     className="border border-gray-300 p-2 w-full rounded font-mono text-sm"
                     value={value}
-                    onChange={e => onChange(e.target.value)}
+                    onChange={e => {
+                        const matchId = e.target.value;
+                        const match = matches.find(m => m.id === matchId);
+                        onChange(matchId, match?.week);
+                    }}
                     disabled={loading || !selectedWeek}
                 >
                     <option value="">{loading ? 'Yükleniyor...' : (selectedWeek ? 'Maç Seçiniz...' : 'Önce Hafta Seçin')}</option>

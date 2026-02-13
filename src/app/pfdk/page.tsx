@@ -7,37 +7,26 @@ import Link from 'next/link';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function PfdkPage() {
-    const [dates, setDates] = useState<string[]>([]);
+    const [weeks, setWeeks] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function fetchData() {
             try {
                 setLoading(true);
-                // We still fetch all to get unique dates (Firestore limitation for distinct queries)
-                const docSnap = await getDocs(collection(db, 'disciplinary_actions'));
+                const { query, collection, getDocs, orderBy, limit } = await import('firebase/firestore');
+                // Get only the highest week number (1 read)
+                const q = query(collection(db, 'disciplinary_actions'), orderBy('week', 'desc'), limit(1));
+                const docSnap = await getDocs(q);
 
-                const uniqueDates = new Set<string>();
-                docSnap.docs.forEach(d => {
-                    const data = d.data();
-                    if (data.date) uniqueDates.add(data.date);
-                });
+                let maxWeek = 38; // Default to full season
+                if (!docSnap.empty) {
+                    maxWeek = docSnap.docs[0].data().week || 38;
+                }
 
-                // Sort Dates (Newest First) - Assuming DD.MM.YYYY format
-                const sorted = Array.from(uniqueDates).sort((a, b) => {
-                    const [d1, m1, y1] = a.split('.').map(Number);
-                    const [d2, m2, y2] = b.split('.').map(Number);
-
-                    const dateA = new Date(y1, m1 - 1, d1).getTime();
-                    const dateB = new Date(y2, m2 - 1, d2).getTime();
-
-                    if (isNaN(dateA)) return 1;
-                    if (isNaN(dateB)) return -1;
-
-                    return dateB - dateA;
-                });
-
-                setDates(sorted);
+                // Generate array from 1 to maxWeek
+                const allWeeks = Array.from({ length: maxWeek }, (_, i) => i + 1).sort((a, b) => b - a);
+                setWeeks(allWeeks);
             } catch (err) {
                 console.error("PFDK Page Fetch Error:", err);
             } finally {
@@ -48,6 +37,7 @@ export default function PfdkPage() {
     }, []);
 
     if (loading) return (
+        // ... (loading state preserved)
         <main className="min-h-screen bg-background pb-20 pt-8">
             <div className="max-w-2xl mx-auto px-4 space-y-8">
                 <div className="flex flex-col gap-2 text-center">
@@ -85,31 +75,29 @@ export default function PfdkPage() {
                         PFDK <span className="text-primary">KARARLARI</span>
                     </h1>
                     <p className="text-muted-foreground text-[11px] font-bold tracking-[0.3em] uppercase opacity-90">
-                        PROFESYONEL FUTBOL DİSİPLİN KURULU RAPORLARI
+                        PROFESYONEL FUTBOL DİSİPLİN KURULU HAFTALIK RAPORLARI
                     </p>
                 </div>
 
                 <div className="bg-[#161b22] border-2 border-white/20 rounded-xl overflow-hidden shadow-neo">
                     <div className="bg-white/5 p-4 border-b border-white/10">
-                        <h2 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">ARŞİV VE RAPORLAR</h2>
+                        <h2 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">HAFTALIK ARŞİV</h2>
                     </div>
-                    {dates.length === 0 ? (
+                    {weeks.length === 0 ? (
                         <div className="p-12 text-center text-muted-foreground text-sm italic">Kayıt bulunamadı.</div>
                     ) : (
                         <div className="divide-y divide-white/10">
-                            {dates.map(date => {
-                                // Convert DD.MM.YYYY to DD-MM-YYYY for URL
-                                const urlDate = date.replaceAll('.', '-');
+                            {weeks.map(week => {
                                 return (
-                                    <Link key={date} href={`/pfdk/${urlDate}`} className="block p-5 hover:bg-white/5 transition-all group">
+                                    <Link key={week} href={`/pfdk/week/${week}`} className="block p-5 hover:bg-white/5 transition-all group">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-primary font-bold text-lg group-hover:bg-primary/20 group-hover:scale-110 shadow-neo-sm transition-all">
-                                                    📄
+                                                    📅
                                                 </div>
                                                 <div>
-                                                    <span className="block text-lg font-black text-white group-hover:text-primary transition-colors">{date}</span>
-                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">CEZA RAPORU</span>
+                                                    <span className="block text-lg font-black text-white group-hover:text-primary transition-colors">{week}. Hafta</span>
+                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">HAFTALIK CEZA RAPORU</span>
                                                 </div>
                                             </div>
                                             <div className="text-white/20 group-hover:text-primary group-hover:translate-x-1 transition-all">
