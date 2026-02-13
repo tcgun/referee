@@ -16,7 +16,13 @@ interface MatchFormProps {
 
 export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps) => {
     const router = useRouter();
-    const [match, setMatch] = useState<Partial<Match>>({ id: '', week: 1, date: new Date().toISOString(), status: 'draft' });
+    const [match, setMatch] = useState<Partial<Match>>({
+        id: '',
+        week: 1,
+        date: new Date().toISOString(),
+        status: 'draft',
+        competition: 'league'
+    });
     const [originalId, setOriginalId] = useState<string>('');
     const [localDate, setLocalDate] = useState('');
 
@@ -89,13 +95,14 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
 
     const generateMatchId = (m: Partial<Match>) => {
         const activeWeek = m.week || 1;
-        if (activeWeek && m.homeTeamId && m.awayTeamId && m.date) {
+        const prefix = m.competition === 'cup' ? 'cup' : 'week';
+        if (m.homeTeamId && m.awayTeamId && m.date) {
             const d = new Date(m.date);
             if (!isNaN(d.getTime())) {
                 const yyyy = d.getFullYear();
                 const mm = String(d.getMonth() + 1).padStart(2, '0');
                 const dd = String(d.getDate()).padStart(2, '0');
-                return `week${activeWeek}-${m.homeTeamId}-${m.awayTeamId}-${yyyy}-${mm}-${dd}`;
+                return `${prefix}${activeWeek}-${m.homeTeamId}-${m.awayTeamId}-${yyyy}-${mm}-${dd}`;
             }
         }
         return m.id || '';
@@ -113,7 +120,8 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                     const yyyy = d.getFullYear();
                     const mm = String(d.getMonth() + 1).padStart(2, '0');
                     const dd = String(d.getDate()).padStart(2, '0');
-                    activeId = `week${match.week || 1}-${match.homeTeamId}-${match.awayTeamId}-${yyyy}-${mm}-${dd}`;
+                    const prefix = match.competition === 'cup' ? 'cup' : 'week';
+                    activeId = `${prefix}${match.week || 1}-${match.homeTeamId}-${match.awayTeamId}-${yyyy}-${mm}-${dd}`;
                     setMatch(prev => ({ ...prev, id: activeId }));
                 }
             }
@@ -135,7 +143,13 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
             toast.success(`Maç Başarıyla Kaydedildi! ✅`);
             window.scrollTo({ top: 0, behavior: 'smooth' });
             // Reset form
-            setMatch({ id: '', week: match.week || 1, date: new Date().toISOString(), status: 'draft' });
+            setMatch({
+                id: '',
+                week: match.week || 1,
+                date: new Date().toISOString(),
+                status: 'draft',
+                competition: match.competition || 'league'
+            });
             setOriginalId('');
             setOriginalId('');
             setSmartRaw('');
@@ -229,20 +243,27 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
         let awayStr = '';
         let dateStr = '';
 
-        const shortcodeMatch = idInput.match(/^w(\d+)([a-z]{3})([a-z]{3})$/);
+        const shortcodeMatch = idInput.match(/^(w|c)(\d+)([a-z]{3})([a-z]{3})$/);
 
         if (shortcodeMatch) {
-            weekVal = parseInt(shortcodeMatch[1]);
-            homeStr = shortcodeMatch[2];
-            awayStr = shortcodeMatch[3];
+            weekVal = parseInt(shortcodeMatch[2]);
+            homeStr = shortcodeMatch[3];
+            awayStr = shortcodeMatch[4];
+            if (shortcodeMatch[1] === 'c') {
+                updates.competition = 'cup';
+            } else {
+                updates.competition = 'league';
+            }
         } else {
             const parts = idInput.split('-');
             if (parts.length >= 2) {
-                if (parts[0].startsWith('week')) {
-                    const w = parseInt(parts[0].replace('week', ''));
+                if (parts[0].startsWith('week') || parts[0].startsWith('cup')) {
+                    const isCup = parts[0].startsWith('cup');
+                    const w = parseInt(parts[0].replace(isCup ? 'cup' : 'week', ''));
                     if (!isNaN(w)) weekVal = w;
                     homeStr = parts[1];
                     awayStr = parts[2] || '';
+                    updates.competition = isCup ? 'cup' : 'league';
                 } else {
                     homeStr = parts[0];
                     awayStr = parts[1] || '';
@@ -328,16 +349,38 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
             <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Maç Ekle / Düzenle</h3>
 
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+                {/* Competition Selector */}
+                <div className="flex bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+                    <button
+                        type="button"
+                        onClick={() => setMatch({ ...match, competition: 'league' })}
+                        className={`flex-1 py-2 px-3 rounded font-bold text-[10px] uppercase tracking-wider transition-all ${match.competition !== 'cup' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
+                    >
+                        SÜPER LİG
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setMatch({ ...match, competition: 'cup' })}
+                        className={`flex-1 py-2 px-3 rounded font-bold text-[10px] uppercase tracking-wider transition-all ${match.competition === 'cup' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
+                    >
+                        TÜRKİYE KUPASI
+                    </button>
+                </div>
+
                 <div className="flex gap-2">
                     <div className="flex-1">
                         <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Mevcut Maç Seçiniz</label>
-                        <MatchSelect value={match.id || ''} onChange={val => setMatch({ ...match, id: val })} />
+                        <MatchSelect
+                            value={match.id || ''}
+                            competition={match.competition || 'league'}
+                            onChange={val => setMatch({ ...match, id: val })}
+                        />
                     </div>
                     <div className="flex items-end gap-2">
                         <button type="button" onClick={handleLoad} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold text-sm shadow-sm transition-all h-[38px]">Getir</button>
                         <button type="button" onClick={handleRenameMatch} className="bg-orange-50 text-orange-600 px-4 py-2 rounded font-bold text-sm border border-orange-200 hover:bg-orange-100 transition-all h-[38px]">ID Değiştir</button>
                         <button type="button" onClick={handleDeleteMatch} className="bg-red-50 text-red-600 px-4 py-2 rounded font-bold text-sm border border-red-200 hover:bg-red-100 transition-all h-[38px]">Sil</button>
-                        <button type="button" onClick={() => { setMatch({ id: '', week: 1, date: new Date().toISOString(), status: 'draft' }); setOriginalId(''); setSmartRaw(''); setStatsRaw(''); }} className="bg-white text-slate-600 px-4 py-2 rounded font-bold text-sm border border-slate-200 hover:bg-slate-50 transition-all h-[38px]">Yeni</button>
+                        <button type="button" onClick={() => { setMatch({ id: '', week: 1, date: new Date().toISOString(), status: 'draft', competition: match.competition || 'league' }); setOriginalId(''); setSmartRaw(''); setStatsRaw(''); }} className="bg-white text-slate-600 px-4 py-2 rounded font-bold text-sm border border-slate-200 hover:bg-slate-50 transition-all h-[38px]">Yeni</button>
                     </div>
                 </div>
 
