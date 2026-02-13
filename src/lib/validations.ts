@@ -123,6 +123,8 @@ export const matchSchema = z.object({
         performanceNotes: z.array(z.string()).optional(),
     }).optional(),
     status: z.enum(['draft', 'published']).optional(),
+    competition: z.enum(['league', 'cup']).optional(),
+    group: z.string().max(10).optional().or(z.literal('')),
 });
 
 // Incident Schema
