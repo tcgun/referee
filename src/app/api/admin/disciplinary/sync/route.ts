@@ -6,8 +6,20 @@ export async function POST(request: Request) {
     return withAdminGuard(request, async () => {
         const firestore = getAdminDb();
         try {
-            const snapshot = await firestore.collection('disciplinary_actions').get();
             const batch = firestore.batch();
+            // 1. Sync Matches (ensure competition: 'league' if missing)
+            const matchSnapshot = await firestore.collection('matches').get();
+            let matchCount = 0;
+            for (const doc of matchSnapshot.docs) {
+                const data = doc.data();
+                if (!data.competition) {
+                    batch.update(doc.ref, { competition: 'league' });
+                    matchCount++;
+                }
+            }
+
+            // 2. Sync Disciplinary Actions
+            const snapshot = await firestore.collection('disciplinary_actions').get();
             let count = 0;
 
             const slugify = (text: string) => {
@@ -29,17 +41,17 @@ export async function POST(request: Request) {
                 const data = doc.data();
                 const oldId = doc.id;
 
-                // 1. Prefix matchId if not already prefixed
+                // A. Prefix matchId if not already prefixed
                 let matchId = data.matchId || '';
                 if (matchId && !matchId.startsWith('d-')) {
                     matchId = `d-${matchId}`;
                 }
 
-                // 2. Generate structured ID: d-{matchId}-{subject}
+                // B. Generate structured ID: d-{matchId}-{subject}
                 const subjectSlug = slugify(data.subject || 'unknown');
                 const newId = `d-${matchId.replace('d-', '')}-${subjectSlug}`;
 
-                // 3. Backfill competition field if missing (legacy records)
+                // C. Backfill competition field if missing (legacy records)
                 let competition = data.competition;
                 let competitionUpdated = false;
                 if (!competition) {
@@ -47,7 +59,7 @@ export async function POST(request: Request) {
                     competitionUpdated = true;
                 }
 
-                // 4. Create new doc if ID changed or matchId/competition updated
+                // D. Create new doc if ID changed or match/competition updated
                 if (newId !== oldId) {
                     const newRef = firestore.collection('disciplinary_actions').doc(newId);
                     batch.set(newRef, {
@@ -68,11 +80,11 @@ export async function POST(request: Request) {
                 }
             }
 
-            if (count > 0) {
+            if (count > 0 || matchCount > 0) {
                 await batch.commit();
             }
 
-            return NextResponse.json({ success: true, processed: count });
+            return NextResponse.json({ success: true, processed: count, matchesProcessed: matchCount });
         } catch (error) {
             console.error('Disciplinary Sync Error:', error);
             return NextResponse.json({ error: 'Sync failed' }, { status: 500 });

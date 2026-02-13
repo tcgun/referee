@@ -697,7 +697,7 @@ export const MatchSelect = ({ value, onChange, competition = 'league', className
             }
         };
         fetchMatchesForWeek();
-    }, [selectedWeek]);
+    }, [selectedWeek, competition]);
 
     // Grouping logic removed since we fetch per week
     const weeks = Array.from({ length: 38 }, (_, i) => i + 1).sort((a, b) => b - a);
