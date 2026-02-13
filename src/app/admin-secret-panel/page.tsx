@@ -108,6 +108,15 @@ function AdminContent() {
     const [loadedMatch, setLoadedMatch] = useState<Match | null>(null);
     const [loadedIncidents, setLoadedIncidents] = useState<Array<Incident & { opinions: Opinion[] }>>([]);
 
+    // Restore match selection on load
+    useEffect(() => {
+        const stored = localStorage.getItem('last_admin_match_id');
+        if (stored) {
+            setTargetMatchId(stored);
+            fetchMatchById(stored);
+        }
+    }, []);
+
     const fetchMatchById = async (id: string, silent = false) => {
         if (!id) return;
         try {
@@ -120,7 +129,7 @@ function AdminContent() {
                 const matchData = matchSnap.data() as Match;
                 setLoadedMatch(matchData);
 
-                const incQ = query(collection(db, 'matches', id, 'incidents'), orderBy('minute'));
+                const incQ = collection(db, 'matches', id, 'incidents');
                 const incSnap = await getDocs(incQ);
 
                 const incidentsWithOpinions = await Promise.all(incSnap.docs.map(async (incDoc) => {
@@ -132,13 +141,27 @@ function AdminContent() {
                     return { ...incData, opinions };
                 }));
 
+                // Sort by minute (handling strings/numbers)
+                incidentsWithOpinions.sort((a, b) => {
+                    const parse = (m: string | number) => {
+                        if (typeof m === 'number') return m;
+                        // Handle "45+2" format
+                        if (typeof m === 'string' && m.includes('+')) {
+                            const [base, ext] = m.split('+').map(Number);
+                            return base + (ext / 100);
+                        }
+                        return parseFloat(m) || 0;
+                    };
+                    return parse(a.minute) - parse(b.minute);
+                });
+
                 setLoadedIncidents(incidentsWithOpinions);
                 if (!silent) alert('Veriler Güncellendi! ✅');
             } else {
                 if (!silent) alert('Maç bulunamadı!');
             }
         } catch (error) {
-            console.error(error);
+            console.error('[AdminPage] Fetch error:', error);
             if (!silent) alert('Hata oluştu.');
         }
     };

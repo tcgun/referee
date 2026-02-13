@@ -15,7 +15,7 @@ interface IncidentFormProps {
 }
 
 export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncidents, onSuccess }: IncidentFormProps) => {
-    const [matchId, setMatchId] = useState('week1-gfk-gs');
+    const [matchId, setMatchId] = useState('');
     const [incident, setIncident] = useState<Partial<Incident>>({
         id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none', varRecommendation: 'none'
     });

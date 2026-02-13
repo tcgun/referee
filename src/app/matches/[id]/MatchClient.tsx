@@ -50,7 +50,7 @@ export default function MatchClient() {
                 const matchData = matchSnap.data() as Match;
                 setMatch(matchData);
 
-                const incidentsQ = query(collection(db, 'matches', matchId, 'incidents'), orderBy('minute'));
+                const incidentsQ = collection(db, 'matches', matchId, 'incidents');
                 const incidentsSnap = await getDocs(incidentsQ);
                 const incidentsList: IncidentWithOpinions[] = [];
 
