@@ -576,7 +576,6 @@ export default function MatchClient() {
                             opinions={incident.opinions || []}
                             refereeDecision={incident.refereeDecision}
                             varDecision={incident.varDecision}
-                            varRecommendation={incident.varRecommendation}
                             finalDecision={incident.finalDecision}
                             correctDecision={incident.correctDecision}
                             missedCards={incident.missedCards}
@@ -599,8 +598,8 @@ function OfficialItem({ role, name, highlight }: { role: string, name?: string, 
     )
 }
 
-function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, varDecision, varRecommendation, finalDecision, correctDecision, missedCards, incorrectCards }: {
-    opinions: Opinion[], description: string, minute: number | string, videoUrl?: string, refereeDecision?: string, varDecision?: string, varRecommendation?: string, finalDecision?: string, correctDecision?: string, missedCards?: any[], incorrectCards?: any[]
+function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, varDecision, finalDecision, correctDecision, missedCards, incorrectCards }: {
+    opinions: Opinion[], description: string, minute: number | string, videoUrl?: string, refereeDecision?: string, varDecision?: string, finalDecision?: string, correctDecision?: string, missedCards?: any[], incorrectCards?: any[]
 }) {
     const critics = ['Bülent Yıldırım', 'Deniz Çoban', 'Bahattin Duran'];
     const varRecMap: Record<string, string> = { 'review': 'İNCELEME ÖNERİSİ', 'none': 'İNCELEME ÖNERİSİ YOK', 'monitor_only': 'SADECE TAKİP' };
@@ -608,7 +607,6 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
     return (
         <div className="rounded-xl overflow-hidden shadow-sm flex bg-card border border-border">
             <div className="bg-neutral-100 dark:bg-neutral-900/50 border-r border-border w-16 md:w-24 shrink-0 flex flex-col items-center justify-center p-1 relative">
-                {varRecommendation === 'review' && <span className="font-black text-[8px] md:text-[9px] tracking-tight text-red-600 text-center leading-tight mb-1 border-b border-red-200 pb-1">VAR<br />MÜDAHALESİ</span>}
                 <span className="font-black text-[9px] md:text-[11px] tracking-tighter text-neutral-400 text-center uppercase leading-none">TRIO<br />YORUMU</span>
                 {(() => {
                     const trioOpinions = opinions.filter(o =>
@@ -640,10 +638,6 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                     <div className="flex-1 text-center border-r border-border pr-2">
                         <span className="block text-[9px] md:text-[10px] text-neutral-600 dark:text-neutral-400 font-black uppercase">HAKEM</span>
                         <span className="block text-[11px] md:text-[13px] text-neutral-950 dark:text-neutral-50 font-black truncate">{refereeDecision || '-'}</span>
-                    </div>
-                    <div className="flex-1 text-center border-r border-border px-2">
-                        <span className="block text-[9px] md:text-[10px] text-blue-700 font-extrabold uppercase">VAR</span>
-                        <span className="block text-[11px] md:text-[13px] text-blue-900 dark:text-blue-300 font-black truncate">{varRecommendation ? (varRecMap[varRecommendation] || varRecommendation) : '-'}</span>
                     </div>
                     <div className="flex-1 text-center pl-2">
                         <span className="block text-[9px] md:text-[10px] text-purple-700 font-extrabold uppercase">VAR SONUCU</span>
@@ -716,7 +710,7 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                                     <div className="flex items-center gap-1 shrink-0">
                                         <span className={`w-1.5 h-2.5 rounded-[1px] ${ic.givenCard === 'yellow' ? 'bg-yellow-400' : ic.givenCard === 'red' ? 'bg-red-600' : 'bg-gray-400/30'}`}></span>
                                         <span className="text-gray-400 text-[8px]">→</span>
-                                        <span className={`w-1.5 h-2.5 rounded-[1px] ${ic.correctCard === 'yellow' ? 'bg-yellow-400' : 'bg-red-600'}`}></span>
+                                        <span className={`w-1.5 h-2.5 rounded-[1px] ${ic.correctCard === 'yellow' ? 'bg-yellow-400' : ic.correctCard === 'red' ? 'bg-red-600' : 'bg-green-500'}`}></span>
                                     </div>
                                 </div>
                             </div>

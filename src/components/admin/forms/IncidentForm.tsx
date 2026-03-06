@@ -19,12 +19,12 @@ interface IncidentFormProps {
 export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, existingIncidents, onSuccess }: IncidentFormProps) => {
     const [matchId, setMatchId] = useState('');
     const [incident, setIncident] = useState<Partial<Incident>>({
-        id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none', varRecommendation: 'none',
+        id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '',
         missedCards: [], incorrectCards: []
     });
 
     const [newMissedCard, setNewMissedCard] = useState<{ player: string, card: 'yellow' | 'red' }>({ player: '', card: 'yellow' });
-    const [newIncorrectCard, setNewIncorrectCard] = useState<{ player: string, given: 'none' | 'yellow' | 'red', correct: 'yellow' | 'red' }>({ player: '', given: 'none', correct: 'red' });
+    const [newIncorrectCard, setNewIncorrectCard] = useState<{ player: string, given: 'none' | 'yellow' | 'red', correct: 'none' | 'yellow' | 'red' }>({ player: '', given: 'none', correct: 'none' });
     const [players, setPlayers] = useState<string[]>([]);
 
     useEffect(() => {
@@ -128,7 +128,7 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
             ...prev,
             incorrectCards: [...(prev.incorrectCards || []), card]
         }));
-        setNewIncorrectCard({ player: '', given: 'none', correct: 'red' });
+        setNewIncorrectCard({ player: '', given: 'none', correct: 'none' });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -221,27 +221,8 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                         <option value="Kırmızı Kart Verilmedi">Kırmızı Kart Verilmedi</option>
                         <option value="Penaltı">Penaltı</option>
                         <option value="Penaltı İptal">Penaltı İptal</option>
-                    </select>
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500">VAR Önerisi</label>
-                    <select
-                        className="border border-gray-300 p-2 w-full rounded text-gray-900 bg-white"
-                        value={incident.varRecommendation || 'none'}
-                        onChange={e => {
-                            const val = e.target.value as any;
-                            const updates: Partial<Incident> = { varRecommendation: val };
-                            if (val === 'none') {
-                                updates.varDecision = 'Müdahale Yok';
-                            } else if (val === 'review') {
-                                updates.varDecision = 'İnceleme Önerisi';
-                            }
-                            setIncident(prev => ({ ...prev, ...updates }));
-                        }}
-                    >
-                        <option value="none">İnceleme Önerisi Yok</option>
-                        <option value="review">İnceleme Önerisi (Müdahale)</option>
-                        <option value="monitor_only">Sadece Takip (Monitor Only)</option>
+                        <option value="Faul + Sarı Kart">Faul + Sarı Kart</option>
+                        <option value="Faul + Kırmızı Kart">Faul + Kırmızı Kart</option>
                     </select>
                 </div>
                 <div className="space-y-1">
@@ -260,16 +241,6 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                     </select>
                 </div>
 
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500">Kritik Karar Tipi</label>
-                    <select className="border border-gray-300 p-2 w-full rounded text-gray-900 bg-white" value={incident.impact || 'none'} onChange={e => setIncident({ ...incident, impact: e.target.value as any })}>
-                        <option value="none">Diğer (Normal Pozisyon)</option>
-                        <option value="penalty">Penaltı Kararı</option>
-                        <option value="red_card">Kırmızı Kart Kararı</option>
-                        <option value="goal">Gol Kararı (İptal/Onay)</option>
-                    </select>
-                    <p className="text-[9px] text-gray-400 leading-tight">* Maçın seyrini değiştiren (Penaltı, Kırmızı Kart, Gol) pozisyonları işaretler.</p>
-                </div>
             </div>
 
             {/* Missed Cards Section */}
@@ -317,6 +288,7 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                         <option value="red">Verilen: Kırmızı</option>
                     </select>
                     <select className="border border-blue-300 p-1.5 text-xs rounded" value={newIncorrectCard.correct} onChange={e => setNewIncorrectCard({ ...newIncorrectCard, correct: e.target.value as any })}>
+                        <option value="none">Olması: Kart Verilmemeli</option>
                         <option value="yellow">Olması: Sarı</option>
                         <option value="red">Olması: Kırmızı</option>
                     </select>

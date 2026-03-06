@@ -140,7 +140,7 @@ export const cardActionSchema = z.object({
 export const incorrectCardSchema = z.object({
     player: z.string().min(1).max(100),
     givenCard: z.enum(['none', 'yellow', 'red']),
-    correctCard: z.enum(['yellow', 'red']),
+    correctCard: z.enum(['none', 'yellow', 'red']),
     reason: z.string().max(500).optional(),
 });
 
@@ -152,12 +152,12 @@ export const incidentSchema = z.object({
     description: z.string().min(1).max(1000),
     refereeDecision: z.string().min(1).max(200),
     varDecision: z.string().max(200).optional(),
-    varRecommendation: z.enum(['none', 'review', 'monitor_only']).optional(),
+    varRecommendation: z.enum(['none', 'review', 'monitor_only']).optional().nullable(),
     correctDecision: z.string().max(200).optional(),
     finalDecision: z.string().min(1).max(200),
     favorOf: z.string().max(50).optional(),
     against: z.string().max(50).optional(),
-    impact: z.enum(['penalty', 'red_card', 'goal', 'none', 'unknown', 'cancelled_goal']),
+    impact: z.enum(['penalty', 'red_card', 'goal', 'none', 'unknown', 'cancelled_goal']).optional().nullable(),
     videoUrl: z.string().url().optional().or(z.literal('')),
     missedCards: z.array(cardActionSchema).optional(),
     incorrectCards: z.array(incorrectCardSchema).optional(),

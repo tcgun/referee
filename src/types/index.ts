@@ -139,7 +139,7 @@ export interface CardAction {
 export interface IncorrectCard {
     player: string;
     givenCard: 'none' | 'yellow' | 'red';
-    correctCard: 'yellow' | 'red';
+    correctCard: 'none' | 'yellow' | 'red';
     reason?: string;
 }
 
@@ -155,7 +155,7 @@ export interface Incident {
     finalDecision: string;
     favorOf?: string; // Team ID
     against?: string; // Team ID
-    impact: DecisionImpact;
+    impact?: 'none' | 'penalty' | 'red_card' | 'goal'; // Optional now
     videoUrl?: string; // Temsili/Placeholder
     missedCards?: CardAction[];
     incorrectCards?: IncorrectCard[];
