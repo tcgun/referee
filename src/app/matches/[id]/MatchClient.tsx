@@ -579,6 +579,8 @@ export default function MatchClient() {
                             varRecommendation={incident.varRecommendation}
                             finalDecision={incident.finalDecision}
                             correctDecision={incident.correctDecision}
+                            missedCards={incident.missedCards}
+                            incorrectCards={incident.incorrectCards}
                         />
                     ))}
                 </div>
@@ -597,8 +599,8 @@ function OfficialItem({ role, name, highlight }: { role: string, name?: string, 
     )
 }
 
-function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, varDecision, varRecommendation, finalDecision, correctDecision }: {
-    opinions: Opinion[], description: string, minute: number | string, videoUrl?: string, refereeDecision?: string, varDecision?: string, varRecommendation?: string, finalDecision?: string, correctDecision?: string
+function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, varDecision, varRecommendation, finalDecision, correctDecision, missedCards, incorrectCards }: {
+    opinions: Opinion[], description: string, minute: number | string, videoUrl?: string, refereeDecision?: string, varDecision?: string, varRecommendation?: string, finalDecision?: string, correctDecision?: string, missedCards?: any[], incorrectCards?: any[]
 }) {
     const critics = ['Bülent Yıldırım', 'Deniz Çoban', 'Bahattin Duran'];
     const varRecMap: Record<string, string> = { 'review': 'İNCELEME ÖNERİSİ', 'none': 'İNCELEME ÖNERİSİ YOK', 'monitor_only': 'SADECE TAKİP' };
@@ -663,7 +665,6 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                                 <div className="h-full flex flex-col items-center justify-center text-center px-1 py-3 w-full">
                                     {trioOpinions.map((op, idx) => (
                                         <div key={idx} className="w-full flex flex-col items-center">
-                                            {op.shortOpinion && <div className="mb-2 text-sm md:text-xl font-black text-foreground uppercase tracking-tight leading-tight">{op.shortOpinion}</div>}
                                             {op.opinion && <p className="text-[11px] md:text-base text-muted-foreground leading-snug font-medium italic mt-2 w-full px-2">"{op.opinion}"</p>}
                                         </div>
                                     ))}
@@ -694,8 +695,32 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                         );
                     })()}
                 </div>
-                {(finalDecision || correctDecision) && (
-                    <div className="bg-muted/30 border-t border-border px-3 py-2 flex flex-col gap-1">
+                {(finalDecision || correctDecision || missedCards?.length || incorrectCards?.length) && (
+                    <div className="bg-muted/30 border-t border-border px-3 py-2 flex flex-col gap-2">
+                        {/* Card Errors Display */}
+                        {missedCards?.map((mc: any, i: number) => (
+                            <div key={`mc-${i}`} className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 p-1.5 rounded-md">
+                                <span className="text-[9px] font-black text-amber-600 uppercase shrink-0">EKSİK KART:</span>
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                    <span className={`w-2 h-3 shrink-0 rounded-[1px] ${mc.card === 'yellow' ? 'bg-yellow-400' : 'bg-red-600'}`}></span>
+                                    <span className="text-[10px] font-black uppercase truncate">{mc.player}</span>
+                                    {mc.isRepeated && <span className="text-[10px] font-black text-red-600 shrink-0">({mc.repeatedCount}. KEZ)</span>}
+                                </div>
+                            </div>
+                        ))}
+                        {incorrectCards?.map((ic: any, i: number) => (
+                            <div key={`ic-${i}`} className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 p-1.5 rounded-md">
+                                <span className="text-[9px] font-black text-blue-600 uppercase shrink-0">HATALI KART:</span>
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                    <span className="text-[10px] font-black uppercase truncate">{ic.player}</span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <span className={`w-1.5 h-2.5 rounded-[1px] ${ic.givenCard === 'yellow' ? 'bg-yellow-400' : ic.givenCard === 'red' ? 'bg-red-600' : 'bg-gray-400/30'}`}></span>
+                                        <span className="text-gray-400 text-[8px]">→</span>
+                                        <span className={`w-1.5 h-2.5 rounded-[1px] ${ic.correctCard === 'yellow' ? 'bg-yellow-400' : 'bg-red-600'}`}></span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                         {finalDecision && <div className="flex items-center gap-2"><span className="text-[9px] font-black text-green-600 uppercase">NİHAİ:</span><span className="text-[10px] font-bold truncate">{finalDecision}</span></div>}
                         {correctDecision && <div className="flex items-center gap-2"><span className="text-[9px] font-black text-emerald-600 uppercase">OLMASI GEREKEN:</span><span className="text-[10px] font-bold truncate">{correctDecision}</span></div>}
                     </div>
@@ -714,7 +739,6 @@ function TrioOpinion({ name, op }: { name: string, op?: Opinion }) {
             {op ? (
                 <>
                     <TrioIcon judgment={op.judgment} />
-                    {op.shortOpinion && <div className="mt-2 mb-1 text-[10px] font-bold">{op.shortOpinion}</div>}
                     {op.opinion && (
                         <div className="w-full">
                             <div className={`text-[9px] text-muted-foreground leading-snug font-medium ${expanded ? '' : 'line-clamp-4'}`}>"{op.opinion}"</div>

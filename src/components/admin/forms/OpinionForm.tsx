@@ -17,7 +17,7 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, 
     const [matchId, setMatchId] = useState(''); // Changed initial state
     const [incidentId, setIncidentId] = useState('');
     const [opinion, setOpinion] = useState<Partial<Opinion>>({
-        id: '', criticName: 'Deniz Çoban', opinion: '', shortOpinion: '', reasoning: '', judgment: 'correct'
+        id: '', criticName: 'Deniz Çoban', opinion: '', reasoning: '', judgment: 'correct'
     });
 
     // Sync matchId with defaultMatchId using useEffect
@@ -75,7 +75,6 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, 
                 id: nextId,
                 criticName: opinion.criticName || 'Deniz Çoban',
                 opinion: '',
-                shortOpinion: '',
                 reasoning: '',
                 judgment: 'correct',
                 type: opinion.type || 'trio'
@@ -157,7 +156,6 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, 
                     Trio Yorumcuları: Bülent Yıldırım, Deniz Çoban, Bahattin Duran (Ortak Karar)
                 </div>
             )}
-            <textarea placeholder="Kısa Yorum (Özet)..." rows={2} className="border border-gray-300 p-2 w-full rounded text-gray-900" value={opinion.shortOpinion || ''} onChange={e => setOpinion({ ...opinion, shortOpinion: e.target.value })} />
             <textarea placeholder="Uzun Yorum (Detaylı)..." rows={4} className="border border-gray-300 p-2 w-full rounded text-gray-900" value={opinion.opinion || ''} onChange={e => setOpinion({ ...opinion, opinion: e.target.value })} />
 
             <div className='flex gap-2'>

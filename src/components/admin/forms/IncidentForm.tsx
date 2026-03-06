@@ -19,8 +19,12 @@ interface IncidentFormProps {
 export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, existingIncidents, onSuccess }: IncidentFormProps) => {
     const [matchId, setMatchId] = useState('');
     const [incident, setIncident] = useState<Partial<Incident>>({
-        id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none', varRecommendation: 'none'
+        id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none', varRecommendation: 'none',
+        missedCards: [], incorrectCards: []
     });
+
+    const [newMissedCard, setNewMissedCard] = useState<{ player: string, card: 'yellow' | 'red' }>({ player: '', card: 'yellow' });
+    const [newIncorrectCard, setNewIncorrectCard] = useState<{ player: string, given: 'none' | 'yellow' | 'red', correct: 'yellow' | 'red' }>({ player: '', given: 'none', correct: 'red' });
 
     useEffect(() => {
         if (defaultMatchId && defaultMatchId !== matchId) {
@@ -53,6 +57,44 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
         }
     }, [matchId, existingIncidents]);
 
+    const addMissedCard = () => {
+        if (!newMissedCard.player) return toast.error('Oyuncu ismi giriniz');
+
+        // Logic to detect repeated missed cards for this player in this match
+        const previousMissed = existingIncidents?.filter(inc => inc.matchId === matchId)
+            .flatMap(inc => inc.missedCards || [])
+            .filter(mc => mc.player.toLocaleLowerCase('tr-TR') === newMissedCard.player.toLocaleLowerCase('tr-TR')) || [];
+
+        const repeatedCount = previousMissed.length + 1;
+        const isRepeated = repeatedCount > 1;
+
+        const card: any = {
+            ...newMissedCard,
+            isRepeated,
+            repeatedCount
+        };
+
+        setIncident(prev => ({
+            ...prev,
+            missedCards: [...(prev.missedCards || []), card]
+        }));
+        setNewMissedCard({ player: '', card: 'yellow' });
+    };
+
+    const addIncorrectCard = () => {
+        if (!newIncorrectCard.player) return toast.error('Oyuncu ismi giriniz');
+        const card: any = {
+            player: newIncorrectCard.player,
+            givenCard: newIncorrectCard.given,
+            correctCard: newIncorrectCard.correct
+        };
+        setIncident(prev => ({
+            ...prev,
+            incorrectCards: [...(prev.incorrectCards || []), card]
+        }));
+        setNewIncorrectCard({ player: '', given: 'none', correct: 'red' });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const res = await fetch('/api/admin/incidents', {
@@ -80,7 +122,9 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                 impact: 'none',
                 varRecommendation: 'none',
                 varDecision: '',
-                videoUrl: ''
+                videoUrl: '',
+                missedCards: [],
+                incorrectCards: []
             });
 
             if (onSuccess) onSuccess();
@@ -92,7 +136,7 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
         try {
             const snap = await getDoc(doc(db, 'matches', matchId, 'incidents', incident.id!));
             if (snap.exists()) {
-                setIncident(snap.data() as Incident);
+                setIncident({ ...snap.data(), id: snap.id } as Incident);
                 toast.success('Pozisyon verisi yüklendi! 📥');
             } else {
                 toast.error('Pozisyon bulunamadı.');
@@ -178,6 +222,68 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                     </select>
                 </div>
 
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-500">Önem Derecesi</label>
+                    <select className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.impact || 'none'} onChange={e => setIncident({ ...incident, impact: e.target.value as any })}>
+                        <option value="none">Normal</option>
+                        <option value="penalty">Penaltı Kararı</option>
+                        <option value="red_card">Kırmızı Kart Kararı</option>
+                        <option value="goal">Gol Kararı</option>
+                    </select>
+                </div>
+            </div>
+
+            {/* Missed Cards Section */}
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                <h4 className="text-xs font-black text-amber-700 uppercase tracking-widest">Kart Görmesi Gerekenler</h4>
+                <div className="flex gap-2">
+                    <input placeholder="Oyuncu İsmi" className="flex-1 border border-amber-300 p-1.5 text-xs rounded" value={newMissedCard.player} onChange={e => setNewMissedCard({ ...newMissedCard, player: e.target.value })} />
+                    <select className="border border-amber-300 p-1.5 text-xs rounded" value={newMissedCard.card} onChange={e => setNewMissedCard({ ...newMissedCard, card: e.target.value as any })}>
+                        <option value="yellow">Sarı</option>
+                        <option value="red">Kırmızı</option>
+                    </select>
+                    <button type="button" onClick={addMissedCard} className="bg-amber-600 text-white px-3 py-1.5 rounded text-xs font-bold">Ekle</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {incident.missedCards?.map((mc, idx) => (
+                        <div key={idx} className="bg-white border border-amber-200 px-2 py-1 rounded-md text-[10px] flex items-center gap-2 group">
+                            <span className={`w-2 h-3 rounded-sm ${mc.card === 'yellow' ? 'bg-yellow-400' : 'bg-red-600'}`}></span>
+                            <span className="font-bold text-gray-700">{mc.player} {mc.isRepeated && <span className="text-red-500">({mc.repeatedCount}. KEZ)</span>}</span>
+                            <button type="button" onClick={() => setIncident(prev => ({ ...prev, missedCards: prev.missedCards?.filter((_, i) => i !== idx) }))} className="text-gray-400 hover:text-red-500 ml-1">×</button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Incorrect Cards Section */}
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                <h4 className="text-xs font-black text-blue-700 uppercase tracking-widest">Yanlış Kart Görenler</h4>
+                <div className="grid grid-cols-4 gap-1">
+                    <input placeholder="Oyuncu" className="col-span-1 border border-blue-300 p-1.5 text-xs rounded" value={newIncorrectCard.player} onChange={e => setNewIncorrectCard({ ...newIncorrectCard, player: e.target.value })} />
+                    <select className="border border-blue-300 p-1.5 text-xs rounded" value={newIncorrectCard.given} onChange={e => setNewIncorrectCard({ ...newIncorrectCard, given: e.target.value as any })}>
+                        <option value="none">Verilen: Yok</option>
+                        <option value="yellow">Verilen: Sarı</option>
+                        <option value="red">Verilen: Kırmızı</option>
+                    </select>
+                    <select className="border border-blue-300 p-1.5 text-xs rounded" value={newIncorrectCard.correct} onChange={e => setNewIncorrectCard({ ...newIncorrectCard, correct: e.target.value as any })}>
+                        <option value="yellow">Olması: Sarı</option>
+                        <option value="red">Olması: Kırmızı</option>
+                    </select>
+                    <button type="button" onClick={addIncorrectCard} className="bg-blue-600 text-white px-2 py-1.5 rounded text-xs font-bold">Ekle</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {incident.incorrectCards?.map((ic, idx) => (
+                        <div key={idx} className="bg-white border border-blue-200 px-2 py-1 rounded-md text-[10px] flex items-center gap-2">
+                            <span className="font-bold text-gray-700">{ic.player}</span>
+                            <div className="flex items-center gap-1">
+                                <span className={`w-1.5 h-2 rounded-sm ${ic.givenCard === 'yellow' ? 'bg-yellow-400' : ic.givenCard === 'red' ? 'bg-red-600' : 'bg-gray-200'}`}></span>
+                                <span>→</span>
+                                <span className={`w-1.5 h-2 rounded-sm ${ic.correctCard === 'yellow' ? 'bg-yellow-400' : 'bg-red-600'}`}></span>
+                            </div>
+                            <button type="button" onClick={() => setIncident(prev => ({ ...prev, incorrectCards: prev.incorrectCards?.filter((_, i) => i !== idx) }))} className="text-gray-400 hover:text-red-500 ml-1">×</button>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             <div className="mt-2 text-xs text-gray-400 italic">
@@ -225,6 +331,11 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                                     <span className="font-bold text-red-600 mr-2">{inc.minute}'</span>
                                     <span className="font-mono text-xs text-gray-400">[{inc.id}]</span>
                                     <p className="truncate text-gray-800">{inc.description}</p>
+                                    <div className="flex gap-2 mt-1">
+                                        {(inc.missedCards?.length > 0 || inc.incorrectCards?.length > 0) && (
+                                            <span className="text-[9px] font-black text-amber-600 uppercase">⚠ KART HATASI VAR</span>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                     </div>

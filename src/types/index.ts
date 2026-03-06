@@ -128,6 +128,21 @@ export interface RefereeStats {
 
 export type DecisionImpact = 'penalty' | 'red_card' | 'goal' | 'none' | 'unknown';
 
+export interface CardAction {
+    player: string;
+    card: 'yellow' | 'red';
+    reason?: string;
+    isRepeated?: boolean; // True if this is the 2nd/3rd missed card
+    repeatedCount?: number;
+}
+
+export interface IncorrectCard {
+    player: string;
+    givenCard: 'none' | 'yellow' | 'red';
+    correctCard: 'yellow' | 'red';
+    reason?: string;
+}
+
 export interface Incident {
     id: string; // Document ID
     matchId: string;
@@ -142,6 +157,8 @@ export interface Incident {
     against?: string; // Team ID
     impact: DecisionImpact;
     videoUrl?: string; // Temsili/Placeholder
+    missedCards?: CardAction[];
+    incorrectCards?: IncorrectCard[];
 }
 
 export interface Opinion {
@@ -151,7 +168,6 @@ export interface Opinion {
     positionId?: string; // Optional link to position
     criticName: string; // Changed to string to support general commentators
     opinion: string; // The text of what they said
-    shortOpinion?: string; // Short summary for quick view
     reasoning: string; // Short "Why?"
     judgment: 'correct' | 'incorrect' | 'controversial';
     type?: 'trio' | 'general'; // 'trio' by default

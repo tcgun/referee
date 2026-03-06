@@ -127,6 +127,23 @@ export const matchSchema = z.object({
     group: z.string().max(10).optional().or(z.literal('')),
 });
 
+// Card Action Schema
+export const cardActionSchema = z.object({
+    player: z.string().min(1).max(100),
+    card: z.enum(['yellow', 'red']),
+    reason: z.string().max(500).optional(),
+    isRepeated: z.boolean().optional(),
+    repeatedCount: z.number().int().min(1).optional(),
+});
+
+// Incorrect Card Schema
+export const incorrectCardSchema = z.object({
+    player: z.string().min(1).max(100),
+    givenCard: z.enum(['none', 'yellow', 'red']),
+    correctCard: z.enum(['yellow', 'red']),
+    reason: z.string().max(500).optional(),
+});
+
 // Incident Schema
 export const incidentSchema = z.object({
     id: z.string().min(1).max(100),
@@ -142,6 +159,8 @@ export const incidentSchema = z.object({
     against: z.string().max(50).optional(),
     impact: z.enum(['penalty', 'red_card', 'goal', 'none', 'unknown', 'cancelled_goal']),
     videoUrl: z.string().url().optional().or(z.literal('')),
+    missedCards: z.array(cardActionSchema).optional(),
+    incorrectCards: z.array(incorrectCardSchema).optional(),
 });
 
 // Opinion Schema
@@ -152,7 +171,6 @@ export const opinionSchema = z.object({
     positionId: z.string().min(1).max(100).optional(),
     criticName: z.string().min(1).max(100),
     opinion: z.string().max(5000).optional().or(z.literal('')),
-    shortOpinion: z.string().max(500).optional(),
     reasoning: z.string().max(500).optional(),
     judgment: z.enum(['correct', 'incorrect', 'controversial']),
     type: z.enum(['trio', 'general']).optional(),
