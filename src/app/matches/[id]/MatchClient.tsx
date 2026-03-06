@@ -630,10 +630,10 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                 )}
             </div>
             <div className="flex-1 flex flex-col min-w-0">
-                <div className="bg-transparent border-b border-border text-foreground flex items-center h-10 px-3 overflow-hidden">
+                <div className="bg-transparent border-b border-border text-foreground flex items-center h-12 px-3 overflow-hidden bg-neutral-50 dark:bg-neutral-900/30">
                     <div className="flex-1 flex items-center justify-between min-w-0">
-                        <span className="text-[10px] md:text-xs font-bold truncate mr-2">{description || 'Pozisyon Değerlendirmesi'}</span>
-                        <span className="text-xs font-black opacity-50">{minute}'</span>
+                        <span className="text-[12px] md:text-sm font-black uppercase tracking-tight truncate mr-2">{description || 'Pozisyon Değerlendirmesi'}</span>
+                        <span className="text-sm font-black text-red-600 shrink-0">{minute}'</span>
                     </div>
                 </div>
                 <div className="bg-muted/30 border-b border-border px-2 md:px-3 py-1.5 flex justify-between gap-1 md:gap-4">
@@ -665,7 +665,7 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                                 <div className="h-full flex flex-col items-center justify-center text-center px-1 py-3 w-full">
                                     {trioOpinions.map((op, idx) => (
                                         <div key={idx} className="w-full flex flex-col items-center">
-                                            {op.opinion && <p className="text-[11px] md:text-base text-muted-foreground leading-snug font-medium italic mt-2 w-full px-2">"{op.opinion}"</p>}
+                                            {op.opinion && <p className="text-[12px] md:text-lg text-foreground leading-relaxed font-semibold mt-2 w-full px-2">"{op.opinion}"</p>}
                                         </div>
                                     ))}
                                     {/* Other Opinions section simplified */}
@@ -678,7 +678,7 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                                                         <span className="text-[10px] font-black uppercase text-blue-400">{op.criticName}</span>
                                                         <TrioIcon judgment={op.judgment} size="w-5 h-5" />
                                                     </div>
-                                                    <p className="text-[11px] md:text-sm text-muted-foreground leading-tight italic font-medium">"{op.opinion}"</p>
+                                                    <p className="text-[11px] md:text-sm text-foreground/90 leading-tight font-semibold">"{op.opinion}"</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -741,7 +741,7 @@ function TrioOpinion({ name, op }: { name: string, op?: Opinion }) {
                     <TrioIcon judgment={op.judgment} />
                     {op.opinion && (
                         <div className="w-full">
-                            <div className={`text-[9px] text-muted-foreground leading-snug font-medium ${expanded ? '' : 'line-clamp-4'}`}>"{op.opinion}"</div>
+                            <div className={`text-[10px] md:text-[11px] text-foreground leading-snug font-semibold ${expanded ? '' : 'line-clamp-6'}`}>"{op.opinion}"</div>
                             {isLong && <button onClick={() => setExpanded(!expanded)} className="text-[9px] font-bold text-blue-400 mt-1">{expanded ? 'Kapat' : 'Devamını Gör'}</button>}
                         </div>
                     )}
