@@ -226,20 +226,22 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                 <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-500">VAR Önerisi</label>
                     <select
-                        className="border border-gray-300 p-2 w-full rounded text-gray-900"
+                        className="border border-gray-300 p-2 w-full rounded text-gray-900 bg-white"
                         value={incident.varRecommendation || 'none'}
                         onChange={e => {
                             const val = e.target.value as any;
                             const updates: Partial<Incident> = { varRecommendation: val };
                             if (val === 'none') {
                                 updates.varDecision = 'Müdahale Yok';
+                            } else if (val === 'review') {
+                                updates.varDecision = 'İnceleme Önerisi';
                             }
                             setIncident(prev => ({ ...prev, ...updates }));
                         }}
                     >
                         <option value="none">İnceleme Önerisi Yok</option>
-                        <option value="review">İnceleme Önerisi</option>
-                        <option value="monitor_only">Sadece Takip</option>
+                        <option value="review">İnceleme Önerisi (Müdahale)</option>
+                        <option value="monitor_only">Sadece Takip (Monitor Only)</option>
                     </select>
                 </div>
                 <div className="space-y-1">
@@ -259,13 +261,14 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                 </div>
 
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500">Önem Derecesi</label>
-                    <select className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.impact || 'none'} onChange={e => setIncident({ ...incident, impact: e.target.value as any })}>
-                        <option value="none">Normal</option>
+                    <label className="text-xs font-bold text-gray-500">Kritik Karar Tipi</label>
+                    <select className="border border-gray-300 p-2 w-full rounded text-gray-900 bg-white" value={incident.impact || 'none'} onChange={e => setIncident({ ...incident, impact: e.target.value as any })}>
+                        <option value="none">Diğer (Normal Pozisyon)</option>
                         <option value="penalty">Penaltı Kararı</option>
                         <option value="red_card">Kırmızı Kart Kararı</option>
-                        <option value="goal">Gol Kararı</option>
+                        <option value="goal">Gol Kararı (İptal/Onay)</option>
                     </select>
+                    <p className="text-[9px] text-gray-400 leading-tight">* Maçın seyrini değiştiren (Penaltı, Kırmızı Kart, Gol) pozisyonları işaretler.</p>
                 </div>
             </div>
 
