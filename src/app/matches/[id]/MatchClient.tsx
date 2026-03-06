@@ -748,6 +748,7 @@ function TrioOpinion({ name, op }: { name: string, op?: Opinion }) {
 function TrioIcon({ judgment, size = 'w-6 h-6' }: { judgment: string, size?: string }) {
     if (judgment === 'correct') return <svg className={`${size} text-[#8CC63F]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17L4 12" /></svg>;
     if (judgment === 'incorrect') return <svg className={`${size} text-[#E30613]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6L18 18" /></svg>;
+    if (judgment === 'missing') return <svg className={`${size} text-orange-600`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" /><line x1="8" y1="12" x2="16" y2="12" /></svg>;
     return <svg className={`${size} text-amber-400`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 9V14M12 17.01L12.01 16.9989" /></svg>;
 }
 

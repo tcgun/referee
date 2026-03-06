@@ -169,7 +169,7 @@ export interface Opinion {
     criticName: string; // Changed to string to support general commentators
     opinion: string; // The text of what they said
     reasoning: string; // Short "Why?"
-    judgment: 'correct' | 'incorrect' | 'controversial';
+    judgment: 'correct' | 'incorrect' | 'controversial' | 'missing';
     type?: 'trio' | 'general'; // 'trio' by default
 }
 

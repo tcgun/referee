@@ -123,16 +123,17 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, 
             <div className="mb-2">
                 <label className="text-xs font-bold text-gray-500 block mb-1">Karar Durumu (Görsel İçin)</label>
                 <div className="flex gap-2">
-                    {['correct', 'incorrect', 'controversial'].map((j) => (
+                    {['correct', 'incorrect', 'controversial', 'missing'].map((j) => (
                         <button
                             key={j}
                             type="button"
                             onClick={() => setOpinion({ ...opinion, judgment: j as any })}
-                            className={`flex-1 p-2 rounded border text-sm font-bold flex items-center justify-center gap-2 ${opinion.judgment === j ?
-                                (j === 'correct' ? 'bg-green-100 border-green-500 text-green-700' : j === 'incorrect' ? 'bg-red-100 border-red-500 text-red-700' : 'bg-amber-100 border-amber-500 text-amber-700')
-                                : 'bg-white border-gray-300 text-gray-400'}`}
+                            className={`px-3 py-1.5 rounded text-[10px] font-black uppercase transition-all ${opinion.judgment === j
+                                    ? (j === 'correct' ? 'bg-green-600 text-white shadow-md scale-105' : j === 'incorrect' ? 'bg-red-600 text-white shadow-md scale-105' : j === 'missing' ? 'bg-orange-600 text-white shadow-md scale-105' : 'bg-amber-500 text-white shadow-md scale-105')
+                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                }`}
                         >
-                            <span>{j === 'correct' ? '✅' : j === 'incorrect' ? '❌' : '⚠️'}</span> {j === 'correct' ? 'Doğru' : j === 'incorrect' ? 'Hatalı' : 'Tartışmalı'}
+                            {j === 'correct' ? 'Doğru' : j === 'incorrect' ? 'Yanlış' : j === 'missing' ? 'Eksik Kart' : 'Tartışmalı'}
                         </button>
                     ))}
                 </div>

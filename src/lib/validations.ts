@@ -172,7 +172,7 @@ export const opinionSchema = z.object({
     criticName: z.string().min(1).max(100),
     opinion: z.string().max(5000).optional().or(z.literal('')),
     reasoning: z.string().max(500).optional(),
-    judgment: z.enum(['correct', 'incorrect', 'controversial']),
+    judgment: z.enum(['correct', 'incorrect', 'controversial', 'missing']),
     type: z.enum(['trio', 'general']).optional(),
 });
 
