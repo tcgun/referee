@@ -25,6 +25,42 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
 
     const [newMissedCard, setNewMissedCard] = useState<{ player: string, card: 'yellow' | 'red' }>({ player: '', card: 'yellow' });
     const [newIncorrectCard, setNewIncorrectCard] = useState<{ player: string, given: 'none' | 'yellow' | 'red', correct: 'yellow' | 'red' }>({ player: '', given: 'none', correct: 'red' });
+    const [players, setPlayers] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (!matchId) {
+            setPlayers([]);
+            return;
+        }
+
+        const fetchPlayers = async () => {
+            try {
+                const matchSnap = await getDoc(doc(db, 'matches', matchId));
+                if (matchSnap.exists()) {
+                    const data = matchSnap.data();
+                    const lineupPlayers: string[] = [];
+
+                    if (data.lineups) {
+                        const { home, away, homeSubs, awaySubs } = data.lineups;
+                        [home, away, homeSubs, awaySubs].forEach(group => {
+                            if (Array.isArray(group)) {
+                                group.forEach((p: any) => {
+                                    if (p.name) lineupPlayers.push(p.name);
+                                });
+                            }
+                        });
+                    }
+
+                    // Remove duplicates and sort
+                    setPlayers(Array.from(new Set(lineupPlayers)).sort());
+                }
+            } catch (error) {
+                console.error("Error fetching match players:", error);
+            }
+        };
+
+        fetchPlayers();
+    }, [matchId]);
 
     useEffect(() => {
         if (defaultMatchId && defaultMatchId !== matchId) {
@@ -237,7 +273,13 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
                 <h4 className="text-xs font-black text-amber-700 uppercase tracking-widest">Kart Görmesi Gerekenler</h4>
                 <div className="flex gap-2">
-                    <input placeholder="Oyuncu İsmi" className="flex-1 border border-amber-300 p-1.5 text-xs rounded" value={newMissedCard.player} onChange={e => setNewMissedCard({ ...newMissedCard, player: e.target.value })} />
+                    <input
+                        list="match-players"
+                        placeholder="Oyuncu İsmi"
+                        className="flex-1 border border-amber-300 p-1.5 text-xs rounded"
+                        value={newMissedCard.player}
+                        onChange={e => setNewMissedCard({ ...newMissedCard, player: e.target.value })}
+                    />
                     <select className="border border-amber-300 p-1.5 text-xs rounded" value={newMissedCard.card} onChange={e => setNewMissedCard({ ...newMissedCard, card: e.target.value as any })}>
                         <option value="yellow">Sarı</option>
                         <option value="red">Kırmızı</option>
@@ -259,7 +301,13 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
                 <h4 className="text-xs font-black text-blue-700 uppercase tracking-widest">Yanlış Kart Görenler</h4>
                 <div className="grid grid-cols-4 gap-1">
-                    <input placeholder="Oyuncu" className="col-span-1 border border-blue-300 p-1.5 text-xs rounded" value={newIncorrectCard.player} onChange={e => setNewIncorrectCard({ ...newIncorrectCard, player: e.target.value })} />
+                    <input
+                        list="match-players"
+                        placeholder="Oyuncu"
+                        className="col-span-1 border border-blue-300 p-1.5 text-xs rounded"
+                        value={newIncorrectCard.player}
+                        onChange={e => setNewIncorrectCard({ ...newIncorrectCard, player: e.target.value })}
+                    />
                     <select className="border border-blue-300 p-1.5 text-xs rounded" value={newIncorrectCard.given} onChange={e => setNewIncorrectCard({ ...newIncorrectCard, given: e.target.value as any })}>
                         <option value="none">Verilen: Yok</option>
                         <option value="yellow">Verilen: Sarı</option>
@@ -341,6 +389,12 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                     </div>
                 </div>
             )}
+            {/* Players Datalist */}
+            <datalist id="match-players">
+                {players.map((p, i) => (
+                    <option key={i} value={p} />
+                ))}
+            </datalist>
         </form>
     );
 };
