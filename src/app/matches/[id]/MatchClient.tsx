@@ -630,24 +630,24 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                 )}
             </div>
             <div className="flex-1 flex flex-col min-w-0">
-                <div className="bg-transparent border-b border-border text-foreground flex items-center h-12 px-3 overflow-hidden bg-neutral-50 dark:bg-neutral-900/30">
+                <div className="bg-transparent border-b border-border text-neutral-950 dark:text-neutral-50 flex items-center h-14 px-3 overflow-hidden bg-neutral-100 dark:bg-neutral-900">
                     <div className="flex-1 flex items-center justify-between min-w-0">
-                        <span className="text-[12px] md:text-sm font-black uppercase tracking-tight truncate mr-2">{description || 'Pozisyon Değerlendirmesi'}</span>
-                        <span className="text-sm font-black text-red-600 shrink-0">{minute}'</span>
+                        <span className="text-[14px] md:text-lg font-black uppercase tracking-tight truncate mr-2">{description || 'Pozisyon Değerlendirmesi'}</span>
+                        <span className="text-base font-black text-red-600 shrink-0">{minute}'</span>
                     </div>
                 </div>
                 <div className="bg-muted/30 border-b border-border px-2 md:px-3 py-1.5 flex justify-between gap-1 md:gap-4">
                     <div className="flex-1 text-center border-r border-border pr-2">
-                        <span className="block text-[7px] md:text-[8px] text-muted-foreground font-bold uppercase">HAKEM</span>
-                        <span className="block text-[9px] md:text-[10px] text-foreground font-bold truncate">{refereeDecision || '-'}</span>
+                        <span className="block text-[9px] md:text-[10px] text-neutral-600 dark:text-neutral-400 font-black uppercase">HAKEM</span>
+                        <span className="block text-[11px] md:text-[13px] text-neutral-950 dark:text-neutral-50 font-black truncate">{refereeDecision || '-'}</span>
                     </div>
                     <div className="flex-1 text-center border-r border-border px-2">
-                        <span className="block text-[7px] md:text-[8px] text-blue-600 font-bold uppercase">VAR</span>
-                        <span className="block text-[9px] md:text-[10px] text-blue-700 font-bold truncate">{varRecommendation ? (varRecMap[varRecommendation] || varRecommendation) : '-'}</span>
+                        <span className="block text-[9px] md:text-[10px] text-blue-700 font-extrabold uppercase">VAR</span>
+                        <span className="block text-[11px] md:text-[13px] text-blue-900 dark:text-blue-300 font-black truncate">{varRecommendation ? (varRecMap[varRecommendation] || varRecommendation) : '-'}</span>
                     </div>
                     <div className="flex-1 text-center pl-2">
-                        <span className="block text-[7px] md:text-[8px] text-purple-600 font-bold uppercase">VAR SONUCU</span>
-                        <span className="block text-[9px] md:text-[10px] text-purple-700 font-bold truncate">{varDecision || '-'}</span>
+                        <span className="block text-[9px] md:text-[10px] text-purple-700 font-extrabold uppercase">VAR SONUCU</span>
+                        <span className="block text-[11px] md:text-[13px] text-purple-900 dark:text-purple-300 font-black truncate">{varDecision || '-'}</span>
                     </div>
                 </div>
                 <div className="bg-card p-3 flex-1">
@@ -665,7 +665,7 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                                 <div className="h-full flex flex-col items-center justify-center text-center px-1 py-3 w-full">
                                     {trioOpinions.map((op, idx) => (
                                         <div key={idx} className="w-full flex flex-col items-center">
-                                            {op.opinion && <p className="text-[12px] md:text-lg text-foreground leading-relaxed font-semibold mt-2 w-full px-2">"{op.opinion}"</p>}
+                                            {op.opinion && <p className="text-[14px] md:text-xl text-neutral-950 dark:text-neutral-50 leading-relaxed font-bold mt-2 w-full px-2">"{op.opinion}"</p>}
                                         </div>
                                     ))}
                                     {/* Other Opinions section simplified */}
@@ -678,7 +678,7 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                                                         <span className="text-[10px] font-black uppercase text-blue-400">{op.criticName}</span>
                                                         <TrioIcon judgment={op.judgment} size="w-5 h-5" />
                                                     </div>
-                                                    <p className="text-[11px] md:text-sm text-foreground/90 leading-tight font-semibold">"{op.opinion}"</p>
+                                                    <p className="text-[12px] md:text-base text-neutral-900 dark:text-neutral-100 leading-tight font-bold">"{op.opinion}"</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -741,7 +741,7 @@ function TrioOpinion({ name, op }: { name: string, op?: Opinion }) {
                     <TrioIcon judgment={op.judgment} />
                     {op.opinion && (
                         <div className="w-full">
-                            <div className={`text-[10px] md:text-[11px] text-foreground leading-snug font-semibold ${expanded ? '' : 'line-clamp-6'}`}>"{op.opinion}"</div>
+                            <div className={`text-[12px] md:text-[14px] text-neutral-950 dark:text-neutral-50 leading-snug font-bold ${expanded ? '' : 'line-clamp-6'}`}>"{op.opinion}"</div>
                             {isLong && <button onClick={() => setExpanded(!expanded)} className="text-[9px] font-bold text-blue-400 mt-1">{expanded ? 'Kapat' : 'Devamını Gör'}</button>}
                         </div>
                     )}
