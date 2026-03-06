@@ -605,12 +605,24 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
 
     return (
         <div className="rounded-xl overflow-hidden shadow-sm flex bg-card border border-border">
-            <div className="bg-neutral-100 dark:bg-neutral-900/50 border-r border-border w-14 md:w-20 shrink-0 flex flex-col items-center justify-center p-2 relative">
+            <div className="bg-neutral-100 dark:bg-neutral-900/50 border-r border-border w-16 md:w-24 shrink-0 flex flex-col items-center justify-center p-1 relative">
                 {varRecommendation === 'review' && <span className="font-black text-[8px] md:text-[9px] tracking-tight text-red-600 text-center leading-tight mb-1 border-b border-red-200 pb-1">VAR<br />MÜDAHALESİ</span>}
-                <span className="font-black text-[10px] md:text-sm tracking-tighter text-neutral-400">TRIO</span>
+                <span className="font-black text-[9px] md:text-[11px] tracking-tighter text-neutral-400 text-center uppercase leading-none">TRIO<br />YORUMU</span>
+                {(() => {
+                    const trioOpinions = opinions.filter(o =>
+                        o.type === 'trio' ||
+                        o.id?.startsWith('trio') ||
+                        o.criticName.includes(',') ||
+                        ['Bülent Yıldırım', 'Deniz Çoban', 'Bahattin Duran'].some(c => o.criticName.includes(c))
+                    );
+                    if (trioOpinions.length > 0) {
+                        return <div className="mt-2"><TrioIcon judgment={trioOpinions[0].judgment} size="w-8 h-8 md:w-12 md:h-12" /></div>;
+                    }
+                    return null;
+                })()}
                 {videoUrl && (
                     <a href={videoUrl} target="_blank" className="mt-2 flex flex-col items-center text-red-600 hover:text-red-700 transition-all transform hover:scale-105">
-                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 md:w-8 md:h-8 mb-0.5"><path d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.024-.983a1.125 1.125 0 0 1 0 1.966l-5.603 3.113A1.125 1.125 0 0 1 9 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113Z" /></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 md:w-7 md:h-7 mb-0.5"><path d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.024-.983a1.125 1.125 0 0 1 0 1.966l-5.603 3.113A1.125 1.125 0 0 1 9 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113Z" /></svg>
                         <span className="text-[7px] md:text-[8px] font-bold uppercase">İzle</span>
                     </a>
                 )}
@@ -636,10 +648,51 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                         <span className="block text-[9px] md:text-[10px] text-purple-700 font-bold truncate">{varDecision || '-'}</span>
                     </div>
                 </div>
-                <div className="bg-card p-2 flex-1 grid grid-cols-1 md:grid-cols-3 divide-y divide-border md:divide-y-0 md:divide-x">
-                    {critics.map(name => (
-                        <TrioOpinion key={name} name={name} op={opinions.find(o => o.criticName.toLowerCase().includes(name.toLowerCase().split(' ')[0]))} />
-                    ))}
+                <div className="bg-card p-3 flex-1">
+                    {(() => {
+                        const trioCritics = ['Bülent Yıldırım', 'Deniz Çoban', 'Bahattin Duran'];
+                        const trioOpinions = opinions.filter(o =>
+                            o.type === 'trio' ||
+                            o.id?.startsWith('trio') ||
+                            o.criticName.includes(',') ||
+                            trioCritics.some(c => o.criticName.includes(c))
+                        );
+
+                        if (trioOpinions.length > 0) {
+                            return (
+                                <div className="h-full flex flex-col items-center justify-center text-center px-1 py-3 w-full">
+                                    {trioOpinions.map((op, idx) => (
+                                        <div key={idx} className="w-full flex flex-col items-center">
+                                            {op.shortOpinion && <div className="mb-2 text-sm md:text-xl font-black text-foreground uppercase tracking-tight leading-tight">{op.shortOpinion}</div>}
+                                            {op.opinion && <p className="text-[11px] md:text-base text-muted-foreground leading-snug font-medium italic mt-2 w-full px-2">"{op.opinion}"</p>}
+                                        </div>
+                                    ))}
+                                    {/* Other Opinions section simplified */}
+                                    {opinions.filter(o => !trioOpinions.includes(o)).length > 0 && (
+                                        <div className="w-full mt-6 pt-4 border-t border-border space-y-4 px-2">
+                                            <span className="text-[10px] text-muted-foreground font-black mb-2 uppercase tracking-[0.15em]">DİĞER YORUMCULAR</span>
+                                            {opinions.filter(o => !trioOpinions.includes(o)).map((op, idx) => (
+                                                <div key={idx} className="text-left bg-muted/20 p-3 rounded-lg border border-border/50">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-[10px] font-black uppercase text-blue-400">{op.criticName}</span>
+                                                        <TrioIcon judgment={op.judgment} size="w-5 h-5" />
+                                                    </div>
+                                                    <p className="text-[11px] md:text-sm text-muted-foreground leading-tight italic font-medium">"{op.opinion}"</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
+
+                        // Fallback if NO trio opinions at all (should be rare now)
+                        return (
+                            <div className="text-center p-8 text-muted-foreground text-xs uppercase font-bold tracking-widest opacity-50">
+                                Yorum Bulunmuyor
+                            </div>
+                        );
+                    })()}
                 </div>
                 {(finalDecision || correctDecision) && (
                     <div className="bg-muted/30 border-t border-border px-3 py-2 flex flex-col gap-1">
@@ -674,10 +727,10 @@ function TrioOpinion({ name, op }: { name: string, op?: Opinion }) {
     );
 }
 
-function TrioIcon({ judgment }: { judgment: string }) {
-    if (judgment === 'correct') return <svg className="w-6 h-6 text-[#8CC63F]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17L4 12" /></svg>;
-    if (judgment === 'incorrect') return <svg className="w-6 h-6 text-[#E30613]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6L18 18" /></svg>;
-    return <svg className="w-6 h-6 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 9V14M12 17.01L12.01 16.9989" /></svg>;
+function TrioIcon({ judgment, size = 'w-6 h-6' }: { judgment: string, size?: string }) {
+    if (judgment === 'correct') return <svg className={`${size} text-[#8CC63F]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17L4 12" /></svg>;
+    if (judgment === 'incorrect') return <svg className={`${size} text-[#E30613]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6L18 18" /></svg>;
+    return <svg className={`${size} text-amber-400`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 9V14M12 17.01L12.01 16.9989" /></svg>;
 }
 
 function StatBar({ label, home, away, suffix = '' }: { label: string, home: number | string, away: number | string, homeColor?: string, awayColor?: string, suffix?: string }) {

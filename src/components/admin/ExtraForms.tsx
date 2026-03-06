@@ -744,7 +744,7 @@ export const MatchSelect = ({ value, onChange, competition = 'league', group, cl
     }, [selectedWeek, competition, group]);
 
     // Grouping logic removed since we fetch per week
-    const maxWeeks = competition === 'cup' ? 4 : 38;
+    const maxWeeks = competition === 'cup' ? 4 : 34;
     const weeks = Array.from({ length: maxWeeks }, (_, i) => i + 1).sort((a, b) => b - a);
     const currentWeekMatches = matches;
 

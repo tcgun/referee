@@ -113,9 +113,19 @@ function AdminContent() {
         const stored = localStorage.getItem('last_admin_match_id');
         if (stored) {
             setTargetMatchId(stored);
-            fetchMatchById(stored);
         }
     }, []);
+
+    // Automatically fetch data when targetMatchId changes
+    useEffect(() => {
+        if (targetMatchId) {
+            localStorage.setItem('last_admin_match_id', targetMatchId);
+            fetchMatchById(targetMatchId, true);
+        } else {
+            setLoadedMatch(null);
+            setLoadedIncidents([]);
+        }
+    }, [targetMatchId]);
 
     const fetchMatchById = async (id: string, silent = false) => {
         if (!id) return;
@@ -316,8 +326,8 @@ function AdminContent() {
                     {/* INCIDENTS TAB */}
                     {activeTab === 'incidents' && (
                         <div className="grid md:grid-cols-2 gap-8">
-                            <IncidentForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
-                            <OpinionForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
+                            <IncidentForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} onMatchChange={setTargetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
+                            <OpinionForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} onMatchChange={setTargetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
                         </div>
                     )}
 

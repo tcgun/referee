@@ -10,7 +10,7 @@ import { cleanSponsorsInText, getTeamName, resolveTeamId } from '@/lib/teams';
 
 export default function PfdkPage() {
     const [competition, setCompetition] = useState<'league' | 'cup'>('league');
-    const [maxWeek, setMaxWeek] = useState(38);
+    const [maxWeek, setMaxWeek] = useState(34);
     const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [weekLoading, setWeekLoading] = useState(false);

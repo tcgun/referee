@@ -1,28 +1,57 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Incident } from '@/types';
 import { db } from '@/firebase/client';
 import { doc, getDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
+import { MatchSelect } from '@/components/admin/ExtraForms';
 
 interface IncidentFormProps {
     apiKey: string;
     authToken?: string;
     defaultMatchId?: string;
+    onMatchChange?: (id: string) => void;
     existingIncidents?: Incident[];
     onSuccess?: () => void;
 }
 
-export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncidents, onSuccess }: IncidentFormProps) => {
+export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, existingIncidents, onSuccess }: IncidentFormProps) => {
     const [matchId, setMatchId] = useState('');
     const [incident, setIncident] = useState<Partial<Incident>>({
         id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none', varRecommendation: 'none'
     });
 
-    if (defaultMatchId && matchId !== defaultMatchId) {
-        setMatchId(defaultMatchId);
-    }
+    useEffect(() => {
+        if (defaultMatchId && defaultMatchId !== matchId) {
+            setMatchId(defaultMatchId);
+        }
+    }, [defaultMatchId]);
+
+    const handleMatchChange = (id: string) => {
+        setMatchId(id);
+        if (onMatchChange) onMatchChange(id);
+    };
+
+    // Auto-increment ID logic
+    useEffect(() => {
+        if (matchId && existingIncidents) {
+            const matchIncidents = existingIncidents.filter(inc => inc.matchId === matchId);
+            if (matchIncidents.length > 0) {
+                const numericIds = matchIncidents
+                    .map(inc => {
+                        const match = inc.id.match(/\d+/);
+                        return match ? parseInt(match[0]) : 0;
+                    })
+                    .filter(n => !isNaN(n));
+
+                const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
+                setIncident(prev => ({ ...prev, id: `inc${maxId + 1}` }));
+            } else {
+                setIncident(prev => ({ ...prev, id: 'inc1' }));
+            }
+        }
+    }, [matchId, existingIncidents]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -37,10 +66,23 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
         });
         if (res.ok) {
             toast.success('Pozisyon Başarıyla Eklendi! ✅');
+
+            // Auto-increment logic: find the current number and add 1
+            const currentNum = parseInt(incident.id?.replace('inc', '') || '0') || 0;
+            const nextId = `inc${currentNum + 1}`;
+
             setIncident({
-                id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '', impact: 'none', varRecommendation: 'none',
-                varDecision: '', favorOf: '', against: '', videoUrl: ''
+                id: nextId,
+                minute: 1,
+                description: '',
+                refereeDecision: '',
+                finalDecision: '',
+                impact: 'none',
+                varRecommendation: 'none',
+                varDecision: '',
+                videoUrl: ''
             });
+
             if (onSuccess) onSuccess();
         } else toast.error('Hata: Pozisyon eklenemedi.');
     };
@@ -64,7 +106,16 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
     return (
         <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm">
             <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Pozisyon Ekle (Incident)</h3>
-            <input placeholder="Hangi Maç ID?" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={matchId} onChange={e => setMatchId(e.target.value)} required />
+
+            <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-500 uppercase">Maç Seçiniz</label>
+                <MatchSelect
+                    value={matchId}
+                    onChange={handleMatchChange}
+                    className="w-full"
+                />
+            </div>
+
             <div className="flex gap-2">
                 <input type="text" placeholder="Dk (örn: 45+2)" className="border border-gray-300 p-2 w-24 rounded text-gray-900" value={incident.minute || ''} onChange={e => setIncident({ ...incident, minute: e.target.value })} />
                 <input placeholder="Pozisyon ID (örn: inc1)" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.id} onChange={e => setIncident({ ...incident, id: e.target.value })} required />
@@ -94,7 +145,18 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
                 </div>
                 <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-500">VAR Önerisi</label>
-                    <select className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incident.varRecommendation || 'none'} onChange={e => setIncident({ ...incident, varRecommendation: e.target.value as any })}>
+                    <select
+                        className="border border-gray-300 p-2 w-full rounded text-gray-900"
+                        value={incident.varRecommendation || 'none'}
+                        onChange={e => {
+                            const val = e.target.value as any;
+                            const updates: Partial<Incident> = { varRecommendation: val };
+                            if (val === 'none') {
+                                updates.varDecision = 'Müdahale Yok';
+                            }
+                            setIncident(prev => ({ ...prev, ...updates }));
+                        }}
+                    >
                         <option value="none">İnceleme Önerisi Yok</option>
                         <option value="review">İnceleme Önerisi</option>
                         <option value="monitor_only">Sadece Takip</option>
@@ -118,15 +180,8 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
 
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-green-600">Lehe (Takım ID)</label>
-                    <input placeholder="örn: galatasaray" className="border border-green-200 bg-green-50 p-2 w-full rounded text-gray-900" value={incident.favorOf || ''} onChange={e => setIncident({ ...incident, favorOf: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-red-600">Aleyhe (Takım ID)</label>
-                    <input placeholder="örn: fenerbahce" className="border border-red-200 bg-red-50 p-2 w-full rounded text-gray-900" value={incident.against || ''} onChange={e => setIncident({ ...incident, against: e.target.value })} />
-                </div>
+            <div className="mt-2 text-xs text-gray-400 italic">
+                * Lehe/Aleyhe bilgisi artık buradan girilmeyecektir.
             </div>
 
             <div className="mt-2">
@@ -163,13 +218,15 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, existingIncide
                 <div className="mt-4 border-t pt-4">
                     <h4 className="font-bold text-gray-700 mb-2">Ekli Pozisyonlar:</h4>
                     <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {existingIncidents.map((inc: any) => (
-                            <div key={inc.id} onClick={() => setIncident(inc)} className="p-2 border rounded bg-white hover:bg-red-50 cursor-pointer text-sm">
-                                <span className="font-bold text-red-600 mr-2">{inc.minute}'</span>
-                                <span className="font-mono text-xs text-gray-400">[{inc.id}]</span>
-                                <p className="truncate text-gray-800">{inc.description}</p>
-                            </div>
-                        ))}
+                        {existingIncidents
+                            .filter((inc: any) => inc.matchId === matchId)
+                            .map((inc: any) => (
+                                <div key={inc.id} onClick={() => setIncident(inc)} className="p-2 border rounded bg-white hover:bg-red-50 cursor-pointer text-sm">
+                                    <span className="font-bold text-red-600 mr-2">{inc.minute}'</span>
+                                    <span className="font-mono text-xs text-gray-400">[{inc.id}]</span>
+                                    <p className="truncate text-gray-800">{inc.description}</p>
+                                </div>
+                            ))}
                     </div>
                 </div>
             )}
