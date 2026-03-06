@@ -222,7 +222,9 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                         <option value="Penaltı">Penaltı</option>
                         <option value="Penaltı İptal">Penaltı İptal</option>
                         <option value="Faul + Sarı Kart">Faul + Sarı Kart</option>
+                        <option value="Faul + Sarı Kart Verilmedi">Faul + Sarı Kart Verilmedi</option>
                         <option value="Faul + Kırmızı Kart">Faul + Kırmızı Kart</option>
+                        <option value="Faul + Kırmızı Kart Verilmedi">Faul + Kırmızı Kart Verilmedi</option>
                         <option value="Avantaj">Avantaj</option>
                     </select>
                 </div>
