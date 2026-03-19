@@ -21,10 +21,10 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
         short: 'goz'
     },
     'bas': {
-        name: 'Başakşehir Futbol Kulübü',
+        name: 'Başakşehir FK',
         colors: { primary: '#E56B25', secondary: '#163962' },
         short: 'bas',
-        aliases: ['basaksehir', 'rams', 'ibfk', 'medipol', 'rams başakşehir', 'rams babşakşehir', 'başakşehir']
+        aliases: ['basaksehir', 'rams', 'ibfk', 'medipol', 'rams başakşehir', 'rams babşakşehir', 'başakşehir', 'başakşehir futbol kulübü']
     },
     'ant': {
         name: 'Antalyaspor',
@@ -238,8 +238,8 @@ export function cleanSponsorsInText(text: string): string {
     cleaned = cleaned.replace(/TRENDYOL\s+SÜPER\s+LİG/gi, 'SÜPER LİG');
     cleaned = cleaned.replace(/MEHMET\s+ALİ\s+YILMAZ\s+SEZONU/gi, '');
     cleaned = cleaned.replace(/MEHMET\s+ALİ\s+YILMAZ/gi, ''); // Ekstra güvenlik
-    cleaned = cleaned.replace(/BAŞAKŞEHİR\s+FUTBOL\s+KULÜBÜ/gi, 'BAŞAKŞEHİR FUTBOL KULÜBÜ'); // İsmi koru
-    cleaned = cleaned.replace(/GAZİANTEP\s+FUTBOL\s+KULÜBÜ/gi, 'GAZİANTEP FUTBOL KULÜBÜ'); // İsmi koru
+    cleaned = cleaned.replace(/BAŞAKŞEHİR\s+FUTBOL\s+KULÜBÜ/gi, 'BAŞAKŞEHİR FK'); // İsmi güncelle ve koru
+    cleaned = cleaned.replace(/GAZİANTEP\s+FUTBOL\s+KULÜBÜ/gi, 'GAZİANTEP FK'); // İsmi kısalt ve koru
     cleaned = cleaned.replace(/FUTBOL\s+A\.Ş\./gi, '');
     cleaned = cleaned.replace(/A\.Ş\./gi, '');
 

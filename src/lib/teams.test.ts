@@ -20,6 +20,7 @@ describe('Teams Logic', () => {
             expect(resolveTeamId('gfk')).toBe('gaz');
             expect(resolveTeamId('başakşehir')).toBe('bas');
             expect(resolveTeamId('rams başakşehir')).toBe('bas');
+            expect(resolveTeamId('başakşehir fk')).toBe('bas');
         });
 
         it('should return null for unknown teams', () => {

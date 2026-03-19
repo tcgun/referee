@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { TeamForm, MatchForm, IncidentForm, OpinionForm, OfficialForm } from '@/components/admin/AdminForms';
 import { StandingForm, StatementForm, DisciplinaryForm, DisciplinaryList, RefereeStatsForm, MatchSelect } from '@/components/admin/ExtraForms';
+import { MatchIncidentsSummary } from '@/components/admin/MatchIncidentsSummary';
 import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
 import { signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/firebase/client';
@@ -325,9 +326,12 @@ function AdminContent() {
 
                     {/* INCIDENTS TAB */}
                     {activeTab === 'incidents' && (
-                        <div className="grid md:grid-cols-2 gap-8">
-                            <IncidentForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} onMatchChange={setTargetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
-                            <OpinionForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} onMatchChange={setTargetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
+                        <div className="space-y-8">
+                            <div className="grid md:grid-cols-2 gap-8">
+                                <IncidentForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} onMatchChange={setTargetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
+                                <OpinionForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} onMatchChange={setTargetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
+                            </div>
+                            <MatchIncidentsSummary incidents={loadedIncidents} />
                         </div>
                     )}
 

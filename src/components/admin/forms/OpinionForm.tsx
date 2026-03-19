@@ -157,9 +157,10 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, 
                     Trio Yorumcuları: Bülent Yıldırım, Deniz Çoban, Bahattin Duran (Ortak Karar)
                 </div>
             )}
-            <textarea placeholder="Uzun Yorum (Detaylı)..." rows={4} className="border border-gray-300 p-2 w-full rounded text-gray-900" value={opinion.opinion || ''} onChange={e => setOpinion({ ...opinion, opinion: e.target.value })} />
+            <textarea placeholder="Net Karar (Örn: Net Penaltı / Karar Doğru)..." rows={1} className="border-2 border-green-500 p-2 w-full rounded text-gray-900 font-bold bg-green-50 shadow-sm" value={opinion.opinion || ''} onChange={e => setOpinion({ ...opinion, opinion: e.target.value })} />
+            <textarea placeholder="Detaylı Sebep ve Yorum Gerekçesi..." rows={5} className="border border-gray-300 p-2 w-full rounded text-gray-900 mt-2" value={opinion.reasoning || ''} onChange={e => setOpinion({ ...opinion, reasoning: e.target.value })} />
 
-            <div className='flex gap-2'>
+            <div className='flex gap-2 mt-4'>
                 <button type="submit" className="bg-green-600 hover:bg-green-700 text-white p-2 rounded flex-1 font-medium">Yorumu Kaydet</button>
                 {opinion.id && (
                     <button
@@ -192,14 +193,21 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, 
                             .filter((inc: any) => inc.matchId === matchId)
                             .flatMap((inc: any) =>
                                 (inc.opinions || []).map((op: any) => ({ ...op, incidentData: inc }))
-                            ).map((op: any) => (
+                            )
+                            .sort((a: any, b: any) => {
+                                const incSort = a.incidentData.id.localeCompare(b.incidentData.id, undefined, { numeric: true });
+                                if (incSort !== 0) return incSort;
+                                return a.id.localeCompare(b.id, undefined, { numeric: true });
+                            })
+                            .map((op: any) => (
                                 <div key={`${op.incidentData.id}-${op.id}`} onClick={() => { setIncidentId(op.incidentData.id); setOpinion(op); }} className="p-2 border rounded bg-white hover:bg-green-50 cursor-pointer text-sm">
                                     <div className="flex justify-between text-xs text-gray-400">
                                         <span>{op.incidentData.minute}' - {op.incidentData.id}</span>
                                         <span className="font-mono">[{op.id}]</span>
                                     </div>
                                     <div className="font-bold text-gray-800">{op.criticName}</div>
-                                    <p className="truncate text-gray-600">{op.opinion}</p>
+                                    <div className="font-bold pl-1 border-l-2 border-green-500 text-gray-900">{op.opinion}</div>
+                                    {op.reasoning && <p className="text-gray-500 text-xs mt-1 leading-snug line-clamp-2 pl-1">{op.reasoning}</p>}
                                 </div>
                             ))}
                     </div>

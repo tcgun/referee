@@ -352,6 +352,7 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                     <div className="space-y-2 max-h-60 overflow-y-auto">
                         {existingIncidents
                             .filter((inc: any) => inc.matchId === matchId)
+                            .sort((a: any, b: any) => a.id.localeCompare(b.id, undefined, { numeric: true }))
                             .map((inc: any) => (
                                 <div key={inc.id} onClick={() => setIncident(inc)} className="p-2 border rounded bg-white hover:bg-red-50 cursor-pointer text-sm">
                                     <span className="font-bold text-red-600 mr-2">{inc.minute}'</span>

@@ -63,16 +63,7 @@ export default function MatchClient() {
                     incidentsList.push({ ...incData, opinions });
                 }));
 
-                const parseMinute = (min: number | string): number => {
-                    if (typeof min === 'number') return min;
-                    if (typeof min === 'string' && min.includes('+')) {
-                        const [base, extra] = min.split('+').map(Number);
-                        return base + (extra / 100);
-                    }
-                    return parseFloat(min as string) || 0;
-                };
-
-                incidentsList.sort((a, b) => parseMinute(a.minute) - parseMinute(b.minute));
+                incidentsList.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
                 setIncidents(incidentsList);
 
                 const pfdkQ = query(collection(db, 'disciplinary_actions'), where('matchId', 'in', [matchId, `d-${matchId}`]));
@@ -626,6 +617,11 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                         <span className="text-[7px] md:text-[8px] font-bold uppercase">İzle</span>
                     </a>
                 )}
+                {varDecision && varDecision !== 'Müdahale Yok' && varDecision !== '(Yok/Seçiniz)' && (
+                    <div className="mt-3 flex flex-col items-center bg-purple-900/20 md:bg-purple-100 dark:bg-purple-900/30 border border-purple-500/30 md:border-purple-300 rounded px-1.5 py-0.5 shadow-sm">
+                        <span className="text-[9px] md:text-[11px] font-black text-purple-700 dark:text-purple-400 uppercase tracking-widest">VAR</span>
+                    </div>
+                )}
             </div>
             <div className="flex-1 flex flex-col min-w-0">
                 <div className="bg-transparent border-b border-border text-neutral-950 dark:text-neutral-50 flex items-center h-14 px-3 overflow-hidden bg-neutral-100 dark:bg-neutral-900">
@@ -658,8 +654,22 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                             return (
                                 <div className="h-full flex flex-col items-center justify-center text-center px-1 py-3 w-full">
                                     {trioOpinions.map((op, idx) => (
-                                        <div key={idx} className="w-full flex flex-col items-center">
-                                            {op.opinion && <p className="text-[14px] md:text-xl text-neutral-950 dark:text-neutral-50 leading-relaxed font-bold mt-2 w-full px-2">"{op.opinion}"</p>}
+                                        <div key={idx} className="w-full flex flex-col items-center mb-4 last:mb-0">
+                                            {op.opinion && (
+                                                <div className="bg-green-50 dark:bg-green-900/10 border-2 border-green-500 rounded-lg p-3 w-full my-2 shadow-sm text-center">
+                                                    <p className="text-[16px] md:text-2xl text-green-800 dark:text-green-300 leading-tight font-black uppercase tracking-tighter">
+                                                        "{op.opinion}"
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {op.reasoning && (
+                                                <div className="w-full bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/50 rounded-lg p-3 text-left">
+                                                    <span className="font-black uppercase tracking-widest text-[9px] text-neutral-400 block mb-1">DETAY / SEBEP</span>
+                                                    <p className="text-[11px] md:text-[13px] text-neutral-600 dark:text-neutral-400 leading-relaxed font-medium">
+                                                        {op.reasoning}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                     {/* Other Opinions section simplified */}
@@ -667,12 +677,23 @@ function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, va
                                         <div className="w-full mt-6 pt-4 border-t border-border space-y-4 px-2">
                                             <span className="text-[10px] text-muted-foreground font-black mb-2 uppercase tracking-[0.15em]">DİĞER YORUMCULAR</span>
                                             {opinions.filter(o => !trioOpinions.includes(o)).map((op, idx) => (
-                                                <div key={idx} className="text-left bg-muted/20 p-3 rounded-lg border border-border/50">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-[10px] font-black uppercase text-blue-400">{op.criticName}</span>
+                                                <div key={idx} className="text-left bg-muted/20 p-3 rounded-lg border border-border/50 flex flex-col gap-2">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-[10px] font-black uppercase text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded">{op.criticName}</span>
                                                         <TrioIcon judgment={op.judgment} size="w-5 h-5" />
                                                     </div>
-                                                    <p className="text-[12px] md:text-base text-neutral-900 dark:text-neutral-100 leading-tight font-bold">"{op.opinion}"</p>
+                                                    {op.opinion && (
+                                                        <div className="border-l-[3px] border-green-500 pl-3 py-1 bg-gradient-to-r from-green-50/50 dark:from-green-900/10 to-transparent rounded-r-md">
+                                                            <p className="text-[13px] md:text-base text-neutral-900 dark:text-neutral-100 leading-tight font-black uppercase">
+                                                                {op.opinion}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                    {op.reasoning && (
+                                                        <div className="bg-neutral-100 dark:bg-neutral-800/40 rounded p-2 text-[10px] md:text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400 italic">
+                                                            {op.reasoning}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -734,9 +755,16 @@ function TrioOpinion({ name, op }: { name: string, op?: Opinion }) {
                 <>
                     <TrioIcon judgment={op.judgment} />
                     {op.opinion && (
-                        <div className="w-full">
-                            <div className={`text-[12px] md:text-[14px] text-neutral-950 dark:text-neutral-50 leading-snug font-bold ${expanded ? '' : 'line-clamp-6'}`}>"{op.opinion}"</div>
-                            {isLong && <button onClick={() => setExpanded(!expanded)} className="text-[9px] font-bold text-blue-400 mt-1">{expanded ? 'Kapat' : 'Devamını Gör'}</button>}
+                        <div className="w-full text-left mt-2 flex flex-col gap-1.5">
+                            <div className={`text-[12px] md:text-[14px] text-green-700 dark:text-green-400 border-l-[3px] border-green-500 pl-2 leading-tight font-black uppercase ${expanded ? '' : 'line-clamp-2'}`}>
+                                {op.opinion}
+                            </div>
+                            {op.reasoning && (
+                                <div className={`text-[10px] md:text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug italic bg-neutral-100 dark:bg-neutral-800/50 p-1.5 rounded ${expanded ? '' : 'line-clamp-3'}`}>
+                                    {op.reasoning}
+                                </div>
+                            )}
+                            {isLong && <button onClick={() => setExpanded(!expanded)} className="text-[9px] font-bold text-blue-500 self-start">{expanded ? 'Kapat' : 'Devamını Gör'}</button>}
                         </div>
                     )}
                 </>
