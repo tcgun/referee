@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { TeamForm, MatchForm, IncidentForm, OpinionForm, OfficialForm } from '@/components/admin/AdminForms';
 import { StandingForm, StatementForm, DisciplinaryForm, DisciplinaryList, RefereeStatsForm, MatchSelect } from '@/components/admin/ExtraForms';
 import { MatchIncidentsSummary } from '@/components/admin/MatchIncidentsSummary';
+import GeneratorWrapper from '@/generator-system/GeneratorWrapper';
 import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
 import { signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/firebase/client';
@@ -46,7 +47,7 @@ function AdminContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
-    const [activeTab, setActiveTab] = useState<'setup' | 'matches' | 'incidents' | 'extras' | 'officials' | 'standings'>('setup');
+    const [activeTab, setActiveTab] = useState<'setup' | 'matches' | 'incidents' | 'extras' | 'officials' | 'standings' | 'generator'>('setup');
 
     // Sync tab with URL and LocalStorage
     useEffect(() => {
@@ -265,7 +266,8 @@ function AdminContent() {
                         { id: 'incidents', label: 'Pozisyon & Yorum' },
                         { id: 'officials', label: 'Hakemler' },
                         { id: 'extras', label: 'PFDK' },
-                        { id: 'standings', label: 'Puan Durumu' }
+                        { id: 'standings', label: 'Puan Durumu' },
+                        { id: 'generator', label: 'Görsel Hazırla' }
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -357,6 +359,16 @@ function AdminContent() {
                     {activeTab === 'standings' && (
                         <div className="max-w-4xl mx-auto">
                             <StandingForm apiKey={apiKey} authToken={authToken} />
+                        </div>
+                    )}
+
+                    {/* GENERATOR TAB */}
+                    {activeTab === 'generator' && (
+                        <div className="h-[900px]">
+                            <GeneratorWrapper 
+                                activeMatch={loadedMatch} 
+                                activeIncidents={loadedIncidents} 
+                            />
                         </div>
                     )}
 
