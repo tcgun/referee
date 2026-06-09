@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Opinion, Incident } from '@/types';
 import { toast } from 'sonner';
+import { MatchSelect } from '@/components/admin/ExtraForms';
 
 interface OpinionFormProps {
     apiKey: string;
@@ -11,9 +12,10 @@ interface OpinionFormProps {
     onMatchChange?: (id: string) => void;
     existingIncidents?: Array<Incident & { opinions: Opinion[] }>;
     onSuccess?: () => void;
+    season?: string;
 }
 
-export const OpinionForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, existingIncidents, onSuccess }: OpinionFormProps) => {
+export const OpinionForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, existingIncidents, onSuccess, season }: OpinionFormProps) => {
     const [matchId, setMatchId] = useState(''); // Changed initial state
     const [incidentId, setIncidentId] = useState('');
     const [opinion, setOpinion] = useState<Partial<Opinion>>({
@@ -90,7 +92,12 @@ export const OpinionForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, 
         <form onSubmit={handleSubmit} className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm">
             <h3 className="font-bold text-lg text-gray-800 border-b pb-2">Yorum Ekle (Opinion)</h3>
             <div className="grid grid-cols-2 gap-2">
-                <input placeholder="Match ID" className="border border-gray-300 p-2 w-full rounded text-gray-900" value={matchId} onChange={e => handleMatchIdChange(e.target.value)} required />
+                <MatchSelect
+                    value={matchId}
+                    onChange={handleMatchIdChange}
+                    season={season}
+                    className="w-full"
+                />
                 <select className="border border-gray-300 p-2 w-full rounded text-gray-900" value={incidentId} onChange={e => setIncidentId(e.target.value)} required>
                     <option value="">(Pozisyon Seçiniz)</option>
                     {existingIncidents && [...existingIncidents]

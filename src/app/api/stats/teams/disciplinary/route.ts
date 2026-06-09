@@ -1,11 +1,26 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/firebase/admin';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const season = searchParams.get('season') || '2025-2026';
+
         const db = getAdminDb();
         const snap = await db.collection('disciplinary_actions').get();
-        const actions = snap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+        let actions = snap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+
+        // Helper to resolve season YYYY-YYYY from date
+        const getSeasonFromDate = (dateStr: string): string => {
+            if (!dateStr) return '2025-2026';
+            const d = new Date(dateStr);
+            const year = d.getFullYear();
+            const month = d.getMonth() + 1; // 1-indexed
+            return month >= 7 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+        };
+
+        // Filter actions by season
+        actions = actions.filter((act: any) => getSeasonFromDate(act.date) === season);
 
         const teamStats: Record<string, any> = {};
         const weeklyGlobalStats: Record<number, number> = {};

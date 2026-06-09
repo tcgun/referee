@@ -12,9 +12,10 @@ interface MatchFormProps {
     apiKey: string;
     authToken?: string;
     preloadedMatch?: Match | null;
+    season?: string;
 }
 
-export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps) => {
+export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFormProps) => {
     const router = useRouter();
     const [match, setMatch] = useState<Partial<Match>>({
         id: '',
@@ -22,7 +23,8 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
         date: new Date().toISOString(),
         status: 'draft',
         competition: 'league',
-        group: ''
+        group: '',
+        season: season || '2025-2026'
     });
     const [originalId, setOriginalId] = useState<string>('');
     const [localDate, setLocalDate] = useState('');
@@ -64,6 +66,13 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
             setOriginalId(preloadedMatch.id || '');
         }
     }, [preloadedMatch]);
+
+    // Sync season prop with match state
+    useEffect(() => {
+        if (season) {
+            setMatch(prev => ({ ...prev, season }));
+        }
+    }, [season]);
 
     const updateStat = (key: string, val: string) => {
         const num = val === '' ? undefined : Number(val);
@@ -148,7 +157,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
 
         if (!activeId) return toast.error('Lütfen önce Maç ID giriniz (veya verileri yapıştırınız).');
 
-        const payload = prepareMatchForSave({ ...match, id: activeId });
+        const payload = prepareMatchForSave({ ...match, id: activeId, season: season || match.season });
         const res = await fetch('/api/admin/matches', {
             method: 'POST',
             headers: {
@@ -168,7 +177,8 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                 date: new Date().toISOString(),
                 status: 'draft',
                 competition: match.competition || 'league',
-                group: match.group || ''
+                group: match.group || '',
+                season: season || match.season
             });
             setOriginalId('');
             setSmartRaw('');
@@ -364,7 +374,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
             if (res.ok) {
                 alert('Maç başarıyla silindi! 🗑️');
                 setMatch({
-                    id: '', homeTeamId: '', awayTeamId: '', homeTeamName: '', awayTeamName: '', week: 1, season: '2024-2025', stadium: 'Rams Park', date: new Date().toISOString(),
+                    id: '', homeTeamId: '', awayTeamId: '', homeTeamName: '', awayTeamName: '', week: 1, season: '2025-2026', stadium: 'Rams Park', date: new Date().toISOString(),
                     status: 'draft'
                 });
                 window.location.reload();
@@ -408,6 +418,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                             value={match.id || ''}
                             competition={match.competition || 'league'}
                             group={match.group}
+                            season={season}
                             onChange={(val, week) => {
                                 const updates: any = { id: val };
                                 if (week) updates.week = week;
@@ -419,7 +430,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch }: MatchFormProps)
                         <button type="button" onClick={handleLoad} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold text-sm shadow-sm transition-all h-[38px]">Getir</button>
                         <button type="button" onClick={handleRenameMatch} className="bg-orange-50 text-orange-600 px-4 py-2 rounded font-bold text-sm border border-orange-200 hover:bg-orange-100 transition-all h-[38px]">ID Değiştir</button>
                         <button type="button" onClick={handleDeleteMatch} className="bg-red-50 text-red-600 px-4 py-2 rounded font-bold text-sm border border-red-200 hover:bg-red-100 transition-all h-[38px]">Sil</button>
-                        <button type="button" onClick={() => { setMatch({ id: '', week: 1, date: new Date().toISOString(), status: 'draft', competition: match.competition || 'league', group: match.group || '' }); setOriginalId(''); setSmartRaw(''); setStatsRaw(''); }} className="bg-white text-slate-600 px-4 py-2 rounded font-bold text-sm border border-slate-200 hover:bg-slate-50 transition-all h-[38px]">Yeni</button>
+                        <button type="button" onClick={() => { setMatch({ id: '', week: 1, date: new Date().toISOString(), status: 'draft', competition: match.competition || 'league', group: match.group || '', season }); setOriginalId(''); setSmartRaw(''); setStatsRaw(''); }} className="bg-white text-slate-600 px-4 py-2 rounded font-bold text-sm border border-slate-200 hover:bg-slate-50 transition-all h-[38px]">Yeni</button>
                     </div>
                 </div>
 

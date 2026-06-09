@@ -7,7 +7,7 @@ import { timingSafeEqual } from 'crypto';
 export function verifyAdminKey(providedKey: string | null): boolean {
     const adminKey = process.env.ADMIN_KEY || '';
 
-    if (!providedKey) {
+    if (!providedKey || providedKey.trim() === '') {
         return false;
     }
 
@@ -17,9 +17,9 @@ export function verifyAdminKey(providedKey: string | null): boolean {
 
     // If lengths don't match, use timing-safe comparison anyway to prevent timing leaks
     if (adminKeyBuffer.length !== providedKeyBuffer.length) {
-        // Compare with a dummy buffer of same length to maintain constant time
+        // Compare dummy with itself to maintain constant time without crashing
         const dummyBuffer = Buffer.alloc(adminKeyBuffer.length);
-        timingSafeEqual(dummyBuffer, providedKeyBuffer);
+        timingSafeEqual(dummyBuffer, dummyBuffer);
         return false;
     }
 

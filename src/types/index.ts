@@ -19,6 +19,8 @@ export interface Official {
     rating?: number; // overall rating
     matchesCount?: number;
     roleCounts?: Partial<Record<OfficialRole, number>>;
+    classification?: string;
+    seasons?: string[];
 }
 
 export interface MatchStats {
@@ -82,7 +84,7 @@ export interface Match {
     awayTeamName: string; // Denormalized
     date: string | Date; // ISO string or Firestore Timestamp
     week: number;
-    season: string; // "2024-2025"
+    season: string; // "2025-2026"
     stadium: string;
     referee: string;
     varReferee: string;
@@ -185,6 +187,7 @@ export interface Standing {
     goalDiff: number;
     points: number;
     rank?: number;
+    season?: string;
 }
 
 export interface Statement {
@@ -195,6 +198,7 @@ export interface Statement {
     date: string;
     url?: string;
     type: 'tff' | 'club';
+    season?: string;
 }
 
 export interface DisciplinaryAction {
@@ -210,4 +214,5 @@ export interface DisciplinaryAction {
     week?: number; // Added for weekly grouping
     group?: string; // Added for group grouping (A, B, C)
     note?: string; // Full legal text
+    season?: string;
 }

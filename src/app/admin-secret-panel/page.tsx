@@ -12,7 +12,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Suspense } from 'react';
 
 // Wrapper for Disciplinary Section to share state
-const DisciplinaryWrapper = ({ apiKey, authToken }: { apiKey: string, authToken?: string }) => {
+const DisciplinaryWrapper = ({ apiKey, authToken, season }: { apiKey: string, authToken?: string, season?: string }) => {
     const [editingItem, setEditingItem] = useState<DisciplinaryAction | null>(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -24,12 +24,14 @@ const DisciplinaryWrapper = ({ apiKey, authToken }: { apiKey: string, authToken?
                 editItem={editingItem}
                 onCancelEdit={() => setEditingItem(null)}
                 onSuccess={() => setRefreshTrigger(prev => prev + 1)}
+                season={season}
             />
             <DisciplinaryList
                 apiKey={apiKey}
                 authToken={authToken}
                 onEdit={setEditingItem}
                 refreshTrigger={refreshTrigger}
+                season={season}
             />
         </>
     );
@@ -40,14 +42,23 @@ function AdminContent() {
     const [user, setUser] = useState<User | null>(null);
     const [authToken, setAuthToken] = useState<string>('');
     const [loading, setLoading] = useState(true);
+    const [selectedSeason, setSelectedSeason] = useState<string>('2025-2026');
 
-    const [apiKey, setApiKey] = useState('');
+    const [apiKey, setApiKey] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const stored = sessionStorage.getItem('admin_key');
+            if (stored) return stored;
+            return process.env.NEXT_PUBLIC_ADMIN_KEY || '';
+        }
+        return '';
+    });
 
     // Tab Persistence Logic
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
-    const [activeTab, setActiveTab] = useState<'setup' | 'matches' | 'incidents' | 'extras' | 'officials' | 'standings' | 'generator'>('setup');
+    type TabType = 'setup' | 'matches' | 'incidents' | 'extras' | 'officials' | 'standings' | 'generator';
+    const [activeTab, setActiveTab] = useState<TabType>('setup');
 
     // Sync tab with URL and LocalStorage
     useEffect(() => {
@@ -55,10 +66,10 @@ function AdminContent() {
         const storedTab = localStorage.getItem('admin_active_tab');
 
         if (queryTab) {
-            setActiveTab(queryTab as any);
+            setActiveTab(queryTab as TabType);
             localStorage.setItem('admin_active_tab', queryTab);
         } else if (storedTab) {
-            setActiveTab(storedTab as any);
+            setActiveTab(storedTab as TabType);
             // Put it in URL if missing
             const params = new URLSearchParams(window.location.search);
             params.set('tab', storedTab);
@@ -67,7 +78,7 @@ function AdminContent() {
     }, [searchParams, pathname, router]);
 
     const handleTabChange = (tab: string) => {
-        setActiveTab(tab as any);
+        setActiveTab(tab as TabType);
         localStorage.setItem('admin_active_tab', tab);
         const params = new URLSearchParams(searchParams.toString());
         params.set('tab', tab);
@@ -79,6 +90,9 @@ function AdminContent() {
         const storedKey = sessionStorage.getItem('admin_key');
         if (storedKey) {
             setApiKey(storedKey);
+        } else if (process.env.NEXT_PUBLIC_ADMIN_KEY) {
+            setApiKey(process.env.NEXT_PUBLIC_ADMIN_KEY);
+            sessionStorage.setItem('admin_key', process.env.NEXT_PUBLIC_ADMIN_KEY);
         }
 
         const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -132,7 +146,7 @@ function AdminContent() {
     const fetchMatchById = async (id: string, silent = false) => {
         if (!id) return;
         try {
-            const { doc, getDoc, collection, getDocs, query, orderBy } = await import('firebase/firestore');
+            const { doc, getDoc, collection, getDocs } = await import('firebase/firestore');
             const { db } = await import('@/firebase/client');
 
             const matchSnap = await getDoc(doc(db, 'matches', id));
@@ -213,6 +227,23 @@ function AdminContent() {
                         <span className="text-blue-500">◆</span> Yönetici Paneli
                     </h1>
                     <div className="flex items-center gap-4">
+                        {/* Global Sezon Seçici */}
+                        <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 gap-0.5 mr-2">
+                            {['2025-2026', '2026-2027'].map((season) => (
+                                <button
+                                    key={season}
+                                    type="button"
+                                    onClick={() => setSelectedSeason(season)}
+                                    className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${selectedSeason === season
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : 'text-slate-400 hover:text-white'
+                                        }`}
+                                >
+                                    {season}
+                                </button>
+                            ))}
+                        </div>
+
                         <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
                             <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"></div>
                             <span className="text-[10px] font-bold text-slate-300 truncate max-w-[120px]">{user.email}</span>
@@ -241,7 +272,7 @@ function AdminContent() {
             <div className="max-w-6xl mx-auto px-6 pt-4">
                 <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded">
                     <div className="flex">
-                        <div className="flex-shrink-0">
+                        <div className="shrink-0">
                             <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                             </svg>
@@ -264,7 +295,7 @@ function AdminContent() {
                         { id: 'setup', label: 'Kurulum & Veri' },
                         { id: 'matches', label: 'Maç Ekle' },
                         { id: 'incidents', label: 'Pozisyon & Yorum' },
-                        { id: 'officials', label: 'Hakemler' },
+                        { id: 'officials', label: 'Hakem Gözlemci Temsilci' },
                         { id: 'extras', label: 'PFDK' },
                         { id: 'standings', label: 'Puan Durumu' },
                         { id: 'generator', label: 'Görsel Hazırla' }
@@ -290,14 +321,16 @@ function AdminContent() {
                             <div className="grid md:grid-cols-2 gap-8">
                                 {/* Match Fetcher Card */}
                                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-fit">
-                                    <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                                        <h3 className="font-bold text-sm uppercase text-slate-700">Aktif Maç Yönetimi</h3>
-                                        <p className="text-xs text-slate-500 mt-1">Düzenlemek istediğiniz maçı seçin.</p>
+                                    <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div>
+                                            <h3 className="font-bold text-sm uppercase text-slate-700">Aktif Maç Yönetimi</h3>
+                                            <p className="text-xs text-slate-500 mt-1">Düzenlemek istediğiniz maçı seçin.</p>
+                                        </div>
                                     </div>
                                     <div className="p-6">
                                         <div className="flex gap-3">
                                             <div className="flex-1">
-                                                <MatchSelect value={targetMatchId} onChange={setTargetMatchId} />
+                                                <MatchSelect value={targetMatchId} onChange={setTargetMatchId} season={selectedSeason} />
                                             </div>
                                             <button onClick={handleFetchMatch} className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-all active:scale-95 shadow-sm hover:shadow">
                                                 Getir
@@ -322,7 +355,7 @@ function AdminContent() {
                     {/* TAKIM & MAÇ TAB */}
                     {activeTab === 'matches' && (
                         <div className="space-y-8">
-                            <MatchForm apiKey={apiKey} authToken={authToken} preloadedMatch={loadedMatch} />
+                            <MatchForm apiKey={apiKey} authToken={authToken} preloadedMatch={loadedMatch} season={selectedSeason} />
                         </div>
                     )}
 
@@ -330,8 +363,8 @@ function AdminContent() {
                     {activeTab === 'incidents' && (
                         <div className="space-y-8">
                             <div className="grid md:grid-cols-2 gap-8">
-                                <IncidentForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} onMatchChange={setTargetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
-                                <OpinionForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} onMatchChange={setTargetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} />
+                                <IncidentForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} onMatchChange={setTargetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} season={selectedSeason} />
+                                <OpinionForm apiKey={apiKey} authToken={authToken} defaultMatchId={targetMatchId} onMatchChange={setTargetMatchId} existingIncidents={loadedIncidents} onSuccess={() => fetchMatchById(targetMatchId, true)} season={selectedSeason} />
                             </div>
                             <MatchIncidentsSummary incidents={loadedIncidents} />
                         </div>
@@ -340,17 +373,17 @@ function AdminContent() {
                     {/* EXTRAS (PFDK) TAB */}
                     {activeTab === 'extras' && (
                         <div className="grid md:grid-cols-2 gap-6">
-                            <StatementForm apiKey={apiKey} authToken={authToken} />
-                            <DisciplinaryWrapper apiKey={apiKey} authToken={authToken} />
+                            <StatementForm apiKey={apiKey} authToken={authToken} season={selectedSeason} />
+                            <DisciplinaryWrapper apiKey={apiKey} authToken={authToken} season={selectedSeason} />
                         </div>
                     )}
 
                     {/* OFFICIALS TAB */}
                     {activeTab === 'officials' && (
                         <div className="space-y-8">
-                            <OfficialForm apiKey={apiKey} authToken={authToken} />
+                            <OfficialForm apiKey={apiKey} authToken={authToken} season={selectedSeason} />
                             <div className="grid md:grid-cols-1 gap-6">
-                                <RefereeStatsForm apiKey={apiKey} authToken={authToken} />
+                                <RefereeStatsForm apiKey={apiKey} authToken={authToken} season={selectedSeason} />
                             </div>
                         </div>
                     )}
@@ -358,7 +391,7 @@ function AdminContent() {
                     {/* STANDINGS TAB */}
                     {activeTab === 'standings' && (
                         <div className="max-w-4xl mx-auto">
-                            <StandingForm apiKey={apiKey} authToken={authToken} />
+                            <StandingForm apiKey={apiKey} authToken={authToken} season={selectedSeason} />
                         </div>
                     )}
 

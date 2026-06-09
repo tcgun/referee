@@ -6,7 +6,16 @@ import { db } from '@/firebase/client';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { DisciplinaryAction, Match } from '@/types';
-import { cleanSponsorsInText, getTeamName, resolveTeamId } from '@/lib/teams';
+import { getTeamName, resolveTeamId } from '@/lib/teams';
+
+// Helper: Resolve season YYYY-YYYY from date
+const getSeasonFromDate = (dateStr: string): string => {
+    if (!dateStr) return '2025-2026';
+    const d = new Date(dateStr);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1; // 1-indexed
+    return month >= 7 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+};
 
 export default function PfdkPage() {
     const [competition, setCompetition] = useState<'league' | 'cup'>('league');
@@ -16,8 +25,9 @@ export default function PfdkPage() {
     const [weekLoading, setWeekLoading] = useState(false);
     const [actions, setActions] = useState<DisciplinaryAction[]>([]);
     const [matches, setMatches] = useState<Match[]>([]);
+    const [selectedSeason, setSelectedSeason] = useState<string>('2025-2026');
 
-    // 1. Initial Load: Get max week (and potentially cup data if needed)
+    // 1. Initial Load: Get max week for selected season
     useEffect(() => {
         async function fetchInitial() {
             try {
@@ -25,14 +35,15 @@ export default function PfdkPage() {
                 const q = query(
                     collection(db, 'disciplinary_actions'),
                     where('competition', '==', 'league'),
-                    orderBy('week', 'desc'),
-                    limit(1)
+                    orderBy('week', 'desc')
                 );
                 const docSnap = await getDocs(q);
 
-                let mWeek = 34; // Updated default for 1-17, 18-34
-                if (!docSnap.empty) {
-                    mWeek = docSnap.docs[0].data().week || 34;
+                const seasonDocs = docSnap.docs.filter(d => getSeasonFromDate(d.data().date) === selectedSeason);
+
+                let mWeek = 1;
+                if (seasonDocs.length > 0) {
+                    mWeek = seasonDocs[0].data().week || 1;
                 }
                 setMaxWeek(mWeek);
                 setSelectedWeek(mWeek);
@@ -43,9 +54,9 @@ export default function PfdkPage() {
             }
         }
         fetchInitial();
-    }, []);
+    }, [selectedSeason]);
 
-    // 2. Fetch Data when selectedWeek OR competition changes
+    // 2. Fetch Data when selectedWeek OR competition OR selectedSeason changes
     useEffect(() => {
         if (competition === 'league' && !selectedWeek) return;
 
@@ -54,17 +65,21 @@ export default function PfdkPage() {
                 setWeekLoading(true);
                 const pfdkQ = competition === 'league'
                     ? query(collection(db, 'disciplinary_actions'), where('competition', '==', 'league'), where('week', '==', selectedWeek))
-                    : query(collection(db, 'disciplinary_actions'), where('competition', '==', 'cup'), orderBy('date', 'desc'), limit(50));
+                    : query(collection(db, 'disciplinary_actions'), where('competition', '==', 'cup'), orderBy('date', 'desc'), limit(150));
 
                 const pfdkSnap = await getDocs(pfdkQ);
-                setActions(pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction)));
+                const allActions = pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction));
+                const filteredActions = allActions.filter(act => getSeasonFromDate(act.date) === selectedSeason);
+                setActions(filteredActions);
 
                 const matchQ = competition === 'league'
                     ? query(collection(db, 'matches'), where('competition', '==', 'league'), where('week', '==', selectedWeek))
-                    : query(collection(db, 'matches'), where('competition', '==', 'cup'), orderBy('date', 'desc'), limit(50));
+                    : query(collection(db, 'matches'), where('competition', '==', 'cup'), orderBy('date', 'desc'), limit(150));
 
                 const matchSnap = await getDocs(matchQ);
-                setMatches(matchSnap.docs.map(d => ({ ...d.data(), id: d.id } as Match)));
+                const allMatches = matchSnap.docs.map(d => ({ ...d.data(), id: d.id } as Match));
+                const filteredMatches = allMatches.filter(m => (m.season || getSeasonFromDate(m.date as string)) === selectedSeason);
+                setMatches(filteredMatches);
             } catch (err) {
                 console.error("PFDK Fetch Data Error:", err);
             } finally {
@@ -72,7 +87,7 @@ export default function PfdkPage() {
             }
         }
         fetchWeekData();
-    }, [selectedWeek, competition]);
+    }, [selectedWeek, competition, selectedSeason]);
 
     const cleanTeamName = (rawName: string) => {
         const id = resolveTeamId(rawName);
@@ -110,12 +125,34 @@ export default function PfdkPage() {
         <main className="min-h-screen bg-background pb-20 pt-8">
             <div className="max-w-4xl mx-auto px-4 space-y-8">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase italic bg-clip-text text-transparent bg-gradient-to-r from-primary to-orange-500 leading-none">
+                    <h1 className="text-4xl font-black tracking-tighter uppercase italic bg-clip-text text-transparent bg-linear-to-r from-primary to-orange-500 leading-none">
                         PFDK <span className="">KARARLARI</span>
                     </h1>
                     <p className="text-muted-foreground text-[11px] font-bold tracking-[0.3em] uppercase opacity-90">
                         PROFESYONEL FUTBOL DİSİPLİN KURULU ŞEFFAFLIK RAPORU
                     </p>
+                </div>
+
+                {/* Sezon Seçici */}
+                <div className="flex items-center justify-between gap-4 bg-[#161b22] p-3 rounded-2xl border border-white/10 shadow-2xl flex-wrap">
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Aktif Sezon:</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-slate-900/60 px-3 py-1.5 rounded-xl border border-white/5">{selectedSeason}</span>
+                    </div>
+                    <div className="flex bg-slate-950 p-1.5 rounded-xl border border-white/5 gap-1">
+                        {['2025-2026', '2026-2027'].map((season) => (
+                            <button
+                                key={season}
+                                onClick={() => setSelectedSeason(season)}
+                                className={`px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${selectedSeason === season
+                                    ? 'bg-primary text-black shadow-md scale-105'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                                    }`}
+                            >
+                                {season}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Competition Switcher */}
@@ -199,7 +236,7 @@ export default function PfdkPage() {
                         </div>
                     ) : sortedGroups.length === 0 ? (
                         <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl text-muted-foreground text-sm italic">
-                            {competition === 'league' ? `${selectedWeek}. Hafta için` : 'Türkiye Kupası için'} henüz kayıtlı bir sevk veya ceza bulunamadı.
+                            Seçilen sezonda {competition === 'league' ? `${selectedWeek}. Hafta için` : 'Türkiye Kupası için'} henüz kayıtlı bir sevk veya ceza bulunamadı.
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 gap-6">

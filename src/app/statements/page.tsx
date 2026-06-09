@@ -7,9 +7,19 @@ import { Statement } from '@/types';
 import { Skeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
 
+// Helper: Resolve season YYYY-YYYY from date
+const getSeasonFromDate = (dateStr: string): string => {
+    if (!dateStr) return '2025-2026';
+    const d = new Date(dateStr);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1; // 1-indexed
+    return month >= 7 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+};
+
 export default function StatementsPage() {
     const [statements, setStatements] = useState<Statement[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedSeason, setSelectedSeason] = useState<string>('2025-2026');
 
     useEffect(() => {
         async function fetchData() {
@@ -53,7 +63,13 @@ export default function StatementsPage() {
         </main>
     );
 
-    const sorted = [...statements].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    // Sezona göre filtrele
+    const filtered = statements.filter(st => {
+        const season = st.season || getSeasonFromDate(st.date || '');
+        return season === selectedSeason;
+    });
+
+    const sorted = [...filtered].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     return (
         <main className="min-h-screen bg-background pb-20 pt-8">
@@ -67,10 +83,32 @@ export default function StatementsPage() {
                     </p>
                 </div>
 
+                {/* Sezon Seçici */}
+                <div className="flex items-center justify-between gap-4 bg-[#161b22] p-3 rounded-2xl border border-white/10 shadow-2xl flex-wrap">
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Aktif Sezon:</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-slate-900/60 px-3 py-1.5 rounded-xl border border-white/5">{selectedSeason}</span>
+                    </div>
+                    <div className="flex bg-slate-950 p-1.5 rounded-xl border border-white/5 gap-1">
+                        {['2025-2026', '2026-2027'].map((season) => (
+                            <button
+                                key={season}
+                                onClick={() => setSelectedSeason(season)}
+                                className={`px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${selectedSeason === season
+                                    ? 'bg-primary text-black shadow-md scale-105'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                                    }`}
+                            >
+                                {season}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 gap-6">
                     {sorted.length === 0 ? (
-                        <div className="p-20 text-center bg-card border border-white/10 rounded-2xl text-muted-foreground font-medium italic">
-                            Henüz kayıtlı bir açıklama bulunmuyor.
+                        <div className="p-20 text-center bg-[#161b22] border border-white/10 rounded-2xl text-muted-foreground font-medium italic">
+                            Seçilen sezona ait açıklama bulunmamaktadır.
                         </div>
                     ) : sorted.map((st, i) => {
                         const isLong = st.content.length > 200;

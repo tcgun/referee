@@ -14,9 +14,10 @@ interface IncidentFormProps {
     onMatchChange?: (id: string) => void;
     existingIncidents?: Incident[];
     onSuccess?: () => void;
+    season?: string;
 }
 
-export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, existingIncidents, onSuccess }: IncidentFormProps) => {
+export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange, existingIncidents, onSuccess, season }: IncidentFormProps) => {
     const [matchId, setMatchId] = useState('');
     const [incident, setIncident] = useState<Partial<Incident>>({
         id: '', minute: 1, description: '', refereeDecision: '', finalDecision: '',
@@ -193,6 +194,7 @@ export const IncidentForm = ({ apiKey, authToken, defaultMatchId, onMatchChange,
                     value={matchId}
                     onChange={handleMatchChange}
                     className="w-full"
+                    season={season}
                 />
             </div>
 

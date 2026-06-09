@@ -1,6 +1,6 @@
 import React from 'react';
 import { Official, OfficialRole } from '@/types';
-import { Edit2, Trash2, Check } from 'lucide-react';
+import { Edit2, Trash2 } from 'lucide-react';
 
 interface OfficialListProps {
     officials: Official[];
@@ -10,14 +10,27 @@ interface OfficialListProps {
     // Filtering props
     search: string;
     onSearchChange: (val: string) => void;
-    filterRole: OfficialRole | 'all';
-    onFilterRoleChange: (val: OfficialRole | 'all') => void;
+    filterCategory: string;
+    onFilterCategoryChange: (val: string) => void;
     // Pagination
     currentPage: number;
     onPageChange: (page: number) => void;
     // Definitions
     rolesDefinition: { id: OfficialRole; label: string; color: string }[];
 }
+
+const FILTER_CATEGORIES = [
+    { id: 'all', label: 'Tümü' },
+    { id: 'ust-klasman', label: 'Üst Klasman Hakemi' },
+    { id: 'klasman', label: 'Klasman Hakemi' },
+    { id: 'ust-klasman-yardimci', label: 'Üst Klasman Yardımcı Hakemi' },
+    { id: 'klasman-yardimci', label: 'Klasman Yardımcı Hakemi' },
+    { id: 'var-hakemi', label: 'VAR Hakemi' },
+    { id: 'ust-klasman-gozlemci', label: 'Üst Klasman Gözlemci' },
+    { id: 'klasman-gozlemci', label: 'Klasman Gözlemcisi' },
+    { id: 'ust-klasman-temsilci', label: 'Üst Klasman Temsilci' },
+    { id: 'klasman-temsilci', label: 'Klasman Temsilcisi' },
+];
 
 /**
  * Görevlilerin listelendiği, filtrelendiği ve sayfalandığı bileşen.
@@ -30,8 +43,8 @@ export const OfficialList: React.FC<OfficialListProps> = ({
     onDelete,
     search,
     onSearchChange,
-    filterRole,
-    onFilterRoleChange,
+    filterCategory,
+    onFilterCategoryChange,
     currentPage,
     onPageChange,
     rolesDefinition
@@ -40,9 +53,30 @@ export const OfficialList: React.FC<OfficialListProps> = ({
 
     // Filter Logic
     const filteredOfficials = officials.filter(o => {
-        const matchesRole = filterRole === 'all' || o.roles.includes(filterRole);
         const matchesSearch = o.name.toLowerCase().includes(search.toLocaleLowerCase('tr-TR'));
-        return matchesRole && matchesSearch;
+        
+        let matchesCategory = true;
+        if (filterCategory === 'ust-klasman') {
+            matchesCategory = o.classification === 'ust-klasman';
+        } else if (filterCategory === 'klasman') {
+            matchesCategory = o.classification === 'klasman';
+        } else if (filterCategory === 'ust-klasman-yardimci') {
+            matchesCategory = o.classification === 'ust-klasman-yardimci';
+        } else if (filterCategory === 'klasman-yardimci') {
+            matchesCategory = o.classification === 'klasman-yardimci';
+        } else if (filterCategory === 'var-hakemi') {
+            matchesCategory = o.classification === 'var-hakemi';
+        } else if (filterCategory === 'ust-klasman-gozlemci') {
+            matchesCategory = o.classification === 'ust-klasman-gozlemci' || (o.roles.includes('observer') && !o.classification);
+        } else if (filterCategory === 'klasman-gozlemci') {
+            matchesCategory = o.classification === 'klasman-gozlemci';
+        } else if (filterCategory === 'ust-klasman-temsilci') {
+            matchesCategory = o.classification === 'ust-klasman-temsilci' || (o.roles.includes('representative') && !o.classification);
+        } else if (filterCategory === 'klasman-temsilci') {
+            matchesCategory = o.classification === 'klasman-temsilci';
+        }
+
+        return matchesCategory && matchesSearch;
     });
 
     // Pagination Logic
@@ -60,29 +94,25 @@ export const OfficialList: React.FC<OfficialListProps> = ({
                     Kayıtlı Yetkililer ({filteredOfficials.length})
                 </h3>
 
-                <div className="flex gap-2 overflow-x-auto pb-1 max-w-full custom-scrollbar">
+                <div className="flex flex-wrap gap-2 pb-1 max-w-full items-center">
                     <input
                         type="text"
                         placeholder="İsim Ara..."
-                        className="bg-[#121214] border border-white/10 text-white text-xs rounded-lg focus:ring-secondary focus:border-secondary block p-1.5 min-w-[120px] placeholder:text-white/30"
+                        className="bg-[#121214] border border-white/10 text-white text-xs rounded-lg focus:ring-secondary focus:border-secondary block p-1.5 min-w-[120px] placeholder:text-white/30 mr-2"
                         value={search}
                         onChange={e => onSearchChange(e.target.value)}
                     />
-                    <button
-                        onClick={() => onFilterRoleChange('all')}
-                        className={`px-3 py-1 rounded text-xs font-bold whitespace-nowrap transition-colors ${filterRole === 'all' ? 'bg-secondary text-black' : 'bg-[#12141a] text-white/70 hover:bg-secondary hover:text-black'
-                            }`}
-                    >
-                        Tümü
-                    </button>
-                    {rolesDefinition.map(role => (
+                    {FILTER_CATEGORIES.map(cat => (
                         <button
-                            key={role.id}
-                            onClick={() => onFilterRoleChange(role.id)}
-                            className={`px-3 py-1 rounded text-xs font-bold whitespace-nowrap transition-colors ${filterRole === role.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                }`}
+                            key={cat.id}
+                            onClick={() => onFilterCategoryChange(cat.id)}
+                            className={`px-3 py-1.5 rounded text-xs font-bold whitespace-nowrap transition-colors ${
+                                filterCategory === cat.id 
+                                    ? 'bg-blue-600 text-white shadow-sm' 
+                                    : 'bg-[#12141a] text-white/70 hover:bg-blue-600 hover:text-white'
+                            }`}
                         >
-                            {role.label}
+                            {cat.label}
                         </button>
                     ))}
                 </div>

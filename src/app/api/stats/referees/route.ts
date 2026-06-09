@@ -86,13 +86,19 @@ const getMatchTeams = (match: Match): string[] => {
     return Array.from(new Set([hTeam, aTeam].filter(t => t && t !== 'Bilinmeyen')));
 };
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const season = searchParams.get('season') || '2025-2026';
+
         const firestore = getAdminDb();
 
         // 1. Fetch Matches (Maçları Getir)
         const matchesSnap = await firestore.collection('matches').get();
-        const matches = matchesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Match));
+        let matches = matchesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Match));
+
+        // Filter by season (treat undefined season as 2025-2026)
+        matches = matches.filter(m => (m.season || '2025-2026') === season);
 
         // 2. Fetch Opinions (Optimize edilmiş sorgu)
         const opinionsByMatch: Record<string, Opinion[]> = {};
@@ -110,12 +116,47 @@ export async function GET() {
             console.warn("Collection group 'opinions' fetch failed, possibly missing index:", e);
         }
 
-        // 3. Initialize Stat Containers (İstatistik Kaplarını Başlat)
+        // 3. Fetch all registered officials and populate metadata (Tüm Kayıtlı Yetkilileri Getir ve Metadata Doldur)
+        const officialsSnap = await firestore.collection('officials').get();
+        const officialMetadata: Record<string, { region: string, rating: number, classification?: string, seasons?: string[] }> = {};
+        
+        officialsSnap.forEach(doc => {
+            const d = doc.data();
+            officialMetadata[d.name] = { 
+                region: d.region || '', 
+                rating: d.rating || 0,
+                classification: d.classification || '',
+                seasons: d.seasons || []
+            };
+        });
+
+        // 4. Initialize Stat Containers (İstatistik Kaplarını Başlat)
         const refereeStats: Record<string, StatRecord> = {};
         const representativeStats: Record<string, GenericStatRecord> = {};
         const observerStats: Record<string, GenericStatRecord> = {};
 
-        // 4. Aggregation Loop (Toplama Döngüsü)
+        // Pre-populate container maps with officials registered for the selected season
+        for (const doc of officialsSnap.docs) {
+            const d = doc.data();
+            const name = d.name;
+            const roles = d.roles || [];
+            const seasons = d.seasons || [];
+            
+            if (name && seasons.includes(season)) {
+                const isRefereeRelated = roles.some((r: string) => ['referee', 'assistant', 'fourth', 'var', 'avar'].includes(r));
+                if (isRefereeRelated) {
+                    getStatObj(refereeStats, name);
+                }
+                if (roles.includes('representative')) {
+                    getGenericStat(representativeStats, name);
+                }
+                if (roles.includes('observer')) {
+                    getGenericStat(observerStats, name);
+                }
+            }
+        }
+
+        // 5. Aggregation Loop (Toplama Döngüsü)
         for (const match of matches) {
             const teams = getMatchTeams(match);
             const visitedRef = new Set<string>();
@@ -195,16 +236,9 @@ export async function GET() {
             }
         }
 
-        // 5. Enhance with Metadata (Metadata ile Zenginleştirme)
-        const officialsSnap = await firestore.collection('officials').get();
-        const officialMetadata: Record<string, { region: string, rating: number }> = {};
-        officialsSnap.forEach(doc => {
-            const d = doc.data();
-            officialMetadata[d.name] = { region: d.region || '', rating: d.rating || 0 };
-        });
-
+        // 6. Enhance with Metadata (Metadata ile Zenginleştirme)
         const enhanceStat = <T extends StatRecord | GenericStatRecord>(stat: T): T => {
-            const meta = officialMetadata[stat.name] || { region: '', rating: 0 };
+            const meta = officialMetadata[stat.name] || { region: '', rating: 0, classification: '' };
             const topTeams = Object.entries(stat.teamCounts || {})
                 .filter(([, count]) => count > 1)
                 .sort(([, a], [, b]) => b - a)
@@ -249,6 +283,10 @@ export async function GET() {
                 avar: getTop10(allReferees, 'avar'),
                 representative: getTop10(allReps, 'rep'),
                 observer: getTop10(allObs, 'obs')
+            }
+        }, {
+            headers: {
+                'Cache-Control': 'no-store, max-age=0, must-revalidate'
             }
         });
 

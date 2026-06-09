@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Standing, Statement, DisciplinaryAction, RefereeStats, Match } from '@/types';
 import { toast } from 'sonner';
 
@@ -9,16 +9,12 @@ interface BaseProps {
     authToken?: string;
 }
 
-export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
+export const StandingForm = ({ apiKey, authToken, season }: BaseProps & { season?: string }) => {
     const [gridItems, setGridItems] = useState<Standing[]>([]);
     const [loading, setLoading] = useState(false);
     const [bulkText, setBulkText] = useState('');
 
-    useEffect(() => {
-        fetchStandings();
-    }, []);
-
-    const fetchStandings = async () => {
+    const fetchStandings = useCallback(async () => {
         setLoading(true);
         try {
             const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
@@ -26,7 +22,10 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
             const q = query(collection(db, 'standings'), orderBy('rank', 'asc'));
             const snap = await getDocs(q);
 
-            const fetched = snap.docs.map(d => ({ ...d.data(), id: d.id } as Standing));
+            let fetched = snap.docs.map(d => ({ ...d.data(), id: d.id } as Standing));
+            if (season) {
+                fetched = fetched.filter(item => (item.season || '2025-2026') === season);
+            }
 
             // Fill up to 18 items
             const fullGrid: Standing[] = [];
@@ -37,7 +36,8 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
                     fullGrid.push({
                         id: '', rank: i + 1, teamName: '',
                         played: 0, won: 0, drawn: 0, lost: 0,
-                        goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0
+                        goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0,
+                        season: season
                     });
                 }
             }
@@ -47,7 +47,11 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [season]);
+
+    useEffect(() => {
+        fetchStandings();
+    }, [fetchStandings]);
 
     const handleBulkPaste = async () => {
         if (!bulkText.trim()) return;
@@ -111,11 +115,11 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
         toast.info(`${currentIndex} takım verisi başarıyla aktarıldı. Kaydetmeyi unutmayın!`);
     };
 
-    const handleGridChange = (index: number, field: keyof Standing, val: any) => {
+    const handleGridChange = (index: number, field: keyof Standing, val: string | number) => {
         const newGrid = [...gridItems];
         newGrid[index] = { ...newGrid[index], [field]: val };
         if (field === 'goalsFor' || field === 'goalsAgainst') {
-            newGrid[index].goalDiff = (newGrid[index].goalsFor || 0) - (newGrid[index].goalsAgainst || 0);
+            newGrid[index].goalDiff = (Number(newGrid[index].goalsFor) || 0) - (Number(newGrid[index].goalsAgainst) || 0);
         }
 
         setGridItems(newGrid);
@@ -132,7 +136,8 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
                 .map((item, index) => ({
                     ...item,
                     rank: index + 1,
-                    teamName: item.teamName || item.id
+                    teamName: item.teamName || item.id,
+                    season: season
                 }))
                 .filter(item => item.id && item.id.trim() !== '');
 
@@ -162,7 +167,7 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
                 try {
                     const errData = JSON.parse(rawText);
                     errMsg = errData.error || rawText;
-                } catch (e) {
+                } catch {
                     errMsg = rawText || `Status ${res.status}`;
                 }
                 toast.error(`Kayıt hatası: ${errMsg}`);
@@ -285,28 +290,32 @@ export const StandingForm = ({ apiKey, authToken }: BaseProps) => {
     );
 };
 
-export const StatementForm = ({ apiKey, authToken }: BaseProps) => {
+export const StatementForm = ({ apiKey, authToken, season }: BaseProps & { season?: string }) => {
     const [statement, setStatement] = useState<Partial<Statement>>({
         title: '', content: '', entity: '', type: 'tff', date: new Date().toISOString().split('T')[0]
     });
     const [existingStatements, setExistingStatements] = useState<Statement[]>([]);
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        fetchExisting();
-    }, []);
-
-    const fetchExisting = async () => {
+    const fetchExisting = useCallback(async () => {
         try {
             const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
             const { db } = await import('@/firebase/client');
             const q = query(collection(db, 'statements'), orderBy('date', 'desc'));
             const snap = await getDocs(q);
-            setExistingStatements(snap.docs.map(d => ({ ...d.data(), id: d.id } as Statement)));
+            let fetched = snap.docs.map(d => ({ ...d.data(), id: d.id } as Statement));
+            if (season) {
+                fetched = fetched.filter(s => (s.season || '2025-2026') === season);
+            }
+            setExistingStatements(fetched);
         } catch (e) {
             console.error("Error fetching statements", e);
         }
-    };
+    }, [season]);
+
+    useEffect(() => {
+        fetchExisting();
+    }, [fetchExisting]);
 
     const handleSelect = (id: string) => {
         const found = existingStatements.find(s => s.id === id);
@@ -322,11 +331,12 @@ export const StatementForm = ({ apiKey, authToken }: BaseProps) => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+
         try {
             const res = await fetch('/api/admin/statements', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-admin-key': apiKey, ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) },
-                body: JSON.stringify(statement),
+                body: JSON.stringify({ ...statement, season: season || statement.season }),
             });
             if (res.ok) {
                 toast.success(statement.id ? 'Açıklama Güncellendi! ✅' : 'Açıklama Başarıyla Eklendi! ✅');
@@ -337,7 +347,7 @@ export const StatementForm = ({ apiKey, authToken }: BaseProps) => {
             } else {
                 toast.error('Hata: İşlem başarısız.');
             }
-        } catch (e) {
+        } catch {
             toast.error('Bağlantı Hatası');
         } finally {
             setLoading(false);
@@ -376,7 +386,7 @@ export const StatementForm = ({ apiKey, authToken }: BaseProps) => {
             <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-500 uppercase">Tür</label>
-                    <select className="border border-gray-300 p-2 w-full rounded text-sm bg-white" value={statement.type} onChange={e => setStatement({ ...statement, type: e.target.value as any })}>
+                    <select className="border border-gray-300 p-2 w-full rounded text-sm bg-white" value={statement.type} onChange={e => setStatement({ ...statement, type: e.target.value as 'tff' | 'club' })}>
                         <option value="tff">TFF / MHK</option>
                         <option value="club">Kulüp</option>
                     </select>
@@ -413,9 +423,10 @@ interface DisciplinaryFormProps extends BaseProps {
     editItem?: DisciplinaryAction | null;
     onCancelEdit?: () => void;
     onSuccess?: () => void;
+    season?: string;
 }
 
-export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, onSuccess }: DisciplinaryFormProps) => {
+export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, onSuccess, season }: DisciplinaryFormProps) => {
     const [action, setAction] = useState<Partial<DisciplinaryAction>>({
         teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
         type: 'pfdk', matchId: '', note: '', competition: 'league', group: ''
@@ -447,7 +458,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        let finalAction = { ...action };
+        const finalAction = { ...action };
         if (finalAction.type === 'pfdk' && pfdkTarget === 'club') {
             finalAction.subject = 'Kulüp';
         }
@@ -482,7 +493,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
             matchId = `d-${matchId}`;
         }
 
-        const body = { ...finalAction, matchId, id: editItem?.id };
+        const body = { ...finalAction, matchId, id: editItem?.id, season: season || finalAction.season };
 
         const res = await fetch(url, {
             method: method,
@@ -565,6 +576,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
                         group={action.group}
                         onChange={(id, week) => setAction({ ...action, matchId: id, week: week })}
                         className={`mb-2 ${pfdkTarget === 'other' ? 'opacity-50 pointer-events-none bg-gray-100' : ''}`}
+                        season={season}
                     />
                 </div>
                 <button
@@ -698,7 +710,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
 };
 
 // Internal Match Selector Component
-export const MatchSelect = ({ value, onChange, competition = 'league', group, className = "" }: { value: string, onChange: (val: string, week?: number) => void, competition?: 'league' | 'cup', group?: string | null, className?: string }) => {
+export const MatchSelect = ({ value, onChange, competition = 'league', group, className = "", season }: { value: string, onChange: (val: string, week?: number) => void, competition?: 'league' | 'cup', group?: string | null, className?: string, season?: string }) => {
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(false);
     const [selectedWeek, setSelectedWeek] = useState<number | string>('');
@@ -733,7 +745,11 @@ export const MatchSelect = ({ value, onChange, competition = 'league', group, cl
                 }
 
                 const snap = await getDocs(q);
-                setMatches(snap.docs.map(d => ({ ...d.data(), id: d.id } as Match)));
+                let fetchedMatches = snap.docs.map(d => ({ ...d.data(), id: d.id } as Match));
+                if (season) {
+                    fetchedMatches = fetchedMatches.filter(m => (m.season || '2025-2026') === season);
+                }
+                setMatches(fetchedMatches);
             } catch (e) {
                 console.error("Match fetch error", e);
             } finally {
@@ -741,7 +757,7 @@ export const MatchSelect = ({ value, onChange, competition = 'league', group, cl
             }
         };
         fetchMatchesForWeek();
-    }, [selectedWeek, competition, group]);
+    }, [selectedWeek, competition, group, season]);
 
     // Grouping logic removed since we fetch per week
     const maxWeeks = competition === 'cup' ? 4 : 34;
@@ -793,23 +809,17 @@ interface DisciplinaryListProps extends BaseProps {
     onEdit: (item: DisciplinaryAction) => void;
     // Trigger to refresh list
     refreshTrigger?: number;
+    season?: string;
 }
 
-export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: DisciplinaryListProps) => {
+export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, season }: DisciplinaryListProps) => {
     const [matchId, setMatchId] = useState('');
     const [items, setItems] = useState<DisciplinaryAction[]>([]);
     const [loading, setLoading] = useState(false);
     const [competition, setCompetition] = useState<'league' | 'cup'>('league');
     const [group, setGroup] = useState('');
 
-    // Auto-refresh when refreshTrigger changes, if matchId exists
-    useEffect(() => {
-        if (matchId && refreshTrigger && refreshTrigger > 0) {
-            handleFetch();
-        }
-    }, [refreshTrigger]);
-
-    const handleFetch = async () => {
+    const handleFetch = useCallback(async () => {
         if (!matchId) return toast.error('Lütfen Maç ID giriniz (örn: week1-gfk-gs).');
         setLoading(true);
         try {
@@ -823,7 +833,17 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
 
             const q = query(collection(db, 'disciplinary_actions'), where('matchId', '==', searchId));
             const snap = await getDocs(q);
-            const data = snap.docs.map(d => ({ ...d.data(), id: d.id })) as DisciplinaryAction[];
+            let data = snap.docs.map(d => ({ ...d.data(), id: d.id })) as DisciplinaryAction[];
+            if (season) {
+                const getSeasonFromDate = (dateStr: string): string => {
+                    if (!dateStr) return '2025-2026';
+                    const d = new Date(dateStr);
+                    const year = d.getFullYear();
+                    const month = d.getMonth() + 1;
+                    return month >= 7 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+                };
+                data = data.filter(item => (item.season || getSeasonFromDate(item.date)) === season);
+            }
             setItems(data);
             if (data.length === 0) toast.error('Bu maç IDsi ile eşleşen kayıt bulunamadı.');
         } catch (error) {
@@ -832,7 +852,14 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
         } finally {
             setLoading(false);
         }
-    };
+    }, [matchId]);
+
+    // Auto-refresh when refreshTrigger changes, if matchId exists
+    useEffect(() => {
+        if (matchId && refreshTrigger && refreshTrigger > 0) {
+            handleFetch();
+        }
+    }, [refreshTrigger, matchId, handleFetch]);
 
     const handleSync = async () => {
         if (!confirm('Tüm disiplin sevklerini yeni formata (d- prefix) senkronize etmek istediğinize emin misiniz?')) return;
@@ -911,7 +938,7 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
 
             <div className="flex gap-2">
                 <div className="flex-1">
-                    <MatchSelect value={matchId} competition={competition} group={group} onChange={setMatchId} />
+                    <MatchSelect value={matchId} competition={competition} group={group} onChange={setMatchId} season={season} />
                 </div>
                 <button onClick={handleFetch} disabled={loading} className="bg-gray-800 text-white px-3 rounded font-bold text-sm">
                     {loading ? '...' : 'Getir'}
@@ -958,7 +985,7 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
 
                 {items.length === 0 && !loading && (
                     <div className="text-center py-8 text-gray-400 italic text-xs">
-                        Maç ID yazıp "Getir" butonuna basınız.
+                        {'Maç ID yazıp "Getir" butonuna basınız.'}
                     </div>
                 )}
             </div>
@@ -966,7 +993,7 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger }: 
     );
 };
 
-export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
+export const RefereeStatsForm = ({ apiKey, authToken, season }: BaseProps & { season?: string }) => {
     const [matchId, setMatchId] = useState('');
     const [competition, setCompetition] = useState<'league' | 'cup'>('league');
     const [group, setGroup] = useState('');
@@ -1054,8 +1081,7 @@ export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
         }
     };
 
-    // Helper for Uppercase
-    const toUpper = (val: string) => val.toLocaleUpperCase('tr-TR');
+    // Helper for Uppercase removed (unused)
 
     // --- HOME ERRORS ---
     const addHomeError = () => {
@@ -1188,7 +1214,7 @@ export const RefereeStatsForm = ({ apiKey, authToken }: BaseProps) => {
             <div className="flex gap-2 items-end">
                 <div className="flex-1 space-y-1">
                     <label className="text-xs font-bold text-gray-500">Maç Seçimi</label>
-                    <MatchSelect value={matchId} competition={competition} group={competition === 'cup' ? group : undefined} onChange={setMatchId} />
+                    <MatchSelect value={matchId} competition={competition} group={competition === 'cup' ? group : undefined} onChange={setMatchId} season={season} />
                 </div>
                 <button type="button" onClick={handleFetchForEdit} className="bg-gray-800 text-white px-3 py-2 rounded font-bold text-sm mb-0.5">
                     Getir

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, collectionGroup, query, where, limit, QuerySnapshot, DocumentData } from 'firebase/firestore';
+import { getDocs, collectionGroup, query, where } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { MatchItem, MatchGroupedOpinions } from '@/components/matches/MatchItem';
 import { Opinion, Match } from '@/types';
@@ -23,6 +23,7 @@ const groupByWeek = (matches: MatchGroupedOpinions[]) => {
 export default function TrioPage() {
     const [matches, setMatches] = useState<MatchGroupedOpinions[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedSeason, setSelectedSeason] = useState<string>('2025-2026');
 
     useEffect(() => {
         async function fetchData() {
@@ -42,6 +43,7 @@ export default function TrioPage() {
                 }
 
                 const matchIds = Object.keys(groups);
+                const filteredGroups: MatchGroupedOpinions[] = [];
                 if (matchIds.length > 0) {
                     const { doc, getDoc, collection, getDocs } = await import('firebase/firestore');
                     await Promise.all(matchIds.map(async (mid) => {
@@ -49,6 +51,9 @@ export default function TrioPage() {
                             const mSnap = await getDoc(doc(db, 'matches', mid));
                             if (mSnap.exists()) {
                                 const mData = mSnap.data() as Match;
+                                // Sezona göre filtrele
+                                if ((mData.season || '2025-2026') !== selectedSeason) return;
+
                                 groups[mid].matchName = `${mData.week}. Hafta: ${mData.homeTeamName} - ${mData.awayTeamName}`;
                                 groups[mid].week = mData.week;
                                 groups[mid].homeTeam = mData.homeTeamName;
@@ -66,12 +71,13 @@ export default function TrioPage() {
                                     if (hasIncorrect) againstCount++;
                                 }
                                 groups[mid].againstCount = againstCount;
+                                filteredGroups.push(groups[mid]);
                             }
                         } catch (e) { console.error('Match data fetch err', e) }
                     }));
                 }
 
-                setMatches(Object.values(groups).sort((a, b) => (b.week || 0) - (a.week || 0)));
+                setMatches(filteredGroups.sort((a, b) => (b.week || 0) - (a.week || 0)));
             } catch (err) {
                 console.error("Trio Page Fetch Error:", err);
             } finally {
@@ -79,7 +85,7 @@ export default function TrioPage() {
             }
         }
         fetchData();
-    }, []);
+    }, [selectedSeason]);
 
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
@@ -104,10 +110,32 @@ export default function TrioPage() {
                     </p>
                 </div>
 
+                {/* Sezon Seçici */}
+                <div className="flex items-center justify-between gap-4 bg-[#161b22] p-3 rounded-2xl border border-white/10 shadow-2xl flex-wrap">
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Aktif Sezon:</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-slate-900/60 px-3 py-1.5 rounded-xl border border-white/5">{selectedSeason}</span>
+                    </div>
+                    <div className="flex bg-slate-950 p-1.5 rounded-xl border border-white/5 gap-1">
+                        {['2025-2026', '2026-2027'].map((season) => (
+                            <button
+                                key={season}
+                                onClick={() => setSelectedSeason(season)}
+                                className={`px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${selectedSeason === season
+                                    ? 'bg-primary text-black shadow-md scale-105'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                                    }`}
+                            >
+                                {season}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 <div className="space-y-12">
                     {grouped.length === 0 ? (
                         <div className="text-center py-20 bg-card border border-dashed border-white/10 rounded-2xl">
-                            <span className="text-muted-foreground font-medium italic">Henüz Trio yorumu bulunamadı.</span>
+                            <span className="text-muted-foreground font-medium italic">Seçilen sezona ait Trio yorumu bulunmamaktadır.</span>
                         </div>
                     ) : grouped.map((group) => (
                         <section key={group.week} className="space-y-4">
@@ -119,7 +147,7 @@ export default function TrioPage() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {group.matches.map((match) => (
-                                    <div key={match.matchId} className="bg-card border border-white/20 rounded-xl overflow-hidden shadow-neo border-2 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all">
+                                    <div key={match.matchId} className="bg-card border-2 border-white/20 rounded-xl overflow-hidden shadow-neo hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all">
                                         <MatchItem match={match} headerColor="text-primary" />
                                     </div>
                                 ))}

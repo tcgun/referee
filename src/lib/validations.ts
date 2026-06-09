@@ -189,6 +189,7 @@ export const standingSchema = z.object({
     goalDiff: z.number().int(),
     points: z.number().int().min(0),
     rank: z.number().int().min(1).optional(),
+    season: z.string().regex(REGEX_SEASON, MSG_SEASON).optional(),
 });
 
 // Statement Schema
@@ -200,6 +201,7 @@ export const statementSchema = z.object({
     date: z.string().regex(REGEX_DATE, MSG_DATE),
     url: z.string().url().optional().or(z.literal('')),
     type: z.enum(['tff', 'club']),
+    season: z.string().regex(REGEX_SEASON, MSG_SEASON).optional(),
 });
 
 // Disciplinary Action Schema
@@ -215,4 +217,5 @@ export const disciplinaryActionSchema = z.object({
     week: z.number().int().min(0).max(34).optional(), // Updated min to 0 for cup/general
     note: z.string().max(10000).optional().or(z.literal('')), // Full legal text
     competition: z.enum(['league', 'cup']).optional(),
+    season: z.string().regex(REGEX_SEASON, MSG_SEASON).optional(),
 });

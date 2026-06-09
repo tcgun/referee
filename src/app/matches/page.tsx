@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, where, collectionGroup } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { Match, Opinion } from '@/types';
 import { MatchItem, MatchGroupedOpinions } from '@/components/matches/MatchItem';
@@ -28,31 +28,31 @@ export default function MatchesListingPage() {
     const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
     const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
     const [maxWeek, setMaxWeek] = useState(34);
+    const [selectedSeason, setSelectedSeason] = useState<string>('2025-2026');
 
     // 1. Initial Load: Get available weeks for League
     useEffect(() => {
         async function fetchInitial() {
             try {
                 setLoading(true);
-                // We could derive this from existing matches or hardcode 34
-                // Let's find the max week currently in DB for league
-                const { query, where, collection, getDocs, orderBy, limit } = await import('firebase/firestore');
+                
+                // Get all league matches and filter in-memory to find weeks and max week for season
                 const q = query(
                     collection(db, 'matches'),
                     where('competition', '==', 'league'),
-                    orderBy('week', 'desc'),
-                    limit(1)
+                    orderBy('week', 'desc')
                 );
                 const snap = await getDocs(q);
-                let mWeek = 34;
-                if (!snap.empty) {
-                    mWeek = snap.docs[0].data().week || 34;
+                
+                // In-memory filter by season
+                const seasonDocs = snap.docs.filter(d => (d.data().season || '2025-2026') === selectedSeason);
+                
+                let mWeek = 1;
+                if (seasonDocs.length > 0) {
+                    mWeek = seasonDocs[0].data().week || 1;
                 }
 
-                // Get all available weeks that have matches
-                const allWeeksQ = query(collection(db, 'matches'), where('competition', '==', 'league'));
-                const allWeeksSnap = await getDocs(allWeeksQ);
-                const weeks = Array.from(new Set(allWeeksSnap.docs.map(d => d.data().week))).filter(Boolean) as number[];
+                const weeks = Array.from(new Set(seasonDocs.map(d => d.data().week))).filter(Boolean) as number[];
 
                 setAvailableWeeks(weeks);
                 setMaxWeek(mWeek);
@@ -64,16 +64,15 @@ export default function MatchesListingPage() {
             }
         }
         fetchInitial();
-    }, []);
+    }, [selectedSeason]);
 
-    // 2. Fetch Data when selectedWeek OR competition changes
+    // 2. Fetch Data when selectedWeek OR competition OR selectedSeason changes
     useEffect(() => {
         if (competition === 'league' && !selectedWeek) return;
 
         async function fetchMatches() {
             try {
                 setWeekLoading(true);
-                const { collection, getDocs, query, where, orderBy, limit, collectionGroup } = await import('firebase/firestore');
 
                 const matchesQ = competition === 'league'
                     ? query(collection(db, 'matches'), where('competition', '==', 'league'), where('week', '==', selectedWeek), orderBy('date', 'asc'))
@@ -81,7 +80,10 @@ export default function MatchesListingPage() {
 
                 const matchesSnap = await getDocs(matchesQ);
 
-                const matchesData = await Promise.all(matchesSnap.docs.map(async (mDoc) => {
+                // In-memory filter by season
+                const filteredDocs = matchesSnap.docs.filter(doc => (doc.data().season || '2025-2026') === selectedSeason);
+
+                const matchesData = await Promise.all(filteredDocs.map(async (mDoc) => {
                     const mData = mDoc.data() as Match;
                     const matchId = mDoc.id;
 
@@ -124,7 +126,7 @@ export default function MatchesListingPage() {
             }
         }
         fetchMatches();
-    }, [selectedWeek, competition]);
+    }, [selectedWeek, competition, selectedSeason]);
 
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
@@ -143,8 +145,30 @@ export default function MatchesListingPage() {
             <div className="max-w-4xl mx-auto px-4 space-y-8">
 
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase italic bg-clip-text text-transparent bg-gradient-to-r from-primary to-orange-500 leading-none">MAÇLAR</h1>
+                    <h1 className="text-4xl font-black tracking-tighter uppercase italic bg-clip-text text-transparent bg-linear-to-r from-primary to-orange-500 leading-none">MAÇLAR</h1>
                     <p className="text-muted-foreground text-[10px] font-bold tracking-[0.3em] uppercase opacity-90">HAKEM VE GÖZLEMCİ PERFORMANS ANALİZLERİ</p>
+                </div>
+
+                {/* Sezon Seçici */}
+                <div className="flex items-center justify-between gap-4 bg-[#161b22] p-3 rounded-2xl border border-white/10 shadow-2xl flex-wrap">
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Aktif Sezon:</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-slate-900/60 px-3 py-1.5 rounded-xl border border-white/5">{selectedSeason}</span>
+                    </div>
+                    <div className="flex bg-slate-950 p-1.5 rounded-xl border border-white/5 gap-1">
+                        {['2025-2026', '2026-2027'].map((season) => (
+                            <button
+                                key={season}
+                                onClick={() => setSelectedSeason(season)}
+                                className={`px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${selectedSeason === season
+                                    ? 'bg-primary text-black shadow-md scale-105'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                                    }`}
+                            >
+                                {season}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Competition Switcher */}
