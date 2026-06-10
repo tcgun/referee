@@ -81,13 +81,7 @@ export async function POST(request: Request) {
                 await batch.commit();
             }
 
-            return NextResponse.json({ success: true, processed: count });
-
-            if (count > 0) {
-                await batch.commit();
-            }
-
-            return NextResponse.json({ success: true, added: count });
+            return NextResponse.json({ success: true, processed: count, added: count });
         } catch (error) {
             console.error('Sync Error:', error);
             return NextResponse.json({ error: 'Sync failed' }, { status: 500 });

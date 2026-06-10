@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, collectionGroup, query, where, limit, QuerySnapshot, DocumentData } from 'firebase/firestore';
-import { db } from '@/firebase/client';
 import { TrioSection, GeneralCommentsSection, PfdkSection, StatementsSection } from '@/components/home/DashboardWidgets';
 import { StandingsTicker } from '@/components/home/StandingsTicker';
 import { SummaryStatsRow } from '@/components/home/SummaryStatsRow';
-import { Opinion, DisciplinaryAction, Statement, Standing, Match } from '@/types';
+import { Opinion, DisciplinaryAction, Statement, Standing } from '@/types';
 import Link from 'next/link';
 
 interface GroupedOpinion {
@@ -34,70 +32,15 @@ export default function Home() {
     async function fetchData() {
       try {
         setLoading(true);
-        const groupOpinions = async (querySnapshot: QuerySnapshot<DocumentData>) => {
-          const groups: { [key: string]: GroupedOpinion } = {};
-          for (const d of querySnapshot.docs) {
-            const matchId = d.ref.path.split('/')[1];
-            if (!groups[matchId]) {
-              groups[matchId] = { matchId, matchName: 'Yükleniyor...', opinions: [], againstCount: 0 };
-            }
-            const opinionData = d.data() as Opinion;
-            groups[matchId].opinions.push(opinionData);
-          }
-          const matchIds = Object.keys(groups);
-          if (matchIds.length > 0) {
-            const { doc, getDoc, collection, getDocs } = await import('firebase/firestore');
-            await Promise.all(matchIds.map(async (mid) => {
-              try {
-                // 1. Fetch Match Basic Info
-                const mSnap = await getDoc(doc(db, 'matches', mid));
-                if (mSnap.exists()) {
-                  const mData = mSnap.data() as Match;
-                  groups[mid].matchName = `${mData.week}. Hafta: ${mData.homeTeamName} - ${mData.awayTeamName}`;
-                  groups[mid].week = mData.week;
-                  groups[mid].homeTeam = mData.homeTeamName;
-                  groups[mid].awayTeam = mData.awayTeamName;
-
-                  // Fix: Handle scores properly
-                  const hScore = mData.homeScore !== undefined ? mData.homeScore : '-';
-                  const aScore = mData.awayScore !== undefined ? mData.awayScore : '-';
-                  groups[mid].score = (hScore !== '-' || aScore !== '-') ? `${hScore} - ${aScore}` : (mData.score || 'v');
-                }
-
-                // 2. Fetch Incidents to count "Aleyhe" (Incorrect judgments)
-                // A position is "against" if any critic in Trio says it's 'incorrect'
-                const incSnap = await getDocs(collection(db, 'matches', mid, 'incidents'));
-                let againstCount = 0;
-                for (const incDoc of incSnap.docs) {
-                  const opsSnap = await getDocs(collection(db, 'matches', mid, 'incidents', incDoc.id, 'opinions'));
-                  const hasIncorrect = opsSnap.docs.some(o => o.data().judgment === 'incorrect');
-                  if (hasIncorrect) againstCount++;
-                }
-                groups[mid].againstCount = againstCount;
-
-              } catch (e) { console.error('Match data fetch err', e) }
-            }));
-          }
-          return Object.values(groups).sort((a, b) => (b.week || 0) - (a.week || 0));
-        };
-
-        const trioQ = query(collectionGroup(db, 'opinions'), where('type', '==', 'trio'), limit(20));
-        const trioSnap = await getDocs(trioQ);
-        setTrioGrouped(await groupOpinions(trioSnap));
-
-        const genQ = query(collectionGroup(db, 'opinions'), where('type', '==', 'general'), limit(20));
-        const genSnap = await getDocs(genQ);
-        setGeneralGrouped(await groupOpinions(genSnap));
-
-        const pfdkSnap = await getDocs(collection(db, 'disciplinary_actions'));
-        setPfdkActions(pfdkSnap.docs.map(d => d.data() as DisciplinaryAction));
-
-        const stmtSnap = await getDocs(collection(db, 'statements'));
-        setStatements(stmtSnap.docs.map(d => d.data() as Statement));
-
-        const standSnap = await getDocs(collection(db, 'standings'));
-        setStandings(standSnap.docs.map(d => d.data() as Standing));
-
+        const res = await fetch('/api/public/home');
+        if (!res.ok) throw new Error('Failed to fetch home data');
+        const data = await res.json();
+        
+        setTrioGrouped(data.trioGrouped || []);
+        setGeneralGrouped(data.generalGrouped || []);
+        setPfdkActions(data.pfdkActions || []);
+        setStatements(data.statements || []);
+        setStandings(data.standings || []);
       } catch (err) {
         console.error("Dashboard Fetch Error:", err);
       } finally {

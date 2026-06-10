@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '@/firebase/client';
 import { Statement } from '@/types';
 import { Skeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
@@ -25,8 +23,10 @@ export default function StatementsPage() {
         async function fetchData() {
             try {
                 setLoading(true);
-                const stmtSnap = await getDocs(collection(db, 'statements'));
-                setStatements(stmtSnap.docs.map(d => ({ ...d.data(), id: d.id } as Statement)));
+                const res = await fetch('/api/public/statements');
+                if (!res.ok) throw new Error('Failed to fetch statements');
+                const data = await res.json();
+                setStatements(data || []);
             } catch (err) {
                 console.error("Statements Page Fetch Error:", err);
             } finally {

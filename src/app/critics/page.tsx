@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, collectionGroup, query, where, limit, QuerySnapshot, DocumentData } from 'firebase/firestore';
-import { db } from '@/firebase/client';
 import { MatchItem, MatchGroupedOpinions } from '@/components/matches/MatchItem';
-import { Opinion, Match } from '@/types';
 
 // Helper: Group matches by week
 const groupByWeek = (matches: MatchGroupedOpinions[]) => {
@@ -29,55 +26,10 @@ export default function CriticsPage() {
         async function fetchData() {
             try {
                 setLoading(true);
-                const genQ = query(collectionGroup(db, 'opinions'), where('type', '==', 'general'));
-                const querySnapshot = await getDocs(genQ);
-
-                const groups: { [key: string]: MatchGroupedOpinions } = {};
-                for (const d of querySnapshot.docs) {
-                    const matchId = d.ref.path.split('/')[1];
-                    if (!groups[matchId]) {
-                        groups[matchId] = { matchId, matchName: 'Yükleniyor...', opinions: [], againstCount: 0 };
-                    }
-                    const opinionData = d.data() as Opinion;
-                    groups[matchId].opinions.push(opinionData);
-                }
-
-                const matchIds = Object.keys(groups);
-                const filteredGroups: MatchGroupedOpinions[] = [];
-                if (matchIds.length > 0) {
-                    const { doc, getDoc, collection, getDocs } = await import('firebase/firestore');
-                    await Promise.all(matchIds.map(async (mid) => {
-                        try {
-                            const mSnap = await getDoc(doc(db, 'matches', mid));
-                            if (mSnap.exists()) {
-                                const mData = mSnap.data() as Match;
-                                // Sezona göre filtrele
-                                if ((mData.season || '2025-2026') !== selectedSeason) return;
-
-                                groups[mid].matchName = `${mData.week}. Hafta: ${mData.homeTeamName} - ${mData.awayTeamName}`;
-                                groups[mid].week = mData.week;
-                                groups[mid].homeTeam = mData.homeTeamName;
-                                groups[mid].awayTeam = mData.awayTeamName;
-
-                                const hScore = mData.homeScore !== undefined ? mData.homeScore : '-';
-                                const aScore = mData.awayScore !== undefined ? mData.awayScore : '-';
-                                groups[mid].score = (hScore !== '-' || aScore !== '-') ? `${hScore} - ${aScore}` : (mData.score || 'v');
-
-                                const incSnap = await getDocs(collection(db, 'matches', mid, 'incidents'));
-                                let againstCount = 0;
-                                for (const incDoc of incSnap.docs) {
-                                    const opsSnap = await getDocs(collection(db, 'matches', mid, 'incidents', incDoc.id, 'opinions'));
-                                    const hasIncorrect = opsSnap.docs.some(o => o.data().judgment === 'incorrect');
-                                    if (hasIncorrect) againstCount++;
-                                }
-                                groups[mid].againstCount = againstCount;
-                                filteredGroups.push(groups[mid]);
-                            }
-                        } catch (e) { console.error('Match data fetch err', e) }
-                    }));
-                }
-
-                setMatches(filteredGroups.sort((a, b) => (b.week || 0) - (a.week || 0)));
+                const res = await fetch(`/api/public/critics?season=${selectedSeason}`);
+                if (!res.ok) throw new Error('Failed to fetch critics data');
+                const data = await res.json();
+                setMatches(data || []);
             } catch (err) {
                 console.error("Critics Page Fetch Error:", err);
             } finally {

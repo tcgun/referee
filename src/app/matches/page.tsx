@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, query, orderBy, limit, where, collectionGroup } from 'firebase/firestore';
-import { db } from '@/firebase/client';
-import { Match, Opinion } from '@/types';
 import { MatchItem, MatchGroupedOpinions } from '@/components/matches/MatchItem';
 
 // Helper: Group matches by week
@@ -35,24 +32,12 @@ export default function MatchesListingPage() {
         async function fetchInitial() {
             try {
                 setLoading(true);
+                const res = await fetch(`/api/public/matches?init=true&season=${selectedSeason}`);
+                if (!res.ok) throw new Error('Failed to fetch initial matches data');
+                const data = await res.json();
                 
-                // Get all league matches and filter in-memory to find weeks and max week for season
-                const q = query(
-                    collection(db, 'matches'),
-                    where('competition', '==', 'league'),
-                    orderBy('week', 'desc')
-                );
-                const snap = await getDocs(q);
-                
-                // In-memory filter by season
-                const seasonDocs = snap.docs.filter(d => (d.data().season || '2025-2026') === selectedSeason);
-                
-                let mWeek = 1;
-                if (seasonDocs.length > 0) {
-                    mWeek = seasonDocs[0].data().week || 1;
-                }
-
-                const weeks = Array.from(new Set(seasonDocs.map(d => d.data().week))).filter(Boolean) as number[];
+                const weeks = data.weeks || [];
+                const mWeek = data.maxWeek || 1;
 
                 setAvailableWeeks(weeks);
                 setMaxWeek(mWeek);
@@ -73,52 +58,13 @@ export default function MatchesListingPage() {
         async function fetchMatches() {
             try {
                 setWeekLoading(true);
-
-                const matchesQ = competition === 'league'
-                    ? query(collection(db, 'matches'), where('competition', '==', 'league'), where('week', '==', selectedWeek), orderBy('date', 'asc'))
-                    : query(collection(db, 'matches'), where('competition', '==', 'cup'), orderBy('date', 'desc'), limit(40));
-
-                const matchesSnap = await getDocs(matchesQ);
-
-                // In-memory filter by season
-                const filteredDocs = matchesSnap.docs.filter(doc => (doc.data().season || '2025-2026') === selectedSeason);
-
-                const matchesData = await Promise.all(filteredDocs.map(async (mDoc) => {
-                    const mData = mDoc.data() as Match;
-                    const matchId = mDoc.id;
-
-                    // Fetch Opinions
-                    const opinionsQ = query(collectionGroup(db, 'opinions'), where('matchId', '==', matchId));
-                    const opinionsSnap = await getDocs(opinionsQ);
-                    const opinions = opinionsSnap.docs.map(d => d.data() as Opinion);
-
-                    // Fetch Incidents (Minimal check)
-                    const incSnap = await getDocs(collection(db, 'matches', matchId, 'incidents'));
-                    let againstCount = 0;
-                    for (const incDoc of incSnap.docs) {
-                        const opsSnap = await getDocs(collection(db, 'matches', matchId, 'incidents', incDoc.id, 'opinions'));
-                        const hasIncorrect = opsSnap.docs.some(o => o.data().judgment === 'incorrect');
-                        if (hasIncorrect) againstCount++;
-                    }
-
-                    const hScore = mData.homeScore !== undefined ? mData.homeScore : '-';
-                    const aScore = mData.awayScore !== undefined ? mData.awayScore : '-';
-                    const displayScore = (hScore !== '-' || aScore !== '-') ? `${hScore} - ${aScore}` : (mData.score && mData.score !== 'v' ? mData.score : 'vs');
-
-                    return {
-                        matchId,
-                        matchName: mData.homeTeamName && mData.awayTeamName ? `${mData.homeTeamName} - ${mData.awayTeamName}` : mData.id,
-                        week: mData.week,
-                        homeTeam: mData.homeTeamName,
-                        awayTeam: mData.awayTeamName,
-                        score: displayScore,
-                        opinions,
-                        againstCount,
-                        date: mData.date as string
-                    } as MatchGroupedOpinions;
-                }));
-
-                setMatches(matchesData);
+                const url = `/api/public/matches?season=${selectedSeason}&competition=${competition}` + 
+                            (competition === 'league' && selectedWeek ? `&week=${selectedWeek}` : '');
+                
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Failed to fetch matches data');
+                const data = await res.json();
+                setMatches(data || []);
             } catch (err) {
                 console.error("Matches Fetch Error:", err);
             } finally {

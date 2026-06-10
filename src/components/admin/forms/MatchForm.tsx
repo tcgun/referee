@@ -1,78 +1,65 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Match, MatchStats, MatchEvent } from '@/types';
+import { useState } from 'react';
+import { Match, MatchStats } from '@/types';
 import { resolveTeamId, getTeamName } from '@/lib/teams';
 import { parseMatchData } from '@/lib/matchParser';
-import { useRouter } from 'next/navigation';
 import { MatchSelect } from '../ExtraForms';
 import { toast } from 'sonner';
+
+// Auto-generate ID helper
+const generateMatchId = (m: Partial<Match>) => {
+    const activeWeek = m.week || 1;
+    const prefix = m.competition === 'cup' ? 'cup' : 'week';
+    const groupPart = (m.competition === 'cup' && m.group) ? `-${m.group}` : '';
+
+    if (m.homeTeamId && m.awayTeamId && m.date) {
+        const d = new Date(m.date);
+        if (!isNaN(d.getTime())) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${prefix}${activeWeek}${groupPart}-${m.homeTeamId}-${m.awayTeamId}-${yyyy}-${mm}-${dd}`;
+        }
+    }
+    return m.id || '';
+};
 
 interface MatchFormProps {
     apiKey: string;
     authToken?: string;
     preloadedMatch?: Match | null;
     season?: string;
+    onSuccess?: (savedMatchId: string, week: number) => void;
 }
 
-export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFormProps) => {
-    const router = useRouter();
-    const [match, setMatch] = useState<Partial<Match>>({
+export const MatchForm = ({ apiKey, authToken, preloadedMatch, season, onSuccess }: MatchFormProps) => {
+    const [match, setMatch] = useState<Partial<Match>>(() => ({
         id: '',
         week: 1,
         date: new Date().toISOString(),
         status: 'draft',
         competition: 'league',
         group: '',
-        season: season || '2025-2026'
-    });
-    const [originalId, setOriginalId] = useState<string>('');
-    const [localDate, setLocalDate] = useState('');
+        season: season || '2025-2026',
+        ...preloadedMatch
+    }));
+    const [originalId, setOriginalId] = useState<string>(preloadedMatch?.id || '');
 
     // Local states for raw paste data
     const [smartRaw, setSmartRaw] = useState('');
     const [statsRaw, setStatsRaw] = useState('');
 
-    useEffect(() => {
-        if (match.date) {
-            const d = new Date(match.date);
-            if (!isNaN(d.getTime())) {
-                const formatter = new Intl.DateTimeFormat('tr-TR', {
-                    year: 'numeric', month: '2-digit', day: '2-digit',
-                    hour: '2-digit', minute: '2-digit',
-                    timeZone: 'Europe/Istanbul'
-                });
-                setLocalDate(formatter.format(d));
+    const updateMatchState = (updates: Partial<Match> | ((prev: Partial<Match>) => Partial<Match>)) => {
+        setMatch(prev => {
+            const next = typeof updates === 'function' ? updates(prev) : { ...prev, ...updates };
+            if (!originalId) {
+                const newId = generateMatchId(next);
+                if (newId) next.id = newId;
             }
-        } else {
-            setLocalDate('');
-        }
-    }, [match.date]);
-
-    // Auto-generate ID for new matches
-    useEffect(() => {
-        if (!originalId) {
-            const newId = generateMatchId(match);
-            if (newId && newId !== match.id) {
-                setMatch(prev => ({ ...prev, id: newId }));
-            }
-        }
-    }, [match.homeTeamId, match.awayTeamId, match.date, match.week, match.competition, match.group, originalId]);
-
-    // Update form when preloaded data changes
-    useEffect(() => {
-        if (preloadedMatch && (!match.id || match.id !== preloadedMatch.id)) {
-            setMatch(preloadedMatch);
-            setOriginalId(preloadedMatch.id || '');
-        }
-    }, [preloadedMatch]);
-
-    // Sync season prop with match state
-    useEffect(() => {
-        if (season) {
-            setMatch(prev => ({ ...prev, season }));
-        }
-    }, [season]);
+            return next;
+        });
+    };
 
     const updateStat = (key: string, val: string) => {
         const num = val === '' ? undefined : Number(val);
@@ -83,6 +70,73 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
                 [key]: num
             }
         }));
+    };
+
+    const updateOfficial = (key: 'referees' | 'varReferees' | 'observers' | 'representatives', index: number, value: string) => {
+        setMatch(prev => {
+            const oldOfficials = prev.officials || {
+                referees: [],
+                varReferees: [],
+                observers: [],
+                representatives: []
+            };
+            const currentArray = [...(oldOfficials[key] || [])];
+            currentArray[index] = value;
+            return {
+                ...prev,
+                officials: {
+                    referees: oldOfficials.referees || [],
+                    varReferees: oldOfficials.varReferees || [],
+                    observers: oldOfficials.observers || [],
+                    representatives: oldOfficials.representatives || [],
+                    [key]: currentArray
+                }
+            };
+        });
+    };
+
+    const addOfficial = (key: 'referees' | 'varReferees' | 'observers' | 'representatives') => {
+        setMatch(prev => {
+            const oldOfficials = prev.officials || {
+                referees: [],
+                varReferees: [],
+                observers: [],
+                representatives: []
+            };
+            const currentArray = [...(oldOfficials[key] || [])];
+            return {
+                ...prev,
+                officials: {
+                    referees: oldOfficials.referees || [],
+                    varReferees: oldOfficials.varReferees || [],
+                    observers: oldOfficials.observers || [],
+                    representatives: oldOfficials.representatives || [],
+                    [key]: [...currentArray, '']
+                }
+            };
+        });
+    };
+
+    const removeOfficial = (key: 'referees' | 'varReferees' | 'observers' | 'representatives', index: number) => {
+        setMatch(prev => {
+            const oldOfficials = prev.officials || {
+                referees: [],
+                varReferees: [],
+                observers: [],
+                representatives: []
+            };
+            const currentArray = [...(oldOfficials[key] || [])].filter((_, idx) => idx !== index);
+            return {
+                ...prev,
+                officials: {
+                    referees: oldOfficials.referees || [],
+                    varReferees: oldOfficials.varReferees || [],
+                    observers: oldOfficials.observers || [],
+                    representatives: oldOfficials.representatives || [],
+                    [key]: currentArray
+                }
+            };
+        });
     };
 
     const prepareMatchForSave = (m: Partial<Match>) => {
@@ -99,7 +153,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
         }
 
         if (payload.stats) {
-            const cleanStats: any = {};
+            const cleanStats: Record<string, number> = {};
             let hasValue = false;
             Object.entries(payload.stats).forEach(([key, val]) => {
                 if (val !== '' && val !== null && val !== undefined) {
@@ -116,23 +170,6 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
         }
 
         return payload;
-    };
-
-    const generateMatchId = (m: Partial<Match>) => {
-        const activeWeek = m.week || 1;
-        const prefix = m.competition === 'cup' ? 'cup' : 'week';
-        const groupPart = (m.competition === 'cup' && m.group) ? `-${m.group}` : '';
-
-        if (m.homeTeamId && m.awayTeamId && m.date) {
-            const d = new Date(m.date);
-            if (!isNaN(d.getTime())) {
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                return `${prefix}${activeWeek}${groupPart}-${m.homeTeamId}-${m.awayTeamId}-${yyyy}-${mm}-${dd}`;
-            }
-        }
-        return m.id || '';
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -183,6 +220,9 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
             setOriginalId('');
             setSmartRaw('');
             setStatsRaw('');
+            if (onSuccess) {
+                onSuccess(activeId, match.week || 1);
+            }
         } else {
             const err = await res.json();
             toast.error(`Hata: ${err.error}`);
@@ -212,9 +252,10 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
                         'Net Gol Şansı': 'BigChances', 'Köşe Vuruşu': 'Corners', 'Ofsayt': 'Offsides',
                         'Kurtarışlar': 'Saves', 'Fauller': 'Fouls', 'Sarı Kart': 'YellowCards', 'Kırmızı Kart': 'RedCards'
                     };
+                    const statsRecord = data.stats as Record<string, number | undefined>;
                     Object.entries(m).forEach(([label, key]) => {
-                        const h = (data.stats as any)[`home${key}`];
-                        const a = (data.stats as any)[`away${key}`];
+                        const h = statsRecord[`home${key}`];
+                        const a = statsRecord[`away${key}`];
                         if (h !== undefined || a !== undefined) {
                             stats += `${label}\n${h ?? ''}\n${a ?? ''}\n`;
                         }
@@ -272,7 +313,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
         let awayStr = '';
         let dateStr = '';
 
-        const updates: any = { week: weekVal };
+        const updates: Partial<Match> = { week: weekVal };
 
         const shortcodeMatch = idInput.match(/^(w|week|l|league|c|cup)(\d+)([abc]?)([a-z0-9şçöğüı]{3})([a-z0-9şçöğüı]{3})$/);
 
@@ -420,7 +461,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
                             group={match.group}
                             season={season}
                             onChange={(val, week) => {
-                                const updates: any = { id: val };
+                                const updates: Partial<Match> = { id: val };
                                 if (week) updates.week = week;
                                 setMatch(prev => ({ ...prev, ...updates }));
                             }}
@@ -494,18 +535,18 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
                                 placeholder="ID (örn: gs)"
                                 className="border border-slate-200 p-2 w-full rounded text-sm bg-white"
                                 value={match.homeTeamId || ''}
-                                onChange={e => setMatch({ ...match, homeTeamId: e.target.value })}
+                                onChange={e => updateMatchState({ homeTeamId: e.target.value })}
                                 onBlur={() => {
                                     if (!match.homeTeamId) return;
                                     const rid = resolveTeamId(match.homeTeamId);
-                                    if (rid) setMatch(prev => ({ ...prev, homeTeamId: rid, homeTeamName: getTeamName(rid) }));
+                                    if (rid) updateMatchState({ homeTeamId: rid, homeTeamName: getTeamName(rid) });
                                 }}
                             />
                             <input
                                 placeholder="Adı (örn: Galatasaray)"
                                 className="border border-slate-200 p-2 w-full rounded text-xs bg-slate-50"
                                 value={match.homeTeamName || ''}
-                                onChange={e => setMatch({ ...match, homeTeamName: e.target.value })}
+                                onChange={e => updateMatchState({ homeTeamName: e.target.value })}
                             />
                         </div>
                     </div>
@@ -516,18 +557,18 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
                                 placeholder="ID (örn: fb)"
                                 className="border border-slate-200 p-2 w-full rounded text-sm bg-white"
                                 value={match.awayTeamId || ''}
-                                onChange={e => setMatch({ ...match, awayTeamId: e.target.value })}
+                                onChange={e => updateMatchState({ awayTeamId: e.target.value })}
                                 onBlur={() => {
                                     if (!match.awayTeamId) return;
                                     const rid = resolveTeamId(match.awayTeamId);
-                                    if (rid) setMatch(prev => ({ ...prev, awayTeamId: rid, awayTeamName: getTeamName(rid) }));
+                                    if (rid) updateMatchState({ awayTeamId: rid, awayTeamName: getTeamName(rid) });
                                 }}
                             />
                             <input
                                 placeholder="Adı (örn: Fenerbahçe)"
                                 className="border border-slate-200 p-2 w-full rounded text-xs bg-slate-50"
                                 value={match.awayTeamName || ''}
-                                onChange={e => setMatch({ ...match, awayTeamName: e.target.value })}
+                                onChange={e => updateMatchState({ awayTeamName: e.target.value })}
                             />
                         </div>
                     </div>
@@ -539,7 +580,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
                         <input type="text" className="border border-slate-200 p-2 w-full rounded font-bold bg-white text-sm" value={match.week || 1} onChange={e => {
                             const val = e.target.value;
                             const num = parseInt(val);
-                            setMatch({ ...match, week: isNaN(num) ? val as any : num });
+                            updateMatchState({ week: isNaN(num) ? 1 : num });
                         }} />
                     </div>
                     <div className="space-y-1">
@@ -554,7 +595,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
                             })() : ''}
                             onChange={e => {
                                 const d = new Date(e.target.value);
-                                if (!isNaN(d.getTime())) setMatch({ ...match, date: d.toISOString() });
+                                if (!isNaN(d.getTime())) updateMatchState({ date: d.toISOString() });
                             }}
                         />
                     </div>
@@ -607,6 +648,26 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
                         setMatch(parsedMatch);
                     }}
                 />
+
+                <div className="flex gap-2 mt-3">
+                    <button
+                        type="button"
+                        onClick={() => setMatch({ ...match, status: match.status === 'published' ? 'draft' : 'published' })}
+                        className={`flex-1 py-2 rounded font-bold text-xs border transition-all cursor-pointer ${
+                            match.status === 'published'
+                                ? 'bg-green-600 text-white border-green-700 hover:bg-green-700 shadow-sm'
+                                : 'bg-slate-200 text-slate-755 border-slate-300 hover:bg-slate-300 shadow-sm'
+                        }`}
+                    >
+                        {match.status === 'published' ? '🟢 YAYINDA' : '⚪ TASLAK'}
+                    </button>
+                    <button
+                        type="submit"
+                        className="flex-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-black text-xs shadow-md transition-all cursor-pointer uppercase tracking-wider"
+                    >
+                        Maçı Kaydet 🚀
+                    </button>
+                </div>
             </div>
 
             <div className="bg-orange-50 p-3 rounded mb-4 border border-orange-100">
@@ -672,10 +733,13 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
                         Object.keys(map).forEach(k => {
                             const internalKey = map[k]; const vals = values[k];
                             const parseVal = (v: string) => internalKey === 'Possession' ? parseFloat(v) : parseInt(v);
+                            const statsRecord = newMatch.stats as Record<string, number | undefined>;
                             if (vals && vals.length >= 2) {
-                                (newMatch.stats as any)[`home${internalKey}`] = parseVal(vals[0]);
-                                (newMatch.stats as any)[`away${internalKey}`] = parseVal(vals[1]);
-                            } else if (vals && vals.length === 1) (newMatch.stats as any)[`home${internalKey}`] = parseVal(vals[0]);
+                                statsRecord[`home${internalKey}`] = parseVal(vals[0]);
+                                statsRecord[`away${internalKey}`] = parseVal(vals[1]);
+                            } else if (vals && vals.length === 1) {
+                                statsRecord[`home${internalKey}`] = parseVal(vals[0]);
+                            }
                         });
                         setMatch(newMatch);
                     }}
@@ -716,8 +780,9 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
                         { label: 'Sarı Kart', key: 'YellowCards', step: '1', className: 'bg-yellow-50' },
                         { label: 'Kırmızı Kart', key: 'RedCards', step: '1', className: 'bg-red-50' }
                     ].map(st => {
-                        const hVal = Number((match.stats as any)?.[`home${st.key}`] || 0);
-                        const aVal = Number((match.stats as any)?.[`away${st.key}`] || 0);
+                        const statsRecord = match.stats as Record<string, number | undefined> | undefined;
+                        const hVal = Number(statsRecord?.[`home${st.key}`] || 0);
+                        const aVal = Number(statsRecord?.[`away${st.key}`] || 0);
                         const total = hVal + aVal;
                         const hPercent = total > 0 ? (hVal / total) * 100 : 50;
                         const aPercent = total > 0 ? (aVal / total) * 100 : 50;
@@ -725,9 +790,9 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
                         return (
                             <div key={st.key} className="flex flex-col">
                                 <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center mb-1">
-                                    <input type="number" step={st.step} className={`border p-2 rounded text-center font-mono font-bold ${st.className || ''}`} placeholder="0" value={(match.stats as any)?.[`home${st.key}`] ?? ''} onChange={e => updateStat(`home${st.key}`, e.target.value)} />
+                                    <input type="number" step={st.step} className={`border p-2 rounded text-center font-mono font-bold ${st.className || ''}`} placeholder="0" value={statsRecord?.[`home${st.key}`] ?? ''} onChange={e => updateStat(`home${st.key}`, e.target.value)} />
                                     <span className="text-center text-[10px] font-bold uppercase text-slate-400 w-24 truncate">{st.label}</span>
-                                    <input type="number" step={st.step} className={`border p-2 rounded text-center font-mono font-bold ${st.className || ''}`} placeholder="0" value={(match.stats as any)?.[`away${st.key}`] ?? ''} onChange={e => updateStat(`away${st.key}`, e.target.value)} />
+                                    <input type="number" step={st.step} className={`border p-2 rounded text-center font-mono font-bold ${st.className || ''}`} placeholder="0" value={statsRecord?.[`away${st.key}`] ?? ''} onChange={e => updateStat(`away${st.key}`, e.target.value)} />
                                 </div>
                                 <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-100">
                                     <div style={{ width: `${hPercent}%` }} className={`transition-all duration-500 ${st.key.includes('Card') ? (st.key.includes('Yellow') ? 'bg-yellow-400' : 'bg-red-500') : 'bg-blue-500'}`}></div>
@@ -740,39 +805,145 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season }: MatchFo
             </div>
 
             <div className="border-t pt-2 mt-2">
-                <h4 className="font-bold text-sm text-gray-600 mb-2">Hakemler ve Görevliler</h4>
-                <div className="mb-4 bg-gray-50 p-2 rounded">
-                    <div className="flex justify-between items-center mb-1">
-                        <span className="font-bold text-xs uppercase text-gray-700">Hakemler (Max 4)</span>
-                        <button type="button" onClick={() => { const refs = match.officials?.referees || []; if (refs.length < 4) setMatch({ ...match, officials: { ...match.officials!, referees: [...refs, ''] } }); }} className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">Ekle +</button>
+                <h4 className="font-bold text-sm text-gray-600 mb-2">Hakemler, Gözlemciler ve Temsilciler</h4>
+                
+                {/* 1. Hakemler */}
+                <div className="mb-4 bg-gray-50 p-2.5 rounded border border-gray-100">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="font-bold text-xs uppercase text-gray-700">Hakemler (Masa & Saha)</span>
+                        <button 
+                            type="button" 
+                            onClick={() => addOfficial('referees')} 
+                            className="bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs px-2 py-1 rounded transition-colors"
+                        >
+                            Ekle +
+                        </button>
                     </div>
                     {(match.officials?.referees || []).map((ref, i) => (
-                        <div key={i} className="flex gap-1 mb-1">
-                            <input className="border border-gray-300 p-1 w-full rounded text-sm" value={ref} onChange={(e) => { const newRefs = [...(match.officials?.referees || [])]; newRefs[i] = e.target.value; setMatch({ ...match, officials: { ...match.officials!, referees: newRefs } }); }} />
-                            <button type="button" onClick={() => { const newRefs = (match.officials?.referees || []).filter((_, idx) => idx !== i); setMatch({ ...match, officials: { ...match.officials!, referees: newRefs } }); }} className="text-red-500 font-bold px-2">×</button>
+                        <div key={i} className="flex gap-2 items-center mb-1.5">
+                            <span className="text-xs font-bold text-slate-500 w-36 shrink-0">
+                                {i === 0 ? 'Hakem:' : i === 1 ? '1. Yardımcı Hakem:' : i === 2 ? '2. Yardımcı Hakem:' : i === 3 ? 'Dördüncü Hakem:' : `${i + 1}. Hakem:`}
+                            </span>
+                            <input 
+                                className="border border-gray-300 p-1.5 w-full rounded text-sm bg-white" 
+                                placeholder="Hakem Adı"
+                                value={ref} 
+                                onChange={(e) => updateOfficial('referees', i, e.target.value)} 
+                            />
+                            <button 
+                                type="button" 
+                                onClick={() => removeOfficial('referees', i)} 
+                                className="text-red-500 font-bold px-2 hover:text-red-700 transition-colors"
+                            >
+                                ×
+                            </button>
                         </div>
                     ))}
                 </div>
-                {/* VAR, Observers, Representatives sections abbreviated for brevity in this refactor, but kept logic */}
-                {/* [VAR Section] */}
-                <div className="mb-4 bg-gray-50 p-2 rounded">
-                    <div className="flex justify-between items-center mb-1">
-                        <span className="font-bold text-xs uppercase text-gray-700">VAR Ekibi</span>
-                        <button type="button" onClick={() => { const vars = match.officials?.varReferees || []; setMatch({ ...match, officials: { ...match.officials!, varReferees: [...vars, ''] } }); }} className="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded">Ekle +</button>
+
+                {/* 2. VAR Ekibi */}
+                <div className="mb-4 bg-gray-50 p-2.5 rounded border border-gray-100">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="font-bold text-xs uppercase text-gray-700">VAR & AVAR Ekibi</span>
+                        <button 
+                            type="button" 
+                            onClick={() => addOfficial('varReferees')} 
+                            className="bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs px-2 py-1 rounded transition-colors"
+                        >
+                            Ekle +
+                        </button>
                     </div>
                     {(match.officials?.varReferees || []).map((v, i) => (
-                        <div key={i} className="flex gap-1 mb-1">
-                            <input className="border border-gray-300 p-1 w-full rounded text-sm" value={v} onChange={(e) => { const newVars = [...(match.officials?.varReferees || [])]; newVars[i] = e.target.value; setMatch({ ...match, officials: { ...match.officials!, varReferees: newVars } }); }} />
-                            <button type="button" onClick={() => { const newVars = (match.officials?.varReferees || []).filter((_, idx) => idx !== i); setMatch({ ...match, officials: { ...match.officials!, varReferees: newVars } }); }} className="text-red-500 font-bold px-2">×</button>
+                        <div key={i} className="flex gap-2 items-center mb-1.5">
+                            <span className="text-xs font-bold text-slate-500 w-36 shrink-0">
+                                {i === 0 ? 'VAR:' : i === 1 ? 'AVAR:' : `AVAR ${i}:`}
+                            </span>
+                            <input 
+                                className="border border-gray-300 p-1.5 w-full rounded text-sm bg-white" 
+                                placeholder="VAR/AVAR Adı"
+                                value={v} 
+                                onChange={(e) => updateOfficial('varReferees', i, e.target.value)} 
+                            />
+                            <button 
+                                type="button" 
+                                onClick={() => removeOfficial('varReferees', i)} 
+                                className="text-red-500 font-bold px-2 hover:text-red-700 transition-colors"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                {/* 3. Gözlemciler */}
+                <div className="mb-4 bg-gray-50 p-2.5 rounded border border-gray-100">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="font-bold text-xs uppercase text-gray-700">Gözlemciler</span>
+                        <button 
+                            type="button" 
+                            onClick={() => addOfficial('observers')} 
+                            className="bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs px-2 py-1 rounded transition-colors"
+                        >
+                            Ekle +
+                        </button>
+                    </div>
+                    {(match.officials?.observers || []).map((obs, i) => (
+                        <div key={i} className="flex gap-2 items-center mb-1.5">
+                            <span className="text-xs font-bold text-slate-500 w-36 shrink-0">
+                                {i === 0 ? 'Gözlemci:' : `${i + 1}. Gözlemci:`}
+                            </span>
+                            <input 
+                                className="border border-gray-300 p-1.5 w-full rounded text-sm bg-white" 
+                                placeholder="Gözlemci Adı"
+                                value={obs} 
+                                onChange={(e) => updateOfficial('observers', i, e.target.value)} 
+                            />
+                            <button 
+                                type="button" 
+                                onClick={() => removeOfficial('observers', i)} 
+                                className="text-red-500 font-bold px-2 hover:text-red-700 transition-colors"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                {/* 4. Temsilciler */}
+                <div className="mb-4 bg-gray-50 p-2.5 rounded border border-gray-100">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="font-bold text-xs uppercase text-gray-700">Temsilciler</span>
+                        <button 
+                            type="button" 
+                            onClick={() => addOfficial('representatives')} 
+                            className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-xs px-2 py-1 rounded transition-colors"
+                        >
+                            Ekle +
+                        </button>
+                    </div>
+                    {(match.officials?.representatives || []).map((rep, i) => (
+                        <div key={i} className="flex gap-2 items-center mb-1.5">
+                            <span className="text-xs font-bold text-slate-500 w-36 shrink-0">
+                                {i === 0 ? 'Temsilci:' : `${i + 1}. Temsilci:`}
+                            </span>
+                            <input 
+                                className="border border-gray-300 p-1.5 w-full rounded text-sm bg-white" 
+                                placeholder="Temsilci Adı"
+                                value={rep} 
+                                onChange={(e) => updateOfficial('representatives', i, e.target.value)} 
+                            />
+                            <button 
+                                type="button" 
+                                onClick={() => removeOfficial('representatives', i)} 
+                                className="text-red-500 font-bold px-2 hover:text-red-700 transition-colors"
+                            >
+                                ×
+                            </button>
                         </div>
                     ))}
                 </div>
             </div>
 
-            <button type="button" onClick={() => setMatch({ ...match, status: match.status === 'published' ? 'draft' : 'published' })} className={`mb-2 p-2 rounded w-full font-bold border ${match.status === 'published' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-500 border-gray-300'}`}>
-                {match.status === 'published' ? 'YAYINDA' : 'TASLAK'}
-            </button>
-            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded w-full font-medium">Maçı Kaydet</button>
         </form>
     );
 };

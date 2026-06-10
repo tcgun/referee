@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/firebase/admin';
 import { Match, Opinion } from '@/types';
-
-export const dynamic = 'force-dynamic';
+export const revalidate = 1800; // Cache for 30 minutes
 
 export async function GET() {
     try {
