@@ -759,12 +759,12 @@ function AdminContent() {
                                                     const current = Number(setupSelectedWeek || 1);
                                                     setSetupSelectedWeek(current > 1 ? current - 1 : 34);
                                                 }}
-                                                className="text-red-650 hover:text-red-700 font-black text-xl px-2 transition-colors bg-transparent border-0 cursor-pointer"
+                                                className="text-slate-800 hover:text-slate-900 font-black text-xl px-2 transition-colors bg-transparent border-0 cursor-pointer"
                                             >
                                                 &laquo;
                                             </button>
-                                            <span className="text-red-650 font-extrabold text-sm uppercase tracking-wider">
-                                                {setupSelectedWeek ? `${setupSelectedWeek}.Hafta` : 'Hafta Seçilmedi'}
+                                            <span className="text-slate-900 font-extrabold text-sm uppercase tracking-wider">
+                                                {setupSelectedWeek ? `${setupSelectedWeek}.HAFTA` : 'Hafta Seçilmedi'}
                                             </span>
                                             <button 
                                                 type="button"
@@ -772,7 +772,7 @@ function AdminContent() {
                                                     const current = Number(setupSelectedWeek || 1);
                                                     setSetupSelectedWeek(current < 34 ? current + 1 : 1);
                                                 }}
-                                                className="text-red-650 hover:text-red-700 font-black text-xl px-2 transition-colors bg-transparent border-0 cursor-pointer"
+                                                className="text-slate-800 hover:text-slate-900 font-black text-xl px-2 transition-colors bg-transparent border-0 cursor-pointer"
                                             >
                                                 &raquo;
                                             </button>
@@ -783,14 +783,14 @@ function AdminContent() {
                                             <table className="min-w-full text-center border-collapse border border-slate-200 text-xs font-bold text-slate-700">
                                                 <tbody>
                                                     <tr className="border-b border-slate-200">
-                                                        <td className="bg-slate-50 font-bold text-red-650 px-3 py-2 border-r border-slate-200 whitespace-nowrap text-left w-20">1. Devre</td>
+                                                        <td className="bg-slate-50 font-bold text-slate-800 px-3 py-2 border-r border-slate-200 whitespace-nowrap text-left w-20">1. Devre</td>
                                                         {Array.from({ length: 17 }, (_, i) => i + 1).map(week => (
                                                             <td 
                                                                 key={week} 
                                                                 onClick={() => setSetupSelectedWeek(week)}
                                                                 className={`cursor-pointer border-r border-slate-200 hover:bg-slate-100 transition-colors font-bold px-2 py-2 min-w-[32px] ${
                                                                     setupSelectedWeek === week 
-                                                                        ? 'bg-slate-600 text-white hover:bg-slate-700' 
+                                                                        ? 'bg-slate-700 text-white hover:bg-slate-800' 
                                                                         : 'bg-white text-slate-700 hover:bg-slate-50'
                                                                 }`}
                                                             >
@@ -799,14 +799,14 @@ function AdminContent() {
                                                         ))}
                                                     </tr>
                                                     <tr>
-                                                        <td className="bg-slate-50 font-bold text-red-650 px-3 py-2 border-r border-slate-200 whitespace-nowrap text-left w-20">2. Devre</td>
+                                                        <td className="bg-slate-50 font-bold text-slate-800 px-3 py-2 border-r border-slate-200 whitespace-nowrap text-left w-20">2. Devre</td>
                                                         {Array.from({ length: 17 }, (_, i) => i + 18).map(week => (
                                                             <td 
                                                                 key={week} 
                                                                 onClick={() => setSetupSelectedWeek(week)}
                                                                 className={`cursor-pointer border-r border-slate-200 hover:bg-slate-100 transition-colors font-bold px-2 py-2 min-w-[32px] ${
                                                                     setupSelectedWeek === week 
-                                                                        ? 'bg-slate-600 text-white hover:bg-slate-700' 
+                                                                        ? 'bg-slate-700 text-white hover:bg-slate-800' 
                                                                         : 'bg-white text-slate-700 hover:bg-slate-50'
                                                                 }`}
                                                             >

@@ -626,6 +626,16 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season, onSuccess
                         </div>
                     </div>
                 </div>
+
+                <div className="space-y-1 pt-2 border-t border-slate-200">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Stadyum</label>
+                    <input
+                        placeholder="Örn: Rams Park"
+                        className="w-full border border-slate-300 p-2 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        value={match.stadium || ''}
+                        onChange={e => updateMatchState({ stadium: e.target.value })}
+                    />
+                </div>
             </div>
 
             <div className="bg-indigo-50 p-3 rounded mb-4 border border-indigo-100 relative">

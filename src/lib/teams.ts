@@ -97,56 +97,6 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
         colors: { primary: '#FFD700', secondary: '#CC0000' },
         short: 'kay',
         aliases: ['mondihome kayserispor', 'zecorner kayserispor']
-    },
-    'ist': {
-        name: 'İstanbulspor',
-        colors: { primary: '#FFFF00', secondary: '#000000' },
-        short: 'ist'
-    },
-    'bol': {
-        name: 'Boluspor',
-        colors: { primary: '#008000', secondary: '#FFFFFF' },
-        short: 'bol'
-    },
-    'fet': {
-        name: 'Fethiyespor',
-        colors: { primary: '#0000FF', secondary: '#FFFFFF' },
-        short: 'fet'
-    },
-    'bod': {
-        name: 'Bodrum Futbol Kulübü',
-        colors: { primary: '#008000', secondary: '#FFFFFF' },
-        short: 'bod',
-        aliases: ['bodrumspor']
-    },
-    'igd': {
-        name: 'Iğdır Futbol Kulübü',
-        colors: { primary: '#008000', secondary: '#FFFFFF' },
-        short: 'igd',
-        aliases: ['ığd', 'ığdır']
-    },
-    'ali': {
-        name: 'Aliağa Futbol',
-        colors: { primary: '#FFFF00', secondary: '#000000' },
-        short: 'ali'
-    },
-    'erz': {
-        name: 'Erzurumspor FK',
-        colors: { primary: '#0000FF', secondary: '#FFFFFF' },
-        short: 'erz',
-        aliases: ['erzurumspor', 'erzurum']
-    },
-    'kec': {
-        name: 'Keçiörengücü',
-        colors: { primary: '#800080', secondary: '#FFFFFF' },
-        short: 'kec',
-        aliases: ['keç', 'keçiören']
-    },
-    'bey': {
-        name: 'Beyoğlu Yeni Çarşı Spor',
-        colors: { primary: '#0000FF', secondary: '#FFFFFF' },
-        short: 'bey',
-        aliases: ['beyoğlu']
     }
 };
 
@@ -280,3 +230,30 @@ export function cleanSponsorsInText(text: string): string {
 
     return cleaned;
 }
+
+export const TEAM_STADIUMS: Record<string, string> = {
+    'bes': 'Beşiktaş Park',
+    'kon': 'Konya Büyükşehir Stadyumu',
+    'gal': 'Ali Sami Yen Spor Kompleksi',
+    'goz': 'Gürsel Aksel Stadyumu',
+    'bas': 'Fatih Terim Stadyumu',
+    'ant': 'Antalya Stadyumu',
+    'sam': 'Samsun 19 Mayıs Stadyumu',
+    'tra': 'Akyazı Stadyumu',
+    'ala': 'Alanya Oba Stadyumu',
+    'fen': 'Şükrü Saracoğlu Stadyumu',
+    'gen': 'Eryaman Stadyumu',
+    'kas': 'Recep Tayyip Erdoğan Stadyumu',
+    'koc': 'Kocaeli Stadyumu',
+    'fat': 'Atatürk Olimpiyat Stadyumu',
+    'eyu': 'Recep Tayyip Erdoğan Stadyumu',
+    'riz': 'Rize Şehir Stadyumu',
+    'gaz': 'Gaziantep Stadyumu',
+    'kay': 'Kadir Has Stadyumu'
+};
+
+export function getTeamStadium(teamId: string): string {
+    const teamIdClean = teamId?.toLowerCase().trim() || '';
+    return TEAM_STADIUMS[teamIdClean] || '';
+}
+

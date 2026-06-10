@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import { Match, Incident, Opinion, DisciplinaryAction, Team } from '@/types';
+import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
 import { useParams } from 'next/navigation';
 import { cleanSponsorsInText, getTeamStadium } from '@/lib/teams';
 import Link from 'next/link';
@@ -11,10 +11,6 @@ import Link from 'next/link';
 interface IncidentWithOpinions extends Incident {
     opinions: Opinion[];
 }
-
-const normalizeName = (name: string) => {
-    return name.replace(/i/g, 'İ').toLocaleUpperCase('tr-TR').trim().replace(/\s+/g, ' ');
-};
 
 const parseMinute = (minStr: string | number): number => {
     const minStrClean = minStr.toString().replace('.dk', '').replace(/\s+/g, '');
@@ -39,11 +35,109 @@ export default function MatchClient() {
     const [fixtures, setFixtures] = useState<Match[]>([]);
     
     // UI Tab state
-    const [activeTab, setActiveTab] = useState<'analiz' | 'istatistik' | 'pfdk'>('analiz');
+    const [activeTab, setActiveTab] = useState<'analiz' | 'istatistik' | 'gorevliler' | 'pfdk'>('analiz');
     
     // Load state
     const [loading, setLoading] = useState<boolean>(true);
     const [fixturesLoading, setFixturesLoading] = useState<boolean>(false);
+
+    const [allSeasonMatches, setAllSeasonMatches] = useState<Match[]>([]);
+
+    // Helper functions for official stats
+    const normalizeOfficialName = (name: string): string => {
+        return name
+            .toLowerCase()
+            .replace(/ı/g, 'i')
+            .replace(/ğ/g, 'g')
+            .replace(/ü/g, 'u')
+            .replace(/ş/g, 's')
+            .replace(/ö/g, 'o')
+            .replace(/ç/g, 'c')
+            .replace(/\s+/g, '')
+            .trim();
+    };
+
+    const getOfficialCountForTeam = (officialName: string, teamId: string, matchesList: Match[]): number => {
+        if (!officialName || !teamId) return 0;
+        const normName = normalizeOfficialName(officialName);
+        
+        return matchesList.filter(m => {
+            const involvesTeam = m.homeTeamId === teamId || m.awayTeamId === teamId;
+            if (!involvesTeam) return false;
+            
+            const matchOfficials: string[] = [];
+            if (m.referee) matchOfficials.push(m.referee);
+            if (m.varReferee) matchOfficials.push(m.varReferee);
+            
+            if (m.officials) {
+                if (m.officials.referees) matchOfficials.push(...m.officials.referees);
+                if (m.officials.varReferees) matchOfficials.push(...m.officials.varReferees);
+                if (m.officials.assistants) matchOfficials.push(...m.officials.assistants);
+                if (m.officials.fourthOfficial) matchOfficials.push(m.officials.fourthOfficial);
+                if (m.officials.avarReferees) matchOfficials.push(...m.officials.avarReferees);
+                if (m.officials.observers) matchOfficials.push(...m.officials.observers);
+                if (m.officials.representatives) matchOfficials.push(...m.officials.representatives);
+            }
+            if (m.representatives) {
+                if (m.representatives.observer) matchOfficials.push(m.representatives.observer);
+                if (m.representatives.rep1) matchOfficials.push(m.representatives.rep1);
+                if (m.representatives.rep2) matchOfficials.push(m.representatives.rep2);
+                if (m.representatives.rep3) matchOfficials.push(m.representatives.rep3);
+            }
+            
+            return matchOfficials.some(name => name && normalizeOfficialName(name) === normName);
+        }).length;
+    };
+
+    const getTeamShortName = (teamId: string): string => {
+        const cleanId = teamId?.toLowerCase().trim() || '';
+        const mapping: Record<string, string> = {
+            'bes': 'BJK',
+            'gal': 'GS',
+            'fen': 'FB',
+            'tra': 'TS',
+            'bas': 'IBFK',
+            'ant': 'ANT',
+            'kon': 'KON',
+            'goz': 'GÖZ',
+            'sam': 'SAM',
+            'ala': 'ALA',
+            'kas': 'KAS',
+            'koc': 'KOC',
+            'fat': 'FGM',
+            'eyu': 'EYÜP',
+            'riz': 'ÇAYR',
+            'gaz': 'GFK',
+            'kay': 'KAY',
+            'ist': 'İST',
+            'bol': 'BOL',
+            'fet': 'FET',
+            'bod': 'BOD',
+            'igd': 'IĞD',
+            'ali': 'ALİ',
+            'erz': 'ERZ',
+            'kec': 'KEÇ',
+            'bey': 'BYÇ'
+        };
+        return mapping[cleanId] || cleanId.substring(0, 3).toUpperCase();
+    };
+
+    const renderOfficialStats = (officialName?: string) => {
+        if (!officialName || officialName === '-' || !match) return null;
+        const homeCount = getOfficialCountForTeam(officialName, match.homeTeamId, allSeasonMatches);
+        const awayCount = getOfficialCountForTeam(officialName, match.awayTeamId, allSeasonMatches);
+        
+        if (homeCount === 0 && awayCount === 0) return null;
+        
+        const homeShort = getTeamShortName(match.homeTeamId);
+        const awayShort = getTeamShortName(match.awayTeamId);
+        
+        return (
+            <span className="text-[9px] text-[#FF5DAD] font-extrabold uppercase tracking-wider block mt-0.5 select-none">
+                ({homeShort}: {homeCount} Maç | {awayShort}: {awayCount} Maç)
+            </span>
+        );
+    };
 
     // 1. Initial Match Fetch
     useEffect(() => {
@@ -89,6 +183,15 @@ export default function MatchClient() {
                     // Set initial selectors
                     setSelectedWeek(matchData.week || 1);
                     setSelectedSeason(matchData.season || '2025-2026');
+
+                    // Fetch all matches for the season to compute official statistics
+                    const allMatchesQ = query(
+                        collection(db, 'matches'),
+                        where('season', '==', matchData.season || '2025-2026')
+                    );
+                    const allMatchesSnap = await getDocs(allMatchesQ);
+                    const allMatchesList = allMatchesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Match));
+                    setAllSeasonMatches(allMatchesList);
                 }
             } catch (err) {
                 console.error("Match fetch details error:", err);
@@ -266,10 +369,10 @@ export default function MatchClient() {
                         <div className="space-y-6">
                             
                             {/* Tab Switchers */}
-                            <div className="flex bg-[#161b22] p-1 rounded-2xl border border-white/10 shadow-neo-sm">
+                            <div className="flex bg-[#161b22] p-1 rounded-2xl border border-white/10 shadow-neo-sm overflow-x-auto scrollbar-none">
                                 <button
                                     onClick={() => setActiveTab('analiz')}
-                                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
+                                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all whitespace-nowrap ${
                                         activeTab === 'analiz' ? 'bg-primary text-black shadow-lg font-bold' : 'text-zinc-400 hover:text-white hover:bg-white/5'
                                     }`}
                                 >
@@ -277,15 +380,23 @@ export default function MatchClient() {
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('istatistik')}
-                                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
+                                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all whitespace-nowrap ${
                                         activeTab === 'istatistik' ? 'bg-primary text-black shadow-lg font-bold' : 'text-zinc-400 hover:text-white hover:bg-white/5'
                                     }`}
                                 >
                                     İSTATİSTİK
                                 </button>
                                 <button
+                                    onClick={() => setActiveTab('gorevliler')}
+                                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all whitespace-nowrap ${
+                                        activeTab === 'gorevliler' ? 'bg-primary text-black shadow-lg font-bold' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                                    }`}
+                                >
+                                    GÖREVLİLER
+                                </button>
+                                <button
                                     onClick={() => setActiveTab('pfdk')}
-                                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
+                                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all whitespace-nowrap ${
                                         activeTab === 'pfdk' ? 'bg-primary text-black shadow-lg font-bold' : 'text-zinc-400 hover:text-white hover:bg-white/5'
                                     }`}
                                 >
@@ -385,7 +496,7 @@ export default function MatchClient() {
                                                                                      : 'Kart Gerekirdi'}
                                                                                 </span>
                                                                             </div>
-                                                                            <p className="text-xs text-zinc-300 leading-relaxed italic">"{op.opinion}"</p>
+                                                                            <p className="text-xs text-zinc-300 leading-relaxed italic">&quot;{op.opinion}&quot;</p>
                                                                             {op.reasoning && (
                                                                                 <p className="text-[10px] text-zinc-500 leading-relaxed">
                                                                                     <span className="font-extrabold text-zinc-400 uppercase mr-1">Gerekçe:</span> {op.reasoning}
@@ -477,6 +588,179 @@ export default function MatchClient() {
                                                 </div>
                                             </div>
                                         )}
+                                    </div>
+                                )}
+
+                                {activeTab === 'gorevliler' && (
+                                    <div className="bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6 animate-fadeIn">
+                                        <div className="space-y-1 border-b border-white/5 pb-4">
+                                            <h3 className="text-sm font-black tracking-widest text-primary uppercase">MAÇ GÖREVLİLERİ</h3>
+                                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">TFF Atamaları ve Görevli Kadrosu</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            
+                                            {/* Hakem Heyeti Card */}
+                                            <div className="bg-zinc-900/40 p-6 rounded-2xl border border-white/5 space-y-4">
+                                                <h4 className="text-xs font-black text-[#00a89d] uppercase tracking-wider border-b border-white/5 pb-2">HAKEM HEYETİ</h4>
+                                                <div className="space-y-3">
+                                                    {(() => {
+                                                        const mainRef = match.referee || match.officials?.referees?.[0];
+                                                        return mainRef && mainRef !== '-' ? (
+                                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs border-b border-white/5 pb-2 gap-1">
+                                                                <span className="text-zinc-400 font-bold">Orta Hakem</span>
+                                                                <div className="text-right">
+                                                                    <span className="text-white font-extrabold block">{mainRef}</span>
+                                                                    {renderOfficialStats(mainRef)}
+                                                                </div>
+                                                            </div>
+                                                        ) : null;
+                                                    })()}
+                                                    {(() => {
+                                                        const asst1 = match.officials?.assistants?.[0] || match.officials?.referees?.[1];
+                                                        return asst1 && asst1 !== '-' ? (
+                                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs border-b border-white/5 pb-2 gap-1">
+                                                                <span className="text-zinc-400 font-bold">1. Yardımcı Hakem</span>
+                                                                <div className="text-right">
+                                                                    <span className="text-white font-extrabold block">{asst1}</span>
+                                                                    {renderOfficialStats(asst1)}
+                                                                </div>
+                                                            </div>
+                                                        ) : null;
+                                                    })()}
+                                                    {(() => {
+                                                        const asst2 = match.officials?.assistants?.[1] || match.officials?.referees?.[2];
+                                                        return asst2 && asst2 !== '-' ? (
+                                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs border-b border-white/5 pb-2 gap-1">
+                                                                <span className="text-zinc-400 font-bold">2. Yardımcı Hakem</span>
+                                                                <div className="text-right">
+                                                                    <span className="text-white font-extrabold block">{asst2}</span>
+                                                                    {renderOfficialStats(asst2)}
+                                                                </div>
+                                                            </div>
+                                                        ) : null;
+                                                    })()}
+                                                    {(() => {
+                                                        const fourth = match.officials?.fourthOfficial || match.officials?.referees?.[3];
+                                                        return fourth && fourth !== '-' ? (
+                                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs gap-1">
+                                                                <span className="text-zinc-400 font-bold">Dördüncü Hakem</span>
+                                                                <div className="text-right">
+                                                                    <span className="text-white font-extrabold block">{fourth}</span>
+                                                                    {renderOfficialStats(fourth)}
+                                                                </div>
+                                                            </div>
+                                                        ) : null;
+                                                    })()}
+                                                </div>
+                                            </div>
+
+                                            {/* VAR Ekibi Card */}
+                                            <div className="bg-zinc-900/40 p-6 rounded-2xl border border-white/5 space-y-4">
+                                                <h4 className="text-xs font-black text-[#FF5DAD] uppercase tracking-wider border-b border-white/5 pb-2">VAR EKİBİ</h4>
+                                                <div className="space-y-3">
+                                                    {(() => {
+                                                        const varRef = match.varReferee || match.officials?.varReferees?.[0];
+                                                        return varRef && varRef !== '-' ? (
+                                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs border-b border-white/5 pb-2 gap-1">
+                                                                <span className="text-zinc-400 font-bold">VAR Hakemi</span>
+                                                                <div className="text-right">
+                                                                    <span className="text-white font-extrabold block">{varRef}</span>
+                                                                    {renderOfficialStats(varRef)}
+                                                                </div>
+                                                            </div>
+                                                        ) : null;
+                                                    })()}
+                                                    {(() => {
+                                                        const avarRef = match.officials?.avarReferees?.[0] || match.officials?.varReferees?.[1];
+                                                        return avarRef && avarRef !== '-' ? (
+                                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs gap-1">
+                                                                <span className="text-zinc-400 font-bold">AVAR Hakemi</span>
+                                                                <div className="text-right">
+                                                                    <span className="text-white font-extrabold block">{avarRef}</span>
+                                                                    {renderOfficialStats(avarRef)}
+                                                                </div>
+                                                            </div>
+                                                        ) : null;
+                                                    })()}
+                                                </div>
+                                            </div>
+
+                                            {/* Gözlemciler Card */}
+                                            <div className="bg-zinc-900/40 p-6 rounded-2xl border border-white/5 space-y-4">
+                                                <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider border-b border-white/5 pb-2">GÖZLEMCİLER</h4>
+                                                <div className="space-y-3">
+                                                    {match.officials?.observers && match.officials.observers.length > 0 ? (
+                                                        match.officials.observers.map((obs, idx) => {
+                                                            const label = match.officials!.observers.length === 1 
+                                                                ? 'Gözlemci' 
+                                                                : `${idx + 1}. Gözlemci`;
+                                                            return (
+                                                                <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs border-b border-white/5 pb-2 last:border-0 last:pb-0 gap-1">
+                                                                    <span className="text-zinc-400 font-bold">{label}</span>
+                                                                    <div className="text-right">
+                                                                        <span className="text-white font-extrabold block">{obs}</span>
+                                                                        {renderOfficialStats(obs)}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    ) : match.representatives?.observer ? (
+                                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs gap-1">
+                                                            <span className="text-zinc-400 font-bold">Hakem Gözlemcisi</span>
+                                                            <div className="text-right">
+                                                                <span className="text-white font-extrabold block">{match.representatives.observer}</span>
+                                                                {renderOfficialStats(match.representatives.observer)}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-zinc-500 text-[10px] font-bold italic">Gözlemci bilgisi girilmemiştir.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Temsilciler Card */}
+                                            <div className="bg-zinc-900/40 p-6 rounded-2xl border border-white/5 space-y-4">
+                                                <h4 className="text-xs font-black text-blue-400 uppercase tracking-wider border-b border-white/5 pb-2">TEMSİLCİLER</h4>
+                                                <div className="space-y-3">
+                                                    {match.officials?.representatives && match.officials.representatives.length > 0 ? (
+                                                        match.officials.representatives.map((rep, idx) => {
+                                                            const label = match.officials!.representatives.length === 1 
+                                                                ? 'Temsilci' 
+                                                                : `${idx + 1}. Temsilci`;
+                                                            return (
+                                                                <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs border-b border-white/5 pb-2 last:border-0 last:pb-0 gap-1">
+                                                                    <span className="text-zinc-400 font-bold">{label}</span>
+                                                                    <div className="text-right">
+                                                                        <span className="text-white font-extrabold block">{rep}</span>
+                                                                        {renderOfficialStats(rep)}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    ) : (match.representatives?.rep1 || match.representatives?.rep2 || match.representatives?.rep3) ? (
+                                                        (() => {
+                                                            const reps = [match.representatives.rep1, match.representatives.rep2, match.representatives.rep3].filter(Boolean) as string[];
+                                                            return reps.map((rep, idx) => {
+                                                                const label = reps.length === 1 ? 'Temsilci' : `${idx + 1}. Temsilci`;
+                                                                return (
+                                                                    <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs border-b border-white/5 pb-2 last:border-0 last:pb-0 gap-1">
+                                                                        <span className="text-zinc-400 font-bold">{label}</span>
+                                                                        <div className="text-right">
+                                                                            <span className="text-white font-extrabold block">{rep}</span>
+                                                                            {renderOfficialStats(rep)}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            });
+                                                        })()
+                                                    ) : (
+                                                        <p className="text-zinc-500 text-[10px] font-bold italic">Temsilci bilgisi girilmemiştir.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                        </div>
                                     </div>
                                 )}
 

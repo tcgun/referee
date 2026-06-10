@@ -118,7 +118,7 @@ export async function GET(request: Request) {
 
         // 3. Fetch all registered officials and populate metadata (Tüm Kayıtlı Yetkilileri Getir ve Metadata Doldur)
         const officialsSnap = await firestore.collection('officials').get();
-        const officialMetadata: Record<string, { region: string, rating: number, classification?: string, seasons?: string[] }> = {};
+        const officialMetadata: Record<string, { region: string, rating: number, classification?: string, seasons?: string[], dbRoles?: string[] }> = {};
         
         officialsSnap.forEach(doc => {
             const d = doc.data();
@@ -126,7 +126,8 @@ export async function GET(request: Request) {
                 region: d.region || '', 
                 rating: d.rating || 0,
                 classification: d.classification || '',
-                seasons: d.seasons || []
+                seasons: d.seasons || [],
+                dbRoles: d.roles || []
             };
         });
 

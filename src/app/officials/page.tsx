@@ -1,7 +1,7 @@
 "use client";
-
+ 
 import { useEffect, useState } from 'react';
-
+ 
 interface OfficialStat {
     name: string;
     region: string;
@@ -18,19 +18,21 @@ interface OfficialStat {
     controversial: number;
     correct: number;
     topTeams?: { name: string; count: number }[];
+    classification?: string;
+    dbRoles?: string[];
 }
-
+ 
 interface PaginationControlsProps {
     totalItems: number;
     currentPage: number;
     onPageChange: (page: number) => void;
     itemsPerPage: number;
 }
-
+ 
 const PaginationControls = ({ totalItems, currentPage, onPageChange, itemsPerPage }: PaginationControlsProps) => {
     const totalPages = Math.ceil(totalItems / itemsPerPage);
     if (totalPages <= 1) return null;
-
+ 
     return (
         <div className="flex justify-center gap-2 mt-8">
             <button
@@ -53,7 +55,7 @@ const PaginationControls = ({ totalItems, currentPage, onPageChange, itemsPerPag
         </div>
     );
 };
-
+ 
 export default function OfficialsPage() {
     const [data, setData] = useState<{
         referees: OfficialStat[];
@@ -69,11 +71,12 @@ export default function OfficialsPage() {
             observer: { name: string; count: number }[];
         };
     }>({ referees: [], representatives: [], observers: [] });
-
+ 
     const [activeTabs, setActiveTabs] = useState<Set<string>>(new Set(['referees']));
     const [loading, setLoading] = useState(true);
     const [selectedSeason, setSelectedSeason] = useState('2025-2026');
-
+    const [classificationFilter, setClassificationFilter] = useState<'all' | 'elite' | 'regular'>('all');
+ 
     useEffect(() => {
         fetch(`/api/stats/referees?season=${selectedSeason}`, { cache: 'no-store' })
             .then(res => {
@@ -88,10 +91,10 @@ export default function OfficialsPage() {
             .catch(console.error)
             .finally(() => setLoading(false));
     }, [selectedSeason]);
-
+ 
     const toggleTab = (tab: string) => {
         const newTabs = new Set(activeTabs);
-
+ 
         if (newTabs.has(tab)) {
             // Only allow hiding if there's more than 1 tab active
             if (newTabs.size > 1) {
@@ -103,10 +106,27 @@ export default function OfficialsPage() {
         setActiveTabs(newTabs);
         setCurrentPage(1);
     };
-
+ 
+    const isEliteOfficial = (official: OfficialStat) => {
+        const cls = official.classification || '';
+        const isEliteCls = cls.startsWith('ust-') || cls === 'var-hakemi';
+        
+        const hasVarOrAvarRole = 
+            (official.roles && (official.roles.var > 0 || official.roles.avar > 0)) ||
+            (official.dbRoles && (official.dbRoles.includes('var') || official.dbRoles.includes('avar')));
+ 
+        return isEliteCls || hasVarOrAvarRole;
+    };
+ 
+    const getFilteredList = (list: OfficialStat[]) => {
+        if (classificationFilter === 'all') return list;
+        if (classificationFilter === 'elite') return list.filter(isEliteOfficial);
+        return list.filter(item => !isEliteOfficial(item));
+    };
+ 
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 20;
-
+ 
     const paginate = (list: OfficialStat[]) => {
         const start = (currentPage - 1) * ITEMS_PER_PAGE;
         const end = start + ITEMS_PER_PAGE;
@@ -118,7 +138,11 @@ export default function OfficialsPage() {
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
         </div>
     );
-
+ 
+    const filteredReferees = getFilteredList(data.referees);
+    const filteredRepresentatives = getFilteredList(data.representatives);
+    const filteredObservers = getFilteredList(data.observers);
+ 
     const renderTopTeams = (teams?: { name: string; count: number }[]) => {
         if (!teams || teams.length === 0) return <span className="text-muted-foreground/30 text-[10px]">-</span>;
         return (
@@ -135,7 +159,7 @@ export default function OfficialsPage() {
             </div>
         );
     };
-
+ 
     const renderTop10List = (title: string, list?: { name: string; count: number }[]) => {
         if (!list || list.length === 0) return null;
         return (
@@ -164,7 +188,7 @@ export default function OfficialsPage() {
             </div>
         );
     };
-
+ 
     return (
         <main className="min-h-screen bg-background pb-20 pt-8 text-foreground">
             <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-6 text-foreground">
@@ -177,7 +201,7 @@ export default function OfficialsPage() {
                             {selectedSeason} SEZONU İSTATİSTİK MERKEZİ (V4)
                         </p>
                     </div>
-
+ 
                     <div className="flex bg-[#161b22] p-1.5 rounded-2xl border border-white/10 flex-wrap gap-1 shadow-2xl">
                         {[
                             { id: 'referees', label: 'Hakemler' },
@@ -198,7 +222,7 @@ export default function OfficialsPage() {
                         ))}
                     </div>
                 </header>
-
+ 
                 {/* Sezon Seçici */}
                 <div className="flex items-center justify-between gap-4 bg-[#161b22] p-3 rounded-2xl border border-white/10 shadow-2xl flex-wrap">
                     <div className="flex items-center gap-2">
@@ -215,17 +239,52 @@ export default function OfficialsPage() {
                                     : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
                                     }`}
                             >
+                                
                                 {season}
                             </button>
                         ))}
                     </div>
                 </div>
-
+ 
+                {/* Klasman Filtresi */}
+                {!activeTabs.has('rankings') && (
+                    <div className="flex items-center justify-between gap-4 bg-[#161b22] p-3 rounded-2xl border border-white/10 shadow-2xl flex-wrap">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Klasman Filtresi:</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-slate-900/60 px-3 py-1.5 rounded-xl border border-white/5">
+                                {classificationFilter === 'all' 
+                                    ? 'TÜMÜ' 
+                                    : classificationFilter === 'elite' 
+                                        ? 'ÜST KLASMAN GÖREVLİLERİ (VAR/AVAR DAHİL)' 
+                                        : 'KLASMAN GÖREVLİLERİ'}
+                            </span>
+                        </div>
+                        <div className="flex bg-slate-950 p-1.5 rounded-xl border border-white/5 gap-1">
+                            {[
+                                { id: 'all', label: 'TÜMÜ' },
+                                { id: 'elite', label: 'ÜST KLASMAN' },
+                                { id: 'regular', label: 'KLASMAN' }
+                            ].map((filter) => (
+                                <button
+                                    key={filter.id}
+                                    onClick={() => { setClassificationFilter(filter.id as any); setCurrentPage(1); }}
+                                    className={`px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${classificationFilter === filter.id
+                                        ? 'bg-primary text-black shadow-md scale-105'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                                        }`}
+                                >
+                                    {filter.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+ 
                 {activeTabs.has('rankings') && (
                     <section className="animate-in fade-in slide-in-from-top-4 duration-700">
                         <div className="bg-card border border-border/60 rounded-3xl p-8 shadow-2xl space-y-8 relative overflow-hidden bg-linear-to-br from-card to-muted/20">
                             <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-transparent via-primary to-transparent opacity-40"></div>
-
+ 
                             <div className="flex flex-col items-center text-center space-y-2">
                                 <h2 className="text-sm font-black uppercase tracking-[0.5em] text-primary">
                                     EN ÇOK GÖREV ALANLAR (TOP 10)
@@ -235,7 +294,7 @@ export default function OfficialsPage() {
                                     SÜPER LİG {selectedSeason} SEZONU GÖREV DAĞILIMI
                                 </p>
                             </div>
-
+ 
                             {!data.rankings ? (
                                 <div className="py-24 text-center">
                                     <span className="text-xs font-black uppercase tracking-widest text-muted-foreground animate-pulse">
@@ -262,10 +321,10 @@ export default function OfficialsPage() {
                         </div>
                     </section>
                 )}
-
+ 
                 <div className="space-y-12">
                     {activeTabs.has('referees') && (
-                        data.referees.length > 0 ? (
+                        filteredReferees.length > 0 ? (
                             <div className="space-y-4">
                                 <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                                     <span className="w-8 h-px bg-primary/30"></span> Hakem İstatistikleri
@@ -293,7 +352,7 @@ export default function OfficialsPage() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-border font-medium text-card-foreground">
-                                                {paginate(data.referees).map((ref: OfficialStat, i: number) => (
+                                                {paginate(filteredReferees).map((ref: OfficialStat, i: number) => (
                                                     <tr key={i} className="hover:bg-muted/50 transition-colors">
                                                         <td className="p-4">
                                                             <div className="font-bold text-sm tracking-tight text-white">{ref.name}</div>
@@ -322,7 +381,7 @@ export default function OfficialsPage() {
                                         </table>
                                     </div>
                                 </div>
-                                <PaginationControls totalItems={data.referees.length} currentPage={currentPage} onPageChange={setCurrentPage} itemsPerPage={ITEMS_PER_PAGE} />
+                                <PaginationControls totalItems={filteredReferees.length} currentPage={currentPage} onPageChange={setCurrentPage} itemsPerPage={ITEMS_PER_PAGE} />
                             </div>
                         ) : (
                             <div className="space-y-4">
@@ -330,15 +389,15 @@ export default function OfficialsPage() {
                                     <span className="w-8 h-px bg-primary/30"></span> Hakem İstatistikleri
                                 </h3>
                                 <div className="bg-[#161b22] border border-white/10 rounded-2xl p-12 text-center text-muted-foreground text-xs font-bold uppercase tracking-[0.2em] shadow-xl">
-                                    Seçilen sezona ait hakem verisi bulunmamaktadır.
+                                    Seçilen sezona veya klasmana ait hakem verisi bulunmamaktadır.
                                 </div>
                             </div>
                         )
                     )}
-
+ 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {activeTabs.has('representatives') && (
-                            data.representatives.length > 0 ? (
+                            filteredRepresentatives.length > 0 ? (
                                 <div className="space-y-4">
                                     <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                                         <span className="w-8 h-px bg-primary/30"></span> Temsilci İstatistikleri
@@ -354,7 +413,7 @@ export default function OfficialsPage() {
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-border font-medium">
-                                                    {paginate(data.representatives).map((rep: OfficialStat, i: number) => (
+                                                    {paginate(filteredRepresentatives).map((rep: OfficialStat, i: number) => (
                                                         <tr key={i} className="hover:bg-muted/50 transition-colors">
                                                             <td className="p-4">
                                                                 <div className="font-bold text-sm">{rep.name}</div>
@@ -371,7 +430,7 @@ export default function OfficialsPage() {
                                                 </tbody>
                                             </table>
                                         </div>
-                                        <PaginationControls totalItems={data.representatives.length} currentPage={currentPage} onPageChange={setCurrentPage} itemsPerPage={ITEMS_PER_PAGE} />
+                                        <PaginationControls totalItems={filteredRepresentatives.length} currentPage={currentPage} onPageChange={setCurrentPage} itemsPerPage={ITEMS_PER_PAGE} />
                                     </div>
                                 </div>
                             ) : (
@@ -380,14 +439,14 @@ export default function OfficialsPage() {
                                         <span className="w-8 h-px bg-primary/30"></span> Temsilci İstatistikleri
                                     </h3>
                                     <div className="bg-[#161b22] border border-white/10 rounded-2xl p-12 text-center text-muted-foreground text-xs font-bold uppercase tracking-[0.2em] shadow-xl">
-                                        Seçilen sezona ait temsilci verisi bulunmamaktadır.
+                                        Seçilen sezona veya klasmana ait temsilci verisi bulunmamaktadır.
                                     </div>
                                 </div>
                             )
                         )}
-
+ 
                         {activeTabs.has('observers') && (
-                            data.observers.length > 0 ? (
+                            filteredObservers.length > 0 ? (
                                 <div className="space-y-4">
                                     <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                                         <span className="w-8 h-px bg-primary/30"></span> Gözlemci İstatistikleri
@@ -403,7 +462,7 @@ export default function OfficialsPage() {
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-border font-medium">
-                                                    {paginate(data.observers).map((obs: OfficialStat, i: number) => (
+                                                    {paginate(filteredObservers).map((obs: OfficialStat, i: number) => (
                                                         <tr key={i} className="hover:bg-muted/50 transition-colors">
                                                             <td className="p-4">
                                                                 <div className="font-bold text-sm">{obs.name}</div>
@@ -420,7 +479,7 @@ export default function OfficialsPage() {
                                                 </tbody>
                                             </table>
                                         </div>
-                                        <PaginationControls totalItems={data.observers.length} currentPage={currentPage} onPageChange={setCurrentPage} itemsPerPage={ITEMS_PER_PAGE} />
+                                        <PaginationControls totalItems={filteredObservers.length} currentPage={currentPage} onPageChange={setCurrentPage} itemsPerPage={ITEMS_PER_PAGE} />
                                     </div>
                                 </div>
                             ) : (
@@ -429,7 +488,7 @@ export default function OfficialsPage() {
                                         <span className="w-8 h-px bg-primary/30"></span> Gözlemci İstatistikleri
                                     </h3>
                                     <div className="bg-[#161b22] border border-white/10 rounded-2xl p-12 text-center text-muted-foreground text-xs font-bold uppercase tracking-[0.2em] shadow-xl">
-                                        Seçilen sezona ait gözlemci verisi bulunmamaktadır.
+                                        Seçilen sezona veya klasmana ait gözlemci verisi bulunmamaktadır.
                                     </div>
                                 </div>
                             )

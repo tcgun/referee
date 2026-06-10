@@ -117,6 +117,58 @@ export async function GET(request: Request) {
             };
         }).sort((a, b) => b.totalFine - a.totalFine);
 
+        // Query matches to calculate foul and card stats
+        const matchesSnap = await db.collection('matches').get();
+        let matches = matchesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+        matches = matches.filter((m: any) => (m.season || '2025-2026') === season);
+
+        const teamFouls: Record<string, number> = {};
+        const teamYellows: Record<string, number> = {};
+        const teamReds: Record<string, number> = {};
+        const refereeFouls: Record<string, number> = {};
+        const refereeCards: Record<string, number> = {};
+
+        matches.forEach((m: any) => {
+            const hTeam = m.homeTeamName;
+            const aTeam = m.awayTeamName;
+            const ref = m.referee;
+
+            if (m.stats) {
+                const hF = Number(m.stats.homeFouls || 0);
+                const aF = Number(m.stats.awayFouls || 0);
+                const hY = Number(m.stats.homeYellowCards || 0);
+                const aY = Number(m.stats.awayYellowCards || 0);
+                const hR = Number(m.stats.homeRedCards || 0);
+                const aR = Number(m.stats.awayRedCards || 0);
+
+                if (hTeam) {
+                    teamFouls[hTeam] = (teamFouls[hTeam] || 0) + hF;
+                    teamYellows[hTeam] = (teamYellows[hTeam] || 0) + hY;
+                    teamReds[hTeam] = (teamReds[hTeam] || 0) + hR;
+                }
+                if (aTeam) {
+                    teamFouls[aTeam] = (teamFouls[aTeam] || 0) + aF;
+                    teamYellows[aTeam] = (teamYellows[aTeam] || 0) + aY;
+                    teamReds[aTeam] = (teamReds[aTeam] || 0) + aR;
+                }
+                if (ref) {
+                    refereeFouls[ref] = (refereeFouls[ref] || 0) + (hF + aF);
+                    refereeCards[ref] = (refereeCards[ref] || 0) + (hY + aY + hR + aR);
+                }
+            }
+        });
+
+        const getTop = (records: Record<string, number>) => {
+            const sorted = Object.entries(records).sort((a, b) => b[1] - a[1]);
+            return sorted[0] ? { name: sorted[0][0], count: sorted[0][1] } : null;
+        };
+
+        const mostFouledTeam = getTop(teamFouls);
+        const mostFoulBlowingReferee = getTop(refereeFouls);
+        const mostYellowCardedTeam = getTop(teamYellows);
+        const mostRedCardedTeam = getTop(teamReds);
+        const mostCardGivingReferee = getTop(refereeCards);
+
         return NextResponse.json({
             teams: finalizedTeams,
             weeklyTrend: Object.entries(weeklyGlobalStats)
@@ -125,7 +177,14 @@ export async function GET(request: Request) {
             subjectBreakdown,
             leagueTotalFine,
             cupTotalFine,
-            competitionStats
+            competitionStats,
+            matchStats: {
+                mostFouledTeam,
+                mostFoulBlowingReferee,
+                mostYellowCardedTeam,
+                mostRedCardedTeam,
+                mostCardGivingReferee
+            }
         });
     } catch (error) {
         console.error('Enhanced team stats error:', error);

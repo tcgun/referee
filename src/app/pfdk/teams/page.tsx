@@ -22,11 +22,19 @@ export default function TeamDisciplinaryAnalysis() {
         teams: TeamStats[],
         weeklyTrend: WeeklyTrend[],
         subjectBreakdown: Record<string, number>,
-        leagueTotalFine: number
+        leagueTotalFine: number,
+        matchStats?: {
+            mostFouledTeam: { name: string, count: number } | null;
+            mostFoulBlowingReferee: { name: string, count: number } | null;
+            mostYellowCardedTeam: { name: string, count: number } | null;
+            mostRedCardedTeam: { name: string, count: number } | null;
+            mostCardGivingReferee: { name: string, count: number } | null;
+        }
     } | null>(null);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [selectedSeason, setSelectedSeason] = useState<string>('2025-2026');
+    const [currentStatIndex, setCurrentStatIndex] = useState(0);
 
     useEffect(() => {
         async function fetchStats() {
@@ -43,6 +51,14 @@ export default function TeamDisciplinaryAnalysis() {
         }
         fetchStats();
     }, [selectedSeason]);
+
+    useEffect(() => {
+        if (!data || !data.matchStats) return;
+        const interval = setInterval(() => {
+            setCurrentStatIndex((prev) => (prev + 1) % 5);
+        }, 4000); // Rotate every 4 seconds
+        return () => clearInterval(interval);
+    }, [data]);
 
     if (loading) return (
         <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
@@ -73,6 +89,32 @@ export default function TeamDisciplinaryAnalysis() {
                             <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none uppercase">
                                 TAKIM DİSİPLİN <br /> <span className="text-primary italic">RAPORU</span>
                             </h1>
+                            
+                            {/* DİNAMİK DÖNEN MAÇ İSTATİSTİKLERİ BANNERI */}
+                            <div className="mt-4 min-h-[46px] flex items-center">
+                                {data?.matchStats && (
+                                    <div key={currentStatIndex} className="animate-in fade-in slide-in-from-left-4 duration-500 bg-black/40 border border-primary/20 rounded-xl px-4 py-2.5 flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                                        <div className="text-[10px] font-bold text-gray-300 tracking-wider">
+                                            {currentStatIndex === 0 && data.matchStats.mostFouledTeam && (
+                                                <span>EN ÇOK FAUL YAPAN TAKIM: <span className="text-primary font-black uppercase">{cleanSponsorsInText(data.matchStats.mostFouledTeam.name)}</span> ({data.matchStats.mostFouledTeam.count} FAUL)</span>
+                                            )}
+                                            {currentStatIndex === 1 && data.matchStats.mostFoulBlowingReferee && (
+                                                <span>EN ÇOK FAUL ÇALAN HAKEM: <span className="text-primary font-black uppercase">{data.matchStats.mostFoulBlowingReferee.name}</span> ({data.matchStats.mostFoulBlowingReferee.count} FAUL)</span>
+                                            )}
+                                            {currentStatIndex === 2 && data.matchStats.mostYellowCardedTeam && (
+                                                <span>EN ÇOK SARI KART GÖREN TAKIM: <span className="text-primary font-black uppercase">{cleanSponsorsInText(data.matchStats.mostYellowCardedTeam.name)}</span> ({data.matchStats.mostYellowCardedTeam.count} SARI KART)</span>
+                                            )}
+                                            {currentStatIndex === 3 && data.matchStats.mostRedCardedTeam && (
+                                                <span>EN ÇOK KIRMIZI KART GÖREN TAKIM: <span className="text-primary font-black uppercase">{cleanSponsorsInText(data.matchStats.mostRedCardedTeam.name)}</span> ({data.matchStats.mostRedCardedTeam.count} KIRMIZI KART)</span>
+                                            )}
+                                            {currentStatIndex === 4 && data.matchStats.mostCardGivingReferee && (
+                                                <span>EN ÇOK KART GÖSTEREN HAKEM: <span className="text-primary font-black uppercase">{data.matchStats.mostCardGivingReferee.name}</span> ({data.matchStats.mostCardGivingReferee.count} KART)</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="bg-white/5 border-2 border-white/10 p-6 rounded-2xl shadow-neo flex flex-col items-center md:items-end">
                             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">TOPLAM LİG CEZASI</span>

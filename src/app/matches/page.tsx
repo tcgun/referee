@@ -27,7 +27,29 @@ export default function MatchesListingPage() {
     const [maxWeek, setMaxWeek] = useState(34);
     const [selectedSeason, setSelectedSeason] = useState<string>('2025-2026');
 
-    // 1. Initial Load: Get available weeks for League
+    // 1. Initial Load: Read stored filters on client-side mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const querySeason = params.get('season');
+            const storedSeason = sessionStorage.getItem('matches_selected_season');
+            if (querySeason) {
+                setSelectedSeason(querySeason);
+            } else if (storedSeason) {
+                setSelectedSeason(storedSeason);
+            }
+
+            const queryComp = params.get('competition');
+            const storedComp = sessionStorage.getItem('matches_competition');
+            if (queryComp === 'league' || queryComp === 'cup') {
+                setCompetition(queryComp);
+            } else if (storedComp === 'league' || storedComp === 'cup') {
+                setCompetition(storedComp as 'league' | 'cup');
+            }
+        }
+    }, []);
+
+    // 2. Fetch Initial Weeks data when selectedSeason changes
     useEffect(() => {
         async function fetchInitial() {
             try {
@@ -41,7 +63,22 @@ export default function MatchesListingPage() {
 
                 setAvailableWeeks(weeks);
                 setMaxWeek(mWeek);
-                setSelectedWeek(mWeek);
+
+                if (typeof window !== 'undefined') {
+                    const params = new URLSearchParams(window.location.search);
+                    const queryWeek = params.get('week');
+                    const storedWeek = sessionStorage.getItem('matches_selected_week');
+                    
+                    if (queryWeek && !isNaN(Number(queryWeek))) {
+                        setSelectedWeek(Number(queryWeek));
+                    } else if (storedWeek && !isNaN(Number(storedWeek))) {
+                        setSelectedWeek(Number(storedWeek));
+                    } else {
+                        setSelectedWeek(mWeek);
+                    }
+                } else {
+                    setSelectedWeek(mWeek);
+                }
             } catch (err) {
                 console.error("Matches Initial Fetch Error:", err);
             } finally {
@@ -51,7 +88,28 @@ export default function MatchesListingPage() {
         fetchInitial();
     }, [selectedSeason]);
 
-    // 2. Fetch Data when selectedWeek OR competition OR selectedSeason changes
+    // 3. Sync active filters to URL and sessionStorage
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('matches_selected_season', selectedSeason);
+            sessionStorage.setItem('matches_competition', competition);
+            if (selectedWeek) {
+                sessionStorage.setItem('matches_selected_week', selectedWeek.toString());
+            }
+
+            const url = new URL(window.location.href);
+            url.searchParams.set('season', selectedSeason);
+            url.searchParams.set('competition', competition);
+            if (competition === 'league' && selectedWeek) {
+                url.searchParams.set('week', selectedWeek.toString());
+            } else {
+                url.searchParams.delete('week');
+            }
+            window.history.replaceState({}, '', url.pathname + url.search);
+        }
+    }, [selectedWeek, competition, selectedSeason]);
+
+    // 4. Fetch Matches when selectedWeek OR competition OR selectedSeason changes
     useEffect(() => {
         if (competition === 'league' && !selectedWeek) return;
 
@@ -135,53 +193,78 @@ export default function MatchesListingPage() {
 
                 {/* Week Selector (Only for League) */}
                 {competition === 'league' && (
-                    <div className="space-y-4">
-                        <div className="flex gap-4 border-b border-border pb-2">
-                            {[
-                                { id: 'h1', label: '1. Yarı (1-17)', range: [1, 17] },
-                                { id: 'h2', label: '2. Yarı (18-34)', range: [18, 34] }
-                            ].map(group => {
-                                const isActive = selectedWeek && selectedWeek >= group.range[0] && selectedWeek <= group.range[1];
-                                return (
-                                    <button
-                                        key={group.id}
-                                        onClick={() => {
-                                            if (!isActive) setSelectedWeek(group.range[0]);
-                                        }}
-                                        className={`text-[10px] font-black uppercase tracking-widest pb-1 transition-all ${isActive ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                                    >
-                                        {group.label}
-                                    </button>
-                                );
-                            })}
+                    <div className="flex flex-col items-center space-y-4 max-w-4xl mx-auto p-4 bg-white rounded-xl border border-slate-200 shadow-sm text-slate-800">
+                        {/* Title: « 33.HAFTA » */}
+                        <div className="flex items-center justify-center gap-3">
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    const current = Number(selectedWeek || 1);
+                                    setSelectedWeek(current > 1 ? current - 1 : 34);
+                                }}
+                                className="text-slate-800 hover:text-slate-900 font-black text-xl px-2 transition-colors cursor-pointer"
+                            >
+                                &laquo;
+                            </button>
+                            <span className="text-slate-900 font-extrabold text-sm uppercase tracking-wider">
+                                {selectedWeek ? `${selectedWeek}.HAFTA` : 'Hafta Seçilmedi'}
+                            </span>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    const current = Number(selectedWeek || 1);
+                                    setSelectedWeek(current < 34 ? current + 1 : 1);
+                                }}
+                                className="text-slate-800 hover:text-slate-900 font-black text-xl px-2 transition-colors cursor-pointer"
+                            >
+                                &raquo;
+                            </button>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
-                            {Array.from({ length: 34 }, (_, i) => i + 1).map(week => {
-                                const isFirstHalf = week <= 17;
-                                const currentGroup = (selectedWeek && selectedWeek <= 17) ? 'h1' : 'h2';
-                                const inCurrentGroup = (currentGroup === 'h1' && isFirstHalf) || (currentGroup === 'h2' && !isFirstHalf);
-
-                                if (!inCurrentGroup) return null;
-
-                                const hasData = availableWeeks.includes(week);
-                                const isSelected = selectedWeek === week;
-
-                                return (
-                                    <button
-                                        key={week}
-                                        onClick={() => setSelectedWeek(week)}
-                                        className={`min-w-[42px] h-10 rounded-lg text-xs font-black transition-all border flex items-center justify-center ${isSelected
-                                            ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105 z-10'
-                                            : hasData
-                                                ? 'bg-card text-foreground border-border hover:border-primary/50'
-                                                : 'bg-muted/30 text-muted-foreground/30 border-transparent'
-                                            }`}
-                                    >
-                                        {week}
-                                    </button>
-                                );
-                            })}
+                        {/* Table Grid */}
+                        <div className="w-full overflow-x-auto no-scrollbar rounded-lg border border-slate-200">
+                            <table className="min-w-full text-center border-collapse text-xs font-semibold text-slate-700">
+                                <tbody>
+                                    <tr className="border-b border-slate-200">
+                                        <td className="bg-slate-50 font-bold text-slate-800 px-3 py-2.5 border-r border-slate-200 whitespace-nowrap text-left w-20">1. Devre</td>
+                                        {Array.from({ length: 17 }, (_, i) => i + 1).map(week => {
+                                            const isSelected = selectedWeek === week;
+                                            return (
+                                                <td 
+                                                    key={week} 
+                                                    onClick={() => setSelectedWeek(week)}
+                                                    className={`cursor-pointer border-r border-slate-200 hover:bg-slate-100 transition-colors font-bold px-2 py-2.5 min-w-[32px] ${
+                                                        isSelected 
+                                                            ? 'bg-slate-700 text-white hover:bg-slate-800' 
+                                                            : 'bg-white text-slate-700 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    {week}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                    <tr>
+                                        <td className="bg-slate-50 font-bold text-slate-800 px-3 py-2.5 border-r border-slate-200 whitespace-nowrap text-left w-20">2. Devre</td>
+                                        {Array.from({ length: 17 }, (_, i) => i + 18).map(week => {
+                                            const isSelected = selectedWeek === week;
+                                            return (
+                                                <td 
+                                                    key={week} 
+                                                    onClick={() => setSelectedWeek(week)}
+                                                    className={`cursor-pointer border-r border-slate-200 hover:bg-slate-100 transition-colors font-bold px-2 py-2.5 min-w-[32px] ${
+                                                        isSelected 
+                                                            ? 'bg-slate-700 text-white hover:bg-slate-800' 
+                                                            : 'bg-white text-slate-700 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    {week}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 )}
