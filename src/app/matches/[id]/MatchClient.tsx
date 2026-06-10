@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, collection, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
-import { useSearchParams, useParams } from 'next/navigation';
-import { getTeamName, resolveTeamId, getTeamColors, cleanSponsorsInText } from '@/lib/teams';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { Match, Incident, Opinion, DisciplinaryAction, Team } from '@/types';
+import { useParams } from 'next/navigation';
+import { cleanSponsorsInText, getTeamStadium } from '@/lib/teams';
+import Link from 'next/link';
 
 interface IncidentWithOpinions extends Incident {
     opinions: Opinion[];
@@ -16,795 +16,614 @@ const normalizeName = (name: string) => {
     return name.replace(/i/g, 'İ').toLocaleUpperCase('tr-TR').trim().replace(/\s+/g, ' ');
 };
 
+const parseMinute = (minStr: string | number): number => {
+    const minStrClean = minStr.toString().replace('.dk', '').replace(/\s+/g, '');
+    if (minStrClean.includes('+')) {
+        const parts = minStrClean.split('+');
+        return (parseInt(parts[0]) || 90) + (parseInt(parts[1]) || 0);
+    }
+    return parseInt(minStrClean) || 0;
+};
+
 export default function MatchClient() {
     const params = useParams();
-    const searchParams = useSearchParams();
     const matchId = params.id as string;
+
     const [match, setMatch] = useState<Match | null>(null);
     const [incidents, setIncidents] = useState<IncidentWithOpinions[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [disciplinaryActions, setDisciplinaryActions] = useState<DisciplinaryAction[]>([]);
+    
+    // Sidebar selected state
+    const [selectedSeason, setSelectedSeason] = useState<string>('2025-2026');
+    const [selectedWeek, setSelectedWeek] = useState<number>(1);
+    const [fixtures, setFixtures] = useState<Match[]>([]);
+    
+    // UI Tab state
+    const [activeTab, setActiveTab] = useState<'analiz' | 'istatistik' | 'pfdk'>('analiz');
+    
+    // Load state
+    const [loading, setLoading] = useState<boolean>(true);
+    const [fixturesLoading, setFixturesLoading] = useState<boolean>(false);
 
-    const [activeTab, setActiveTab] = useState<'summary' | 'lineups' | 'pfdk' | 'performance' | null>(() => {
-        const tab = searchParams.get('tab');
-        return (tab === 'pfdk' || tab === 'performance' || tab === 'lineups' || tab === 'summary') ? tab : null;
-    });
-
-    const homeTeam = match ? { colors: getTeamColors(match.homeTeamId) } : null;
-    const awayTeam = match ? { colors: getTeamColors(match.awayTeamId) } : null;
-
-    const [disciplinary, setDisciplinary] = useState<DisciplinaryAction[]>([]);
-
+    // 1. Initial Match Fetch
     useEffect(() => {
-        window.scrollTo(0, 0);
-    }, [activeTab]);
-
-    useEffect(() => {
-        async function fetchData() {
+        async function fetchMatchData() {
             if (!matchId) return;
+            setLoading(true);
             try {
-                const matchSnap = await getDoc(doc(db, 'matches', matchId));
-                if (!matchSnap.exists()) {
-                    setLoading(false);
-                    return;
+                const matchRef = doc(db, 'matches', matchId);
+                const matchSnap = await getDoc(matchRef);
+
+                if (matchSnap.exists()) {
+                    const matchData = matchSnap.data() as Match;
+                    setMatch(matchData);
+
+                    // Fetch Incidents subcollection
+                    const incQ = collection(db, 'matches', matchId, 'incidents');
+                    const incSnap = await getDocs(incQ);
+
+                    const incidentsWithOpinionsList = await Promise.all(incSnap.docs.map(async (incDoc) => {
+                        const incData = incDoc.data() as Incident;
+                        incData.id = incDoc.id;
+                        
+                        const opQ = collection(db, 'matches', matchId, 'incidents', incDoc.id, 'opinions');
+                        const opSnap = await getDocs(opQ);
+                        const opinions = opSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Opinion[];
+                        
+                        return { ...incData, opinions } as IncidentWithOpinions;
+                    }));
+
+                    // Sort incidents by minute
+                    incidentsWithOpinionsList.sort((a, b) => {
+                        return parseMinute(a.minute) - parseMinute(b.minute);
+                    });
+
+                    setIncidents(incidentsWithOpinionsList);
+
+                    // Fetch Disciplinary actions for this match
+                    const pfdkQ = query(collection(db, 'disciplinary_actions'), where('matchId', '==', matchId));
+                    const pfdkSnap = await getDocs(pfdkQ);
+                    const pfdkList = pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction));
+                    setDisciplinaryActions(pfdkList);
+
+                    // Set initial selectors
+                    setSelectedWeek(matchData.week || 1);
+                    setSelectedSeason(matchData.season || '2025-2026');
                 }
-                const matchData = matchSnap.data() as Match;
-                setMatch(matchData);
-
-                const incidentsQ = collection(db, 'matches', matchId, 'incidents');
-                const incidentsSnap = await getDocs(incidentsQ);
-                const incidentsList: IncidentWithOpinions[] = [];
-
-                await Promise.all(incidentsSnap.docs.map(async (docSnap) => {
-                    const incData = docSnap.data() as Incident;
-                    incData.id = docSnap.id;
-                    const opsQ = collection(db, 'matches', matchId, 'incidents', incData.id, 'opinions');
-                    const opsSnap = await getDocs(opsQ);
-                    const opinions = opsSnap.docs.map(d => ({ ...d.data(), id: d.id } as Opinion));
-                    incidentsList.push({ ...incData, opinions });
-                }));
-
-                incidentsList.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
-                setIncidents(incidentsList);
-
-                const pfdkQ = query(collection(db, 'disciplinary_actions'), where('matchId', 'in', [matchId, `d-${matchId}`]));
-                const pfdkSnap = await getDocs(pfdkQ);
-                const relevantActions = pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction));
-                setDisciplinary(relevantActions.filter(d => d.type !== 'performance'));
-
             } catch (err) {
-                console.error(err);
+                console.error("Match fetch details error:", err);
             } finally {
                 setLoading(false);
             }
         }
-        fetchData();
+        fetchMatchData();
     }, [matchId]);
 
-    if (loading) return (
-        <div className="min-h-screen bg-background pb-12">
-            <div className="bg-card border-b border-border shadow-sm mb-6 pt-4">
-                <div className="max-w-7xl mx-auto px-4 pb-6">
-                    <div className="flex items-center justify-between gap-4">
-                        <Skeleton className="h-10 flex-1" />
-                        <div className="flex flex-col items-center gap-2">
-                            <Skeleton className="h-12 w-24" />
-                            <Skeleton className="h-4 w-32" />
+    // 2. Dynamic Fixtures Fetch
+    useEffect(() => {
+        async function fetchFixtures() {
+            if (!selectedSeason || !selectedWeek) return;
+            setFixturesLoading(true);
+            try {
+                const fixturesQ = query(
+                    collection(db, 'matches'),
+                    where('season', '==', selectedSeason),
+                    where('week', '==', selectedWeek)
+                );
+                const snap = await getDocs(fixturesQ);
+                const list = snap.docs.map(d => ({ ...d.data(), id: d.id } as Match));
+                
+                // Sort by date ascending
+                list.sort((a, b) => {
+                    const dA = a.date ? new Date(a.date).getTime() : 0;
+                    const dB = b.date ? new Date(b.date).getTime() : 0;
+                    return dA - dB;
+                });
+                
+                setFixtures(list);
+            } catch (err) {
+                console.error("Fixtures fetch error:", err);
+            } finally {
+                setFixturesLoading(false);
+            }
+        }
+        fetchFixtures();
+    }, [selectedWeek, selectedSeason]);
+
+    // Loading skeleton matching scoreboard card layout and dark page background
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#0d1117] text-white p-6 md:p-8 flex items-center justify-center">
+                <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div className="lg:col-span-3 space-y-8 animate-pulse">
+                        {/* Scoreboard Card Skeleton */}
+                        <div className="bg-white rounded-3xl p-6 md:p-8 border-2 border-black/5 flex flex-col justify-between h-52">
+                            <div className="flex items-center justify-between">
+                                <div className="h-6 w-24 bg-slate-200 rounded" />
+                                <div className="flex gap-2">
+                                    <div className="h-16 w-16 bg-slate-200 rounded-xl" />
+                                    <div className="h-16 w-16 bg-slate-200 rounded-xl" />
+                                </div>
+                                <div className="h-6 w-24 bg-slate-200 rounded" />
+                            </div>
+                            <div className="h-4 w-48 bg-slate-200 rounded mx-auto" />
                         </div>
-                        <Skeleton className="h-10 flex-1" />
+                        {/* Main Tabs Skeleton */}
+                        <div className="bg-[#161b22] border border-white/10 rounded-3xl p-6 h-80" />
                     </div>
-                    <div className="flex gap-1 mt-6">
-                        {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-8 flex-1 rounded-lg" />)}
+                    {/* Sidebar Skeleton */}
+                    <div className="lg:col-span-1 space-y-4 animate-pulse">
+                        <div className="bg-[#161b22] border border-white/10 rounded-3xl p-6 h-96" />
                     </div>
                 </div>
             </div>
-            <div className="max-w-7xl mx-auto px-4 space-y-6">
-                {[1, 2, 3].map(i => (
-                    <div key={i} className="h-48 bg-card border border-border rounded-xl p-4 flex gap-4">
-                        <Skeleton className="w-20 h-full" />
-                        <div className="flex-1 space-y-4">
-                            <Skeleton className="h-6 w-1/4" />
-                            <div className="grid grid-cols-3 gap-4">
-                                <Skeleton className="h-16 w-full" />
-                                <Skeleton className="h-16 w-full" />
-                                <Skeleton className="h-16 w-full" />
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-    if (!match) return <div className="p-8 text-center text-red-500 font-bold bg-[#0d1117] min-h-screen">Maç bulunamadı.</div>;
+        );
+    }
 
-    const homeColors = getTeamColors(match.homeTeamId);
-    const awayColors = getTeamColors(match.awayTeamId);
+    if (!match) {
+        return (
+            <div className="min-h-screen bg-[#0d1117] text-white flex flex-col items-center justify-center p-4">
+                <h2 className="text-xl font-bold uppercase mb-2">Maç Bulunamadı</h2>
+                <p className="text-zinc-500 text-xs mb-4">Ulaşmaya çalıştığınız maç kaydı veritabanında mevcut değil.</p>
+                <Link href="/matches" className="bg-primary text-black px-4 py-2 rounded-xl text-xs font-black shadow-neo">
+                    MAÇ LİSTESİNE DÖN
+                </Link>
+            </div>
+        );
+    }
+
+    const resolvedStadium = match.stadium || getTeamStadium(match.homeTeamId);
 
     return (
-        <div className="min-h-screen bg-[#0d1117] text-white pb-12">
-            <div className="bg-[#161b22] border-b border-white/5 shadow-2xl mb-6 pt-4">
-                <div className="max-w-7xl mx-auto px-4 pb-6">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-4">
-                        <div className="w-full md:flex-1 text-center md:text-right order-1 md:order-1">
-                            <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-white leading-none break-words">
-                                {match.homeTeamName}
-                            </h1>
-                        </div>
-                        <div className="flex flex-col items-center shrink-0 mx-0 md:mx-4 order-2 md:order-2 my-4 md:my-0">
-                            <div className="text-4xl md:text-6xl font-black font-mono tracking-tighter text-white px-4 py-1 mb-2">
-                                {(match.homeScore !== undefined && match.awayScore !== undefined) ? `${match.homeScore} - ${match.awayScore}` : (match.score && match.score !== 'v' ? match.score : 'vs')}
-                            </div>
-                            <div className="flex flex-col items-center gap-1 text-center">
-                                <div className="text-sm font-bold text-gray-300 tracking-wide">
-                                    {match.date ? new Date(match.date).toLocaleString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
+        <main className="min-h-screen bg-[#0d1117] text-white py-8 px-4">
+            <div className="max-w-7xl mx-auto space-y-8">
+                
+                {/* Back to matches link */}
+                <div className="flex items-center justify-between">
+                    <Link href="/matches" className="text-zinc-400 hover:text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                        &larr; TÜM MAÇLAR
+                    </Link>
+                </div>
+
+                {/* Main 75/25 Layout grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    
+                    {/* Left Column (75%) */}
+                    <div className="lg:col-span-3 space-y-8">
+                        
+                        {/* Score Board Header White Card */}
+                        <div className="bg-white rounded-3xl shadow-neo-sm p-4 md:p-6 border-2 border-black/5 text-slate-900 relative overflow-hidden">
+                            <div className="flex flex-row items-center justify-between gap-4">
+                                
+                                {/* Home Team Info */}
+                                <div className="flex-1 text-right min-w-0">
+                                    <h2 className="text-base md:text-xl font-black uppercase tracking-tight text-slate-900 whitespace-nowrap truncate">
+                                        {cleanSponsorsInText(match.homeTeamName)}
+                                    </h2>
                                 </div>
-                                {match.stadium && (
-                                    <div className="text-xs font-medium text-gray-500 uppercase tracking-widest flex items-center gap-1.5 mt-1">
-                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V7l8-4 8 4v14" /></svg>
-                                        {match.stadium}
+
+                                {/* Score blocks */}
+                                <div className="flex items-center gap-2 select-none shrink-0">
+                                    <div className="w-12 h-16 md:w-16 md:h-20 flex items-center justify-center bg-[#00a89d] text-white text-3xl md:text-4xl font-mono font-black rounded-xl shadow-md border border-black/10">
+                                        {match.homeScore !== undefined ? match.homeScore : '-'}
+                                    </div>
+                                    <div className="text-xl font-black text-slate-400">-</div>
+                                    <div className="w-12 h-16 md:w-16 md:h-20 flex items-center justify-center bg-[#1a433f] text-white text-3xl md:text-4xl font-mono font-black rounded-xl shadow-md border border-black/10">
+                                        {match.awayScore !== undefined ? match.awayScore : '-'}
+                                    </div>
+                                </div>
+
+                                {/* Away Team Info */}
+                                <div className="flex-1 text-left min-w-0">
+                                    <h2 className="text-base md:text-xl font-black uppercase tracking-tight text-slate-900 whitespace-nowrap truncate">
+                                        {cleanSponsorsInText(match.awayTeamName)}
+                                    </h2>
+                                </div>
+                            </div>
+
+                            {/* Centered Metadata Section using grid for mathematical centering */}
+                            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2">
+                                {/* Row 1: Competition and Date */}
+                                <div className="grid grid-cols-[1fr_auto_1fr] items-center text-xs tracking-tight text-slate-900">
+                                    <div className="text-right pr-4 font-black">
+                                        {match.competition === 'cup' ? 'Türkiye Kupası' : 'Süper Lig'}
+                                    </div>
+                                    <div className="text-slate-400 select-none font-bold">•</div>
+                                    <div className="text-left pl-4 font-bold">
+                                        {match.date ? new Date(match.date).toLocaleString('tr-TR', {
+                                            day: 'numeric',
+                                            month: 'long',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        }) : '-'}
+                                    </div>
+                                </div>
+
+                                {/* Row 2: Stadium and Referee */}
+                                <div className="grid grid-cols-[1fr_auto_1fr] items-center text-xs tracking-tight text-slate-900">
+                                    <div className="text-right pr-4 font-black truncate">
+                                        {resolvedStadium}
+                                    </div>
+                                    <div className="text-slate-400 select-none font-bold">•</div>
+                                    <div className="text-left pl-4 truncate font-bold">
+                                        <span className="text-slate-500 uppercase tracking-widest text-[9px] font-black mr-1">Hakem:</span>
+                                        {match.referee || '-'}
+                                    </div>
+                                </div>
+
+                                {/* Row 3: VAR Referee on a new line centered */}
+                                {match.varReferee && (
+                                    <div className="text-center text-xs font-bold text-slate-900">
+                                        <span className="text-slate-500 uppercase tracking-widest text-[9px] font-black mr-1">VAR Hakemi:</span>
+                                        <span className="font-extrabold">{match.varReferee}</span>
                                     </div>
                                 )}
                             </div>
                         </div>
-                        <div className="w-full md:flex-1 text-center md:text-left order-3 md:order-3">
-                            <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-white leading-none break-words">
-                                {match.awayTeamName}
-                            </h1>
-                        </div>
-                    </div>
-                    <div className="flex gap-1 bg-[#1d2129] p-1 rounded-xl w-full mt-4 md:mt-8 justify-between md:justify-center border border-white/10">
-                        {['summary', 'lineups', 'pfdk', 'performance'].map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(activeTab === tab ? null : tab as any)}
-                                className={`flex-1 py-2 px-1 rounded-lg text-[8px] md:text-[11px] font-black uppercase tracking-tighter transition-all whitespace-nowrap text-center border-2 border-transparent ${activeTab === tab ? 'bg-primary text-black border-black shadow-neo-sm scale-[1.02] z-10' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
-                            >
-                                {tab === 'summary' ? 'İSTATİSTİK' : tab === 'lineups' ? 'KADRO' : tab === 'pfdk' ? 'PFDK' : 'HAKEM PERFORMANSI'}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
 
-            <div className="max-w-7xl mx-auto px-4 space-y-6">
-                <div className="w-full">
-                    {activeTab === 'summary' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-[#161b22] border-2 border-white/20 rounded-xl overflow-hidden shadow-neo h-fit">
-                                <div className="bg-[#1d2129] px-4 py-3 border-b border-white/10 flex items-center justify-between">
-                                    <h3 className="text-[11px] font-black uppercase tracking-widest text-white">HAKEM KADROSU</h3>
-                                    <div className="text-[9px] font-bold text-gray-500 bg-white/5 px-2 py-0.5 rounded border border-white/5">OFFICIALS</div>
-                                </div>
-                                <div className="divide-y divide-white/5">
-                                    <OfficialItem role="HAKEM" name={match.referee || match.officials?.referees?.[0]} />
-                                    {(match.officials?.assistants?.length ? match.officials.assistants : match.officials?.referees?.slice(1, 3))?.map((asst, i) => (
-                                        <OfficialItem key={`asst-${i}`} role={`YARDIMCI ${i + 1}`} name={asst} />
-                                    ))}
-                                    <OfficialItem role="4. HAKEM" name={match.officials?.fourthOfficial || match.officials?.referees?.[3]} />
-                                    <OfficialItem role="VAR" name={match.varReferee || match.officials?.varReferees?.[0]} />
-                                    {(match.officials?.avarReferees?.length ? match.officials.avarReferees : match.officials?.varReferees?.slice(1))?.map((avar, i) => (
-                                        <OfficialItem key={`avar-${i}`} role="AVAR" name={avar} />
-                                    ))}
-
-                                    {match.officials?.observers?.map((obs, i) => (
-                                        <OfficialItem key={`obs-${i}`} role="GÖZLEMCİ" name={obs} />
-                                    ))}
-                                    {(!match.officials?.observers?.length && match.representatives?.observer) && (
-                                        <OfficialItem role="GÖZLEMCİ" name={match.representatives.observer} />
-                                    )}
-
-                                    {match.officials?.representatives?.map((rep, i) => (
-                                        <OfficialItem key={`rep-${i}`} role="TEMSİLCİ" name={rep} />
-                                    ))}
-                                </div>
+                        {/* Tabs Container */}
+                        <div className="space-y-6">
+                            
+                            {/* Tab Switchers */}
+                            <div className="flex bg-[#161b22] p-1 rounded-2xl border border-white/10 shadow-neo-sm">
+                                <button
+                                    onClick={() => setActiveTab('analiz')}
+                                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
+                                        activeTab === 'analiz' ? 'bg-primary text-black shadow-lg font-bold' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                                    }`}
+                                >
+                                    POZİSYON ANALİZİ
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('istatistik')}
+                                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
+                                        activeTab === 'istatistik' ? 'bg-primary text-black shadow-lg font-bold' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                                    }`}
+                                >
+                                    İSTATİSTİK
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('pfdk')}
+                                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
+                                        activeTab === 'pfdk' ? 'bg-primary text-black shadow-lg font-bold' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                                    }`}
+                                >
+                                    PFDK
+                                </button>
                             </div>
 
-                            {/* Match Events Timeline */}
-                            {match.events && match.events.length > 0 && (
-                                <div className="bg-[#161b22] border-2 border-white/20 rounded-xl overflow-hidden shadow-neo h-fit">
-                                    <div className="bg-[#1d2129] px-4 py-3 border-b border-white/10 flex items-center justify-between">
-                                        <h3 className="text-[11px] font-black uppercase tracking-widest text-white">MAÇ OLAYLARI</h3>
-                                        <div className="text-[9px] font-bold text-gray-500 bg-white/5 px-2 py-0.5 rounded border border-white/5">TIMELINE</div>
-                                    </div>
-                                    <div className="p-4 space-y-4">
-                                        {/* Sort events by minute (numeric) */}
-                                        {match.events.sort((a, b) => parseInt(a.minute) - parseInt(b.minute)).map((ev, i) => (
-                                            <div key={i} className={`flex items-center gap-3 text-xs ${ev.teamId === 'away' ? 'flex-row-reverse text-right' : ''}`}>
-                                                <div className={`font-mono font-black text-sm w-10 h-10 flex items-center justify-center shrink-0 rounded-lg bg-white/5 border border-white/10 ${ev.teamId === 'home' ? 'text-blue-400' : 'text-red-400'}`}>
-                                                    {ev.minute}'
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="font-black text-white uppercase tracking-tight">{ev.player}</div>
-                                                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.1em] flex items-center gap-1 mt-0.5">
-                                                        {ev.type === 'goal' && <><span className="text-base">⚽</span> GOL</>}
-                                                        {ev.type === 'yellow_card' && <><span className="w-2.5 h-3.5 bg-yellow-400 rounded-sm inline-block shadow-[0_0_8px_rgba(250,204,21,0.3)]"></span> SARI KART</>}
-                                                        {ev.type === 'red_card' && <><span className="w-2.5 h-3.5 bg-red-600 rounded-sm inline-block shadow-[0_0_8px_rgba(220,38,38,0.3)]"></span> KIRMIZI KART</>}
-                                                        {ev.type === 'substitution_in' && <><span className="text-green-500 font-black">↑</span> OYUNA GİRME</>}
-                                                        {ev.type === 'substitution_out' && <><span className="text-red-500 font-black">↓</span> OYUNDAN ÇIKMA</>}
+                            {/* Active Tab Panel */}
+                            <div>
+                                {activeTab === 'analiz' && (
+                                    <div className="space-y-6">
+                                        
+                                        {/* Referee stats summary card if exists */}
+                                        {match.refereeStats && (
+                                            <div className="bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+                                                <h3 className="text-xs font-black tracking-widest text-[#00a89d] uppercase">HAKEM MAÇ İSTATİSTİKLERİ</h3>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 text-center">
+                                                        <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Toplam Faul</span>
+                                                        <span className="text-xl font-mono font-black text-white">{match.refereeStats.fouls || 0}</span>
+                                                    </div>
+                                                    <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 text-center">
+                                                        <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Top Oynama Süresi</span>
+                                                        <span className="text-xl font-mono font-black text-white">{match.refereeStats.ballInPlayTime || '50:00'}</span>
+                                                    </div>
+                                                    <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 text-center">
+                                                        <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Sarı Kartlar</span>
+                                                        <span className="text-xl font-mono font-black text-amber-400">{match.refereeStats.yellowCards || 0}</span>
+                                                    </div>
+                                                    <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 text-center">
+                                                        <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Kırmızı Kartlar</span>
+                                                        <span className="text-xl font-mono font-black text-rose-500">{match.refereeStats.redCards || 0}</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                                        )}
 
-                            {match.stats && (
-                                <div className="space-y-4">
-                                    <div className="bg-[#161b22] border-2 border-white/20 rounded-xl p-5 shadow-neo">
-                                        <h3 className="text-xs font-black text-center mb-6 uppercase tracking-[0.2em] text-white flex items-center gap-3">
-                                            <span className="h-px bg-white/10 flex-1"></span>
-                                            İSTATİSTİKLER
-                                            <span className="h-px bg-white/10 flex-1"></span>
-                                        </h3>
-                                        <div className="space-y-4">
-                                            <StatBar label="Topla Oynama" home={match.stats.homePossession || 50} away={match.stats.awayPossession || 50} homeColor={homeColors?.primary} awayColor={awayColors?.primary} suffix="%" />
-                                            <StatBar label="Toplam Şut" home={match.stats.homeShots || 0} away={match.stats.awayShots || 0} homeColor={homeColors?.primary} awayColor={awayColors?.primary} />
-                                            <StatBar label="İsabetli Şut" home={match.stats.homeShotsOnTarget || 0} away={match.stats.awayShotsOnTarget || 0} homeColor={homeColors?.primary} awayColor={awayColors?.primary} />
-                                            <StatBar label="Net Gol Şansı" home={match.stats.homeBigChances || 0} away={match.stats.awayBigChances || 0} homeColor={homeColors?.primary} awayColor={awayColors?.primary} />
-                                            <StatBar label="Köşe Vuruşu" home={match.stats.homeCorners || 0} away={match.stats.awayCorners || 0} homeColor={homeColors?.primary} awayColor={awayColors?.primary} />
-                                            <StatBar label="Ofsayt" home={match.stats.homeOffsides || 0} away={match.stats.awayOffsides || 0} homeColor={homeColors?.primary} awayColor={awayColors?.primary} />
-                                            <StatBar label="Kurtarış" home={match.stats.homeSaves || 0} away={match.stats.awaySaves || 0} homeColor={homeColors?.primary} awayColor={awayColors?.primary} />
-                                            <StatBar label="Faul" home={match.stats.homeFouls || 0} away={match.stats.awayFouls || 0} homeColor={homeColors?.primary} awayColor={awayColors?.primary} />
-                                            <StatBar label="Sarı Kart" home={match.stats.homeYellowCards || 0} away={match.stats.awayYellowCards || 0} homeColor={homeColors?.primary} awayColor={awayColors?.primary} />
-                                            <StatBar label="Kırmızı Kart" home={match.stats.homeRedCards || 0} away={match.stats.awayRedCards || 0} homeColor={homeColors?.primary} awayColor={awayColors?.primary} />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {activeTab === 'lineups' && match?.lineups && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-[#161b22] border-2 border-white/20 rounded-xl p-5 shadow-neo">
-                                <h3 className="text-sm font-black text-center mb-6 uppercase tracking-[0.2em] text-white flex items-center gap-3">
-                                    <span className="h-px bg-white/10 flex-1"></span>
-                                    EV SAHİBİ
-                                    <span className="h-px bg-white/10 flex-1"></span>
-                                </h3>
-                                <div className="space-y-1">
-                                    {match.lineups.home?.map((player, i) => {
-                                        const pName = normalizeName(player.name);
-                                        const events = match.events?.filter(e => normalizeName(e.player) === pName && e.teamId === 'home');
-                                        return (
-                                            <div key={i} className="flex items-center justify-between text-[11px] py-2 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-2 rounded-lg group">
-                                                <div className="flex gap-3 items-center">
-                                                    <span className="font-mono text-gray-500 w-5 text-center">{player.number}</span>
-                                                    <span className="font-black text-white group-hover:text-primary transition-colors">{player.name}</span>
-                                                </div>
-                                                <div className="flex gap-1">
-                                                    {events?.map((ev, idx) => (
-                                                        <span key={idx} title={`${ev.type} - ${ev.minute}'`}>
-                                                            {ev.type === 'goal' && '⚽'}
-                                                            {ev.type === 'yellow_card' && <span className="inline-block w-2 h-3 bg-yellow-400 rounded-[1px] border border-black/10"></span>}
-                                                            {ev.type === 'red_card' && <span className="inline-block w-2 h-3 bg-red-600 rounded-[1px] border border-black/10"></span>}
-                                                            {ev.type === 'substitution_out' && <span className="text-red-500 font-bold">↓</span>}
-                                                            {ev.type === 'substitution_in' && <span className="text-green-500 font-bold">↑</span>}
-                                                        </span>
-                                                    ))}
-                                                </div>
+                                        {/* List of Incidents */}
+                                        {incidents.length === 0 ? (
+                                            <div className="text-center py-12 bg-[#161b22] border border-white/10 rounded-3xl">
+                                                <p className="text-zinc-500 text-xs font-bold italic">Bu maç için henüz tartışmalı pozisyon analizi eklenmemiştir.</p>
                                             </div>
-                                        );
-                                    })}
-                                    {match.lineups.homeSubs && match.lineups.homeSubs.length > 0 && (
-                                        <>
-                                            <div className="mt-8 mb-4 text-[10px] font-black text-gray-500 uppercase text-center flex items-center gap-3">
-                                                <span className="h-px bg-white/10 flex-1"></span>
-                                                YEDEKLER
-                                                <span className="h-px bg-white/10 flex-1"></span>
-                                            </div>
-                                            {match.lineups.homeSubs.map((player, i) => {
-                                                const pName = normalizeName(player.name);
-                                                const events = match.events?.filter(e => normalizeName(e.player) === pName && e.teamId === 'home');
-                                                return (
-                                                    <div key={`sub-${i}`} className="flex items-center justify-between text-[11px] py-1.5 border-b border-white/5 last:border-0 text-gray-400 px-2">
-                                                        <div className="flex gap-3 items-center">
-                                                            <span className="font-mono w-5 text-center text-gray-600">{player.number}</span>
-                                                            <span className="font-bold">{player.name}</span>
+                                        ) : (
+                                            <div className="space-y-6">
+                                                {incidents.map((inc) => (
+                                                    <div key={inc.id} className="bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 hover:border-zinc-700/80 transition-colors">
+                                                        
+                                                        {/* Header */}
+                                                        <div className="flex items-start gap-4">
+                                                            <div className="bg-[#FF5DAD] text-black font-black text-xs px-3 py-1.5 rounded-xl shadow-neo-sm shrink-0">
+                                                                {inc.minute}. Dk
+                                                            </div>
+                                                            <div className="text-sm font-bold text-white leading-relaxed">
+                                                                {inc.description}
+                                                            </div>
                                                         </div>
-                                                        <div className="flex gap-1">
-                                                            {events?.map((ev, idx) => (
-                                                                <span key={idx} title={`${ev.type} - ${ev.minute}'`}>
-                                                                    {ev.type === 'goal' && '⚽'}
-                                                                    {ev.type === 'yellow_card' && <span className="inline-block w-2.5 h-3.5 bg-yellow-400 rounded-[1px] border border-black/10"></span>}
-                                                                    {ev.type === 'red_card' && <span className="inline-block w-2.5 h-3.5 bg-red-600 rounded-[1px] border border-black/10"></span>}
-                                                                    {ev.type === 'substitution_out' && <span className="text-red-500 font-black">↓</span>}
-                                                                    {ev.type === 'substitution_in' && <span className="text-green-500 font-black">↑</span>}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </>
-                                    )}
-                                    {match.lineups.homeCoach && (
-                                        <div className="mt-8 pt-6 border-t border-white/10 text-center">
-                                            <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">TEKNİK DİREKTÖR</div>
-                                            <div className="text-sm font-black text-white uppercase tracking-tighter">{match.lineups.homeCoach}</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="bg-[#161b22] border-2 border-white/20 rounded-xl p-5 shadow-neo">
-                                <h3 className="text-sm font-black text-center mb-6 uppercase tracking-[0.2em] text-white flex items-center gap-3">
-                                    <span className="h-px bg-white/10 flex-1"></span>
-                                    DEPLASMAN
-                                    <span className="h-px bg-white/10 flex-1"></span>
-                                </h3>
-                                <div className="space-y-1">
-                                    {match.lineups.away?.map((player, i) => {
-                                        const pName = normalizeName(player.name);
-                                        const events = match.events?.filter(e => normalizeName(e.player) === pName && e.teamId === 'away');
-                                        return (
-                                            <div key={i} className="flex items-center justify-between text-[11px] py-2 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-2 rounded-lg group">
-                                                <div className="flex gap-3 items-center">
-                                                    <span className="font-mono text-gray-500 w-5 text-center">{player.number}</span>
-                                                    <span className="font-black text-white group-hover:text-primary transition-colors">{player.name}</span>
-                                                </div>
-                                                <div className="flex gap-1">
-                                                    {events?.map((ev, idx) => (
-                                                        <span key={idx} title={`${ev.type} - ${ev.minute}'`}>
-                                                            {ev.type === 'goal' && '⚽'}
-                                                            {ev.type === 'yellow_card' && <span className="inline-block w-2 h-3 bg-yellow-400 rounded-[1px] border border-black/10"></span>}
-                                                            {ev.type === 'red_card' && <span className="inline-block w-2 h-3 bg-red-600 rounded-[1px] border border-black/10"></span>}
-                                                            {ev.type === 'substitution_out' && <span className="text-red-500 font-bold">↓</span>}
-                                                            {ev.type === 'substitution_in' && <span className="text-green-500 font-bold">↑</span>}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                    {match.lineups.awaySubs && match.lineups.awaySubs.length > 0 && (
-                                        <>
-                                            <div className="mt-8 mb-4 text-[10px] font-black text-gray-500 uppercase text-center flex items-center gap-3">
-                                                <span className="h-px bg-white/10 flex-1"></span>
-                                                YEDEKLER
-                                                <span className="h-px bg-white/10 flex-1"></span>
-                                            </div>
-                                            {match.lineups.awaySubs.map((player, i) => {
-                                                const pName = normalizeName(player.name);
-                                                const events = match.events?.filter(e => normalizeName(e.player) === pName && e.teamId === 'away');
-                                                return (
-                                                    <div key={`sub-${i}`} className="flex items-center justify-between text-[11px] py-1.5 border-b border-white/5 last:border-0 text-gray-400 px-2">
-                                                        <div className="flex gap-3 items-center">
-                                                            <span className="font-mono w-5 text-center text-gray-600">{player.number}</span>
-                                                            <span className="font-bold">{player.name}</span>
-                                                        </div>
-                                                        <div className="flex gap-1">
-                                                            {events?.map((ev, idx) => (
-                                                                <span key={idx} title={`${ev.type} - ${ev.minute}'`}>
-                                                                    {ev.type === 'goal' && '⚽'}
-                                                                    {ev.type === 'yellow_card' && <span className="inline-block w-2.5 h-3.5 bg-yellow-400 rounded-[1px] border border-black/10"></span>}
-                                                                    {ev.type === 'red_card' && <span className="inline-block w-2.5 h-3.5 bg-red-600 rounded-[1px] border border-black/10"></span>}
-                                                                    {ev.type === 'substitution_out' && <span className="text-red-500 font-black">↓</span>}
-                                                                    {ev.type === 'substitution_in' && <span className="text-green-500 font-black">↑</span>}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </>
-                                    )}
-                                    {match.lineups.awayCoach && (
-                                        <div className="mt-8 pt-6 border-t border-white/10 text-center">
-                                            <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">TEKNİK DİREKTÖR</div>
-                                            <div className="text-sm font-black text-white uppercase tracking-tighter">{match.lineups.awayCoach}</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
-                    {activeTab === 'pfdk' && (
-                        <div className="space-y-4">
-                            {disciplinary.length === 0 ? (
-                                <div className="text-center py-10 bg-[#161b22] rounded-xl border-2 border-dashed border-white/10">
-                                    <span className="text-gray-500 text-sm font-black uppercase tracking-widest">Bu maç için PFDK kararı bulunmuyor.</span>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 gap-6">
-                                    {disciplinary.map((action) => {
-                                        // Helper to extract quoted text
-                                        const extractQuoted = (text: string) => {
-                                            const regex = /["'“”«»][^"'“”«»]+["'“”«»]/g;
-                                            const matches = text.match(regex);
-                                            return matches ? matches.map(m => m.slice(1, -1).trim()).filter(m => m.length > 2) : [];
-                                        };
-                                        const quoted = extractQuoted(action.reason).map(q => cleanSponsorsInText(q));
-                                        const fullBody = cleanSponsorsInText(action.note || action.reason);
+                                                        {/* Decisions Grid */}
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                                                            <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                                                                <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Hakem Kararı</span>
+                                                                <p className="text-xs font-extrabold text-zinc-300">{inc.refereeDecision || 'Belirtilmedi'}</p>
+                                                            </div>
+                                                            {inc.varDecision && (
+                                                                <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                                                                    <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">VAR Kararı</span>
+                                                                    <p className="text-xs font-extrabold text-zinc-300">{inc.varDecision}</p>
+                                                                </div>
+                                                            )}
+                                                            <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                                                                <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Final / Doğru Karar</span>
+                                                                <p className="text-xs font-extrabold text-emerald-400">{inc.finalDecision || inc.correctDecision || 'Belirtilmedi'}</p>
+                                                            </div>
+                                                        </div>
 
-                                        return (
-                                            <div key={action.id} className="bg-[#161b22] border-2 border-white/20 rounded-xl p-6 shadow-neo-sm flex flex-col gap-4">
-                                                <div className="w-full">
-                                                    {/* Full Decision Text - Preserved exactly as entered */}
-                                                    <div className="mb-4">
-                                                        <p className="text-base md:text-lg text-foreground leading-relaxed font-extrabold uppercase tracking-tight whitespace-pre-wrap">
-                                                            {fullBody}
-                                                        </p>
-                                                    </div>
-
-                                                    <div className="flex flex-col gap-4">
-                                                        {/* Penalty Results */}
-                                                        {action.penalty && (
-                                                            <div className="bg-red-500/10 border-l-4 border-red-500 pl-4 py-3 rounded-r-lg">
-                                                                <ul className="space-y-3">
-                                                                    {action.penalty.replace(/ - /g, '\n').split('\n').map((item, idx) => {
-                                                                        let cleanItem = item.trim().replace(/^- /, '').replace(/^((PARA )?CEZA(SI)?:\s*)/i, '').replace(/(\d{1,3}(\.\d{3})*)(\.|.-)\s*TL/gi, '$1 TL').replace(/\s+PARA CEZASI/gi, '');
-                                                                        if (!cleanItem) return null;
-                                                                        return (
-                                                                            <li key={idx} className="text-sm font-black text-red-500 flex items-start gap-2 uppercase tracking-tighter">
-                                                                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>
-                                                                                <span className="leading-tight">{cleanItem}</span>
-                                                                            </li>
-                                                                        );
-                                                                    })}
-                                                                </ul>
+                                                        {/* Opinions */}
+                                                        {inc.opinions && inc.opinions.length > 0 && (
+                                                            <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
+                                                                <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Yorumcu Değerlendirmeleri</h4>
+                                                                <div className="space-y-3">
+                                                                    {inc.opinions.map((op) => (
+                                                                        <div key={op.id} className="bg-zinc-950/40 p-4 rounded-2xl border border-white/5 space-y-2">
+                                                                            <div className="flex items-center justify-between gap-4">
+                                                                                <span className="text-xs font-black text-primary">{op.criticName}</span>
+                                                                                <span className={`text-[9px] font-black px-2 py-1 rounded uppercase tracking-wider ${
+                                                                                    op.judgment === 'correct' 
+                                                                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                                                                        : op.judgment === 'incorrect'
+                                                                                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                                                                        : op.judgment === 'controversial'
+                                                                                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                                                                        : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20'
+                                                                                }`}>
+                                                                                    {op.judgment === 'correct' ? 'Doğru' 
+                                                                                     : op.judgment === 'incorrect' ? 'Yanlış' 
+                                                                                     : op.judgment === 'controversial' ? 'Tartışmalı' 
+                                                                                     : 'Kart Gerekirdi'}
+                                                                                </span>
+                                                                            </div>
+                                                                            <p className="text-xs text-zinc-300 leading-relaxed italic">"{op.opinion}"</p>
+                                                                            {op.reasoning && (
+                                                                                <p className="text-[10px] text-zinc-500 leading-relaxed">
+                                                                                    <span className="font-extrabold text-zinc-400 uppercase mr-1">Gerekçe:</span> {op.reasoning}
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
                                                             </div>
                                                         )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
-                                                        {/* Context Badges */}
-                                                        <div className="flex items-center gap-2 flex-wrap pt-2">
-                                                            <span className="bg-gray-100 text-gray-500 text-[10px] font-black px-2 py-1 rounded border border-gray-200 uppercase tracking-widest">
-                                                                {action.subject}
-                                                            </span>
-                                                            {action.teamName && (
-                                                                <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-1 rounded border border-primary/20 uppercase tracking-widest">
-                                                                    {cleanSponsorsInText(getTeamName(resolveTeamId(action.teamName) || action.teamName))}
+                                {activeTab === 'istatistik' && (
+                                    <div className="bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6">
+                                        <div className="space-y-1 border-b border-white/5 pb-4">
+                                            <h3 className="text-sm font-black tracking-widest text-primary uppercase">MAÇ İSTATİSTİKLERİ</h3>
+                                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Takım Karşılaştırma Analizi</p>
+                                        </div>
+
+                                        {(!match.stats || Object.keys(match.stats).length === 0) ? (
+                                            <div className="text-center py-12">
+                                                <p className="text-zinc-500 text-xs font-bold italic">Bu maç için henüz istatistik verisi girilmemiştir.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-6">
+                                                {/* Team Headers */}
+                                                <div className="flex justify-between items-center text-xs font-black tracking-widest uppercase pb-2">
+                                                    <span className="text-[#00a89d]">{cleanSponsorsInText(match.homeTeamName)}</span>
+                                                    <span className="text-[#1a433f]">{cleanSponsorsInText(match.awayTeamName)}</span>
+                                                </div>
+
+                                                {/* Stats list */}
+                                                <div className="space-y-4">
+                                                    {[
+                                                        { label: 'Topla Oynama', homeVal: match.stats.homePossession, awayVal: match.stats.awayPossession, isPercentage: true },
+                                                        { label: 'Şut', homeVal: match.stats.homeShots, awayVal: match.stats.awayShots },
+                                                        { label: 'İsabetli Şut', homeVal: match.stats.homeShotsOnTarget, awayVal: match.stats.awayShotsOnTarget },
+                                                        { label: 'Engellenen Şut', homeVal: match.stats.homeBlockedShots, awayVal: match.stats.awayBlockedShots },
+                                                        { label: 'Toplam Pas', homeVal: match.stats.homePasses, awayVal: match.stats.awayPasses },
+                                                        { label: 'Pas İsabeti', homeVal: match.stats.homePassAccuracy, awayVal: match.stats.awayPassAccuracy, isPercentage: true },
+                                                        { label: 'Büyük Fırsat', homeVal: match.stats.homeBigChances, awayVal: match.stats.awayBigChances },
+                                                        { label: 'Korner', homeVal: match.stats.homeCorners, awayVal: match.stats.awayCorners },
+                                                        { label: 'Ofsayt', homeVal: match.stats.homeOffsides, awayVal: match.stats.awayOffsides },
+                                                        { label: 'Kurtarış', homeVal: match.stats.homeSaves, awayVal: match.stats.awaySaves },
+                                                        { label: 'Faul', homeVal: match.stats.homeFouls, awayVal: match.stats.awayFouls },
+                                                        { label: 'Sarı Kart', homeVal: match.stats.homeYellowCards, awayVal: match.stats.awayYellowCards },
+                                                        { label: 'Kırmızı Kart', homeVal: match.stats.homeRedCards, awayVal: match.stats.awayRedCards }
+                                                    ]
+                                                    .filter(s => s.homeVal !== undefined && s.awayVal !== undefined)
+                                                    .map((s, idx) => {
+                                                        const hVal = Number(s.homeVal ?? 0);
+                                                        const aVal = Number(s.awayVal ?? 0);
+                                                        const total = hVal + aVal;
+                                                        const homePct = total > 0 ? (hVal / total) * 100 : 50;
+                                                        const awayPct = total > 0 ? (aVal / total) * 100 : 50;
+
+                                                        return (
+                                                            <div key={idx} className="space-y-2">
+                                                                <div className="flex justify-between items-center text-xs font-bold">
+                                                                    {/* Home Value */}
+                                                                    <span className="text-[#00a89d] font-mono text-sm">{hVal}{s.isPercentage ? '%' : ''}</span>
+                                                                    
+                                                                    {/* Label */}
+                                                                    <span className="text-zinc-400 uppercase tracking-wider text-[10px]">{s.label}</span>
+                                                                    
+                                                                    {/* Away Value */}
+                                                                    <span className="text-[#1a433f] font-mono text-sm">{aVal}{s.isPercentage ? '%' : ''}</span>
+                                                                </div>
+                                                                
+                                                                {/* Comparison bar */}
+                                                                <div className="h-2 w-full bg-zinc-800 rounded-full flex overflow-hidden border border-black/10">
+                                                                    <div 
+                                                                        style={{ width: `${homePct}%` }}
+                                                                        className="bg-[#00a89d] transition-all duration-500"
+                                                                    />
+                                                                    <div 
+                                                                        style={{ width: `${awayPct}%` }}
+                                                                        className="bg-[#1a433f] transition-all duration-500"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {activeTab === 'pfdk' && (
+                                    <div className="space-y-6">
+                                        {disciplinaryActions.length === 0 ? (
+                                            <div className="text-center py-12 bg-[#161b22] border border-white/10 rounded-3xl">
+                                                <p className="text-zinc-500 text-xs font-bold italic">Bu maç için henüz TFF PFDK disiplin sevk/ceza kararı eklenmemiştir.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                {disciplinaryActions.map((act) => (
+                                                    <div key={act.id} className="bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-3">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2">
+                                                            <div className="space-y-0.5">
+                                                                <span className="text-xs font-black text-primary block">{act.subject}</span>
+                                                                {act.teamName && (
+                                                                    <span className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wider block">{act.teamName}</span>
+                                                                )}
+                                                            </div>
+                                                            {act.penalty && (
+                                                                <span className="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider self-start sm:self-auto">
+                                                                    {act.penalty}
                                                                 </span>
                                                             )}
-                                                            {quoted.map((q, idx) => (
-                                                                <span key={idx} className="bg-white text-black text-[10px] md:text-xs font-black px-2.5 py-1 rounded border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)] uppercase">
-                                                                    {q}
-                                                                </span>
-                                                            ))}
                                                         </div>
+                                                        <div className="space-y-1">
+                                                            <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block">Sevk Nedeni / İhlal</span>
+                                                            <p className="text-xs text-zinc-300 font-semibold leading-relaxed">{act.reason}</p>
+                                                        </div>
+                                                        {act.note && (
+                                                            <div className="bg-zinc-950/40 p-4 rounded-2xl border border-white/5 space-y-1.5">
+                                                                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block">Resmi Açıklama Detayı</span>
+                                                                <p className="text-xs text-zinc-400 leading-relaxed font-medium">{act.note}</p>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                </div>
+                                                ))}
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    )}
-
-                    {activeTab === 'performance' && (
-                        <div className="space-y-6">
-                            {match.refereeStats && (
-                                <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-5 text-white shadow-lg overflow-hidden relative">
-                                    <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none">
-                                        <svg className="w-24 h-24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" /></svg>
-                                    </div>
-                                    <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
-                                        <div>
-                                            <h3 className="font-black text-lg tracking-tight">HAKEM PERFORMANS KARTI</h3>
-                                            <div className="text-[10px] text-gray-400 font-mono tracking-widest uppercase">MATCH REFEREE REPORT</div>
-                                        </div>
-                                        <div className="text-3xl font-black font-mono tracking-tighter bg-white/10 px-3 py-1 rounded">
-                                            {(10 - (match.refereeStats.incorrectDecisions * 0.5)).toFixed(1)}
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                                        <div className="bg-white/5 rounded p-3 text-center border border-white/10">
-                                            <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">OYUN SÜRESİ</div>
-                                            <div className="text-xl font-mono font-bold">{match.refereeStats.ballInPlayTime}</div>
-                                        </div>
-                                        <div className="bg-white/5 rounded p-3 text-center border border-white/10">
-                                            <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">FAUL</div>
-                                            <div className="text-xl font-mono font-bold">{match.refereeStats.fouls}</div>
-                                        </div>
-                                        <div className="bg-white/5 rounded p-3 text-center border border-white/10">
-                                            <div className="text-[10px] text-yellow-400 font-black uppercase tracking-widest mb-1">SARI KART</div>
-                                            <div className="text-xl font-mono font-bold text-yellow-400">{match.refereeStats.yellowCards}</div>
-                                        </div>
-                                        <div className="bg-white/5 rounded p-3 text-center border border-white/10">
-                                            <div className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-1">KIRMIZI KART</div>
-                                            <div className="text-xl font-mono font-bold text-red-500">{match.refereeStats.redCards}</div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-black/20 rounded-lg p-4 border border-white/5">
-                                        <h4 className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">HATA ANALİZİ</h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div>
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-[10px] font-black text-gray-400 uppercase">EV SAHİBİ LEHİNE</span>
-                                                    <span className="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded">{match.refereeStats.errorsFavoringHome} HATA</span>
-                                                </div>
-                                                {match.refereeStats.homeErrors?.length ? (
-                                                    <ul className="space-y-1.5">
-                                                        {match.refereeStats.homeErrors.map((err, i) => (
-                                                            <li key={i} className="text-[10px] text-gray-300 bg-white/5 px-2 py-1.5 rounded border-l-2 border-red-500/50 flex items-start gap-2">
-                                                                <span className="mt-1 w-1 h-1 rounded-full bg-red-400 shrink-0" />
-                                                                <span>{err.toLocaleUpperCase('tr-TR')}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                ) : <div className="text-[10px] text-gray-600 italic">Kayıt bulunmuyor.</div>}
-                                            </div>
-                                            <div>
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-[10px] font-black text-gray-400 uppercase">DEPLASMAN LEHİNE</span>
-                                                    <span className="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded">{match.refereeStats.errorsFavoringAway} HATA</span>
-                                                </div>
-                                                {match.refereeStats.awayErrors?.length ? (
-                                                    <ul className="space-y-1.5">
-                                                        {match.refereeStats.awayErrors.map((err, i) => (
-                                                            <li key={i} className="text-[10px] text-gray-300 bg-white/5 px-2 py-1.5 rounded border-l-2 border-red-500/50 flex items-start gap-2">
-                                                                <span className="mt-1 w-1 h-1 rounded-full bg-red-400 shrink-0" />
-                                                                <span>{err.toLocaleUpperCase('tr-TR')}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                ) : <div className="text-[10px] text-gray-600 italic">Kayıt bulunmuyor.</div>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            {match.refereeStats?.performanceNotes?.map((note, i) => (
-                                <div key={i} className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                                    <h4 className="font-black text-sm text-foreground uppercase tracking-tight mb-2 flex items-center gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>MAÇ NOTLARI
-                                    </h4>
-                                    <p className="text-xs text-foreground/90 font-medium leading-relaxed">{note.toLocaleUpperCase('tr-TR')}</p>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <div className="space-y-6">
-                    {incidents.map((incident) => (
-                        <TrioGrid
-                            key={incident.id}
-                            minute={incident.minute}
-                            description={incident.description}
-                            videoUrl={incident.videoUrl}
-                            opinions={incident.opinions || []}
-                            refereeDecision={incident.refereeDecision}
-                            varDecision={incident.varDecision}
-                            finalDecision={incident.finalDecision}
-                            correctDecision={incident.correctDecision}
-                            missedCards={incident.missedCards}
-                            incorrectCards={incident.incorrectCards}
-                        />
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function OfficialItem({ role, name, highlight }: { role: string, name?: string, highlight?: boolean }) {
-    if (!name) return null;
-    return (
-        <div className="flex flex-col p-2">
-            <span className={`text-[9px] font-bold uppercase ${highlight ? 'text-blue-500' : 'text-muted-foreground'}`}>{role}</span>
-            <span className="text-xs font-bold text-foreground truncate">{name}</span>
-        </div>
-    )
-}
-
-function TrioGrid({ opinions, description, minute, videoUrl, refereeDecision, varDecision, finalDecision, correctDecision, missedCards, incorrectCards }: {
-    opinions: Opinion[], description: string, minute: number | string, videoUrl?: string, refereeDecision?: string, varDecision?: string, finalDecision?: string, correctDecision?: string, missedCards?: any[], incorrectCards?: any[]
-}) {
-    const critics = ['Bülent Yıldırım', 'Deniz Çoban', 'Bahattin Duran'];
-    const varRecMap: Record<string, string> = { 'review': 'İNCELEME ÖNERİSİ', 'none': 'İNCELEME ÖNERİSİ YOK', 'monitor_only': 'SADECE TAKİP' };
-
-    return (
-        <div className="rounded-xl overflow-hidden shadow-sm flex bg-card border border-border">
-            <div className="bg-neutral-100 dark:bg-neutral-900/50 border-r border-border w-16 md:w-24 shrink-0 flex flex-col items-center justify-center p-1 relative">
-                <span className="font-black text-[9px] md:text-[11px] tracking-tighter text-neutral-400 text-center uppercase leading-none">TRIO<br />YORUMU</span>
-                {(() => {
-                    const trioOpinions = opinions.filter(o =>
-                        o.type === 'trio' ||
-                        o.id?.startsWith('trio') ||
-                        o.criticName.includes(',') ||
-                        ['Bülent Yıldırım', 'Deniz Çoban', 'Bahattin Duran'].some(c => o.criticName.includes(c))
-                    );
-                    if (trioOpinions.length > 0) {
-                        return <div className="mt-2"><TrioIcon judgment={trioOpinions[0].judgment} size="w-8 h-8 md:w-12 md:h-12" /></div>;
-                    }
-                    return null;
-                })()}
-                {videoUrl && (
-                    <a href={videoUrl} target="_blank" className="mt-2 flex flex-col items-center text-red-600 hover:text-red-700 transition-all transform hover:scale-105">
-                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 md:w-7 md:h-7 mb-0.5"><path d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.024-.983a1.125 1.125 0 0 1 0 1.966l-5.603 3.113A1.125 1.125 0 0 1 9 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113Z" /></svg>
-                        <span className="text-[7px] md:text-[8px] font-bold uppercase">İzle</span>
-                    </a>
-                )}
-                {varDecision && varDecision !== 'Müdahale Yok' && varDecision !== '(Yok/Seçiniz)' && (
-                    <div className="mt-3 flex flex-col items-center bg-purple-900/20 md:bg-purple-100 dark:bg-purple-900/30 border border-purple-500/30 md:border-purple-300 rounded px-1.5 py-0.5 shadow-sm">
-                        <span className="text-[9px] md:text-[11px] font-black text-purple-700 dark:text-purple-400 uppercase tracking-widest">VAR</span>
                     </div>
-                )}
-            </div>
-            <div className="flex-1 flex flex-col min-w-0">
-                <div className="bg-transparent border-b border-border text-neutral-950 dark:text-neutral-50 flex items-center h-14 px-3 overflow-hidden bg-neutral-100 dark:bg-neutral-900">
-                    <div className="flex-1 flex items-center justify-between min-w-0">
-                        <span className="text-[14px] md:text-lg font-black uppercase tracking-tight truncate mr-2">{description || 'Pozisyon Değerlendirmesi'}</span>
-                        <span className="text-base font-black text-red-600 shrink-0">{minute}'</span>
-                    </div>
-                </div>
-                <div className="bg-muted/30 border-b border-border px-2 md:px-3 py-1.5 flex justify-between gap-1 md:gap-4">
-                    <div className="flex-1 text-center border-r border-border pr-2">
-                        <span className="block text-[9px] md:text-[10px] text-neutral-600 dark:text-neutral-400 font-black uppercase">HAKEM</span>
-                        <span className="block text-[11px] md:text-[13px] text-neutral-950 dark:text-neutral-50 font-black truncate">{refereeDecision || '-'}</span>
-                    </div>
-                    <div className="flex-1 text-center pl-2">
-                        <span className="block text-[9px] md:text-[10px] text-purple-700 font-extrabold uppercase">VAR SONUCU</span>
-                        <span className="block text-[11px] md:text-[13px] text-purple-900 dark:text-purple-300 font-black truncate">{varDecision || '-'}</span>
-                    </div>
-                </div>
-                <div className="bg-card p-3 flex-1">
-                    {(() => {
-                        const trioCritics = ['Bülent Yıldırım', 'Deniz Çoban', 'Bahattin Duran'];
-                        const trioOpinions = opinions.filter(o =>
-                            o.type === 'trio' ||
-                            o.id?.startsWith('trio') ||
-                            o.criticName.includes(',') ||
-                            trioCritics.some(c => o.criticName.includes(c))
-                        );
 
-                        if (trioOpinions.length > 0) {
-                            return (
-                                <div className="h-full flex flex-col items-center justify-center text-center px-1 py-3 w-full">
-                                    {trioOpinions.map((op, idx) => (
-                                        <div key={idx} className="w-full flex flex-col items-center mb-4 last:mb-0">
-                                            {op.opinion && (
-                                                <div className="bg-green-50 dark:bg-green-900/10 border-2 border-green-500 rounded-lg p-3 w-full my-2 shadow-sm text-center">
-                                                    <p className="text-[16px] md:text-2xl text-green-800 dark:text-green-300 leading-tight font-black uppercase tracking-tighter">
-                                                        "{op.opinion}"
-                                                    </p>
-                                                </div>
-                                            )}
-                                            {op.reasoning && (
-                                                <div className="w-full bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/50 rounded-lg p-3 text-left">
-                                                    <span className="font-black uppercase tracking-widest text-[9px] text-neutral-400 block mb-1">DETAY / SEBEP</span>
-                                                    <p className="text-[11px] md:text-[13px] text-neutral-600 dark:text-neutral-400 leading-relaxed font-medium">
-                                                        {op.reasoning}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                    {/* Other Opinions section simplified */}
-                                    {opinions.filter(o => !trioOpinions.includes(o)).length > 0 && (
-                                        <div className="w-full mt-6 pt-4 border-t border-border space-y-4 px-2">
-                                            <span className="text-[10px] text-muted-foreground font-black mb-2 uppercase tracking-[0.15em]">DİĞER YORUMCULAR</span>
-                                            {opinions.filter(o => !trioOpinions.includes(o)).map((op, idx) => (
-                                                <div key={idx} className="text-left bg-muted/20 p-3 rounded-lg border border-border/50 flex flex-col gap-2">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <span className="text-[10px] font-black uppercase text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded">{op.criticName}</span>
-                                                        <TrioIcon judgment={op.judgment} size="w-5 h-5" />
-                                                    </div>
-                                                    {op.opinion && (
-                                                        <div className="border-l-[3px] border-green-500 pl-3 py-1 bg-gradient-to-r from-green-50/50 dark:from-green-900/10 to-transparent rounded-r-md">
-                                                            <p className="text-[13px] md:text-base text-neutral-900 dark:text-neutral-100 leading-tight font-black uppercase">
-                                                                {op.opinion}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                    {op.reasoning && (
-                                                        <div className="bg-neutral-100 dark:bg-neutral-800/40 rounded p-2 text-[10px] md:text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400 italic">
-                                                            {op.reasoning}
-                                                        </div>
-                                                    )}
-                                                </div>
+                    {/* Right Sidebar Column (25%) */}
+                    <div className="lg:col-span-1">
+                        <div className="bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6">
+                            
+                            {/* Sidebar Header & Selectors */}
+                            <div className="flex flex-col gap-3">
+                                <h3 className="text-sm font-black tracking-widest text-primary uppercase">HAFTANIN FİKSTÜRÜ</h3>
+                                
+                                {/* Interactive Dropdown Selectors */}
+                                <div className="grid grid-cols-2 gap-2 select-none">
+                                    {/* Season Select */}
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Sezon</label>
+                                        <select 
+                                            value={selectedSeason} 
+                                            onChange={(e) => setSelectedSeason(e.target.value)}
+                                            className="bg-zinc-900 border border-zinc-800 rounded-xl px-2 py-1.5 text-xs text-white font-extrabold focus:outline-none focus:border-primary cursor-pointer w-full"
+                                        >
+                                            <option value="2025-2026">2025-2026</option>
+                                            <option value="2026-2027">2026-2027</option>
+                                        </select>
+                                    </div>
+                                    
+                                    {/* Week Select */}
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Hafta</label>
+                                        <select 
+                                            value={selectedWeek} 
+                                            onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                                            className="bg-zinc-900 border border-zinc-800 rounded-xl px-2 py-1.5 text-xs text-white font-extrabold focus:outline-none focus:border-primary cursor-pointer w-full"
+                                        >
+                                            {Array.from({ length: 38 }, (_, i) => i + 1).map(w => (
+                                                <option key={w} value={w}>{w}. Hafta</option>
                                             ))}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        }
-
-                        // Fallback if NO trio opinions at all (should be rare now)
-                        return (
-                            <div className="text-center p-8 text-muted-foreground text-xs uppercase font-bold tracking-widest opacity-50">
-                                Yorum Bulunmuyor
-                            </div>
-                        );
-                    })()}
-                </div>
-                {(finalDecision || correctDecision || missedCards?.length || incorrectCards?.length) && (
-                    <div className="bg-muted/30 border-t border-border px-3 py-2 flex flex-col gap-2">
-                        {/* Card Errors Display */}
-                        {missedCards?.map((mc: any, i: number) => (
-                            <div key={`mc-${i}`} className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 p-1.5 rounded-md">
-                                <span className="text-[9px] font-black text-amber-600 uppercase shrink-0">EKSİK KART:</span>
-                                <div className="flex items-center gap-1.5 overflow-hidden">
-                                    <span className={`w-2 h-3 shrink-0 rounded-[1px] ${mc.card === 'yellow' ? 'bg-yellow-400' : 'bg-red-600'}`}></span>
-                                    <span className="text-[10px] font-black uppercase truncate">{mc.player}</span>
-                                    {mc.isRepeated && <span className="text-[10px] font-black text-red-600 shrink-0">({mc.repeatedCount}. KEZ)</span>}
-                                </div>
-                            </div>
-                        ))}
-                        {incorrectCards?.map((ic: any, i: number) => (
-                            <div key={`ic-${i}`} className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 p-1.5 rounded-md">
-                                <span className="text-[9px] font-black text-blue-600 uppercase shrink-0">HATALI KART:</span>
-                                <div className="flex items-center gap-1.5 overflow-hidden">
-                                    <span className="text-[10px] font-black uppercase truncate">{ic.player}</span>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                        <span className={`w-1.5 h-2.5 rounded-[1px] ${ic.givenCard === 'yellow' ? 'bg-yellow-400' : ic.givenCard === 'red' ? 'bg-red-600' : 'bg-gray-400/30'}`}></span>
-                                        <span className="text-gray-400 text-[8px]">→</span>
-                                        <span className={`w-1.5 h-2.5 rounded-[1px] ${ic.correctCard === 'yellow' ? 'bg-yellow-400' : ic.correctCard === 'red' ? 'bg-red-600' : 'bg-green-500'}`}></span>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
-                        ))}
-                        {finalDecision && <div className="flex items-center gap-2"><span className="text-[9px] font-black text-green-600 uppercase">NİHAİ:</span><span className="text-[10px] font-bold truncate">{finalDecision}</span></div>}
-                        {correctDecision && <div className="flex items-center gap-2"><span className="text-[9px] font-black text-emerald-600 uppercase">OLMASI GEREKEN:</span><span className="text-[10px] font-bold truncate">{correctDecision}</span></div>}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
 
-function TrioOpinion({ name, op }: { name: string, op?: Opinion }) {
-    const [expanded, setExpanded] = useState(false);
-    const isLong = op?.opinion && op.opinion.length > 120;
-    return (
-        <div className="flex flex-col items-center text-center px-2 py-1 min-h-[80px]">
-            <span className="text-[9px] text-muted-foreground font-bold mb-2 uppercase">{name}</span>
-            {op ? (
-                <>
-                    <TrioIcon judgment={op.judgment} />
-                    {op.opinion && (
-                        <div className="w-full text-left mt-2 flex flex-col gap-1.5">
-                            <div className={`text-[12px] md:text-[14px] text-green-700 dark:text-green-400 border-l-[3px] border-green-500 pl-2 leading-tight font-black uppercase ${expanded ? '' : 'line-clamp-2'}`}>
-                                {op.opinion}
+                            {/* Fixtures List */}
+                            <div className="space-y-3">
+                                {fixturesLoading ? (
+                                    Array.from({ length: 8 }).map((_, idx) => (
+                                        <div key={idx} className="h-14 bg-zinc-900/50 animate-pulse rounded-2xl border border-white/5" />
+                                    ))
+                                ) : fixtures.length === 0 ? (
+                                    <div className="text-center py-6 text-zinc-500 text-xs font-semibold italic">Maç bulunamadı.</div>
+                                ) : (
+                                    fixtures.map(f => {
+                                        const isActive = f.id === matchId;
+                                        const hScore = f.homeScore !== undefined ? f.homeScore : '-';
+                                        const aScore = f.awayScore !== undefined ? f.awayScore : '-';
+                                        const isFinished = f.homeScore !== undefined && f.awayScore !== undefined;
+                                        const displayScore = isFinished ? `${hScore} - ${aScore}` : 'vs';
+
+                                        return (
+                                            <Link key={f.id} href={`/matches/${f.id}`} className="block">
+                                                <div className={`p-3 rounded-2xl border transition-all ${
+                                                    isActive 
+                                                        ? 'bg-white text-slate-900 border-primary shadow-lg scale-102' 
+                                                        : 'bg-zinc-900/60 hover:bg-zinc-900 text-white border-white/5'
+                                                }`}>
+                                                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-[11px] font-bold">
+                                                        
+                                                        {/* Home Team Name */}
+                                                        <div className={`text-right truncate ${isActive ? 'text-slate-800 font-extrabold' : 'text-zinc-300'}`}>
+                                                            {cleanSponsorsInText(f.homeTeamName)}
+                                                        </div>
+                                                        
+                                                        {/* Score Badge */}
+                                                        <div className="flex flex-col items-center min-w-[55px]">
+                                                            <div className={`px-2 py-0.5 rounded font-mono text-[10px] font-black text-center ${
+                                                                isActive ? 'bg-[#00a89d] text-white shadow-xs' : 'bg-black text-white'
+                                                            }`}>
+                                                                {displayScore}
+                                                            </div>
+                                                            {isFinished && (
+                                                                <span className={`text-[8px] font-black tracking-widest mt-0.5 uppercase ${
+                                                                    isActive ? 'text-[#00a89d]' : 'text-zinc-500'
+                                                                }`}>
+                                                                    FT
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Away Team Name */}
+                                                        <div className={`text-left truncate ${isActive ? 'text-slate-800 font-extrabold' : 'text-zinc-300'}`}>
+                                                            {cleanSponsorsInText(f.awayTeamName)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </Link>
+                                        );
+                                    })
+                                )}
                             </div>
-                            {op.reasoning && (
-                                <div className={`text-[10px] md:text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug italic bg-neutral-100 dark:bg-neutral-800/50 p-1.5 rounded ${expanded ? '' : 'line-clamp-3'}`}>
-                                    {op.reasoning}
-                                </div>
-                            )}
-                            {isLong && <button onClick={() => setExpanded(!expanded)} className="text-[9px] font-bold text-blue-500 self-start">{expanded ? 'Kapat' : 'Devamını Gör'}</button>}
                         </div>
-                    )}
-                </>
-            ) : <span className="text-muted-foreground text-[10px]">-</span>}
-        </div>
-    );
-}
+                    </div>
+                </div>
 
-function TrioIcon({ judgment, size = 'w-6 h-6' }: { judgment: string, size?: string }) {
-    if (judgment === 'correct') return <svg className={`${size} text-[#8CC63F]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17L4 12" /></svg>;
-    if (judgment === 'incorrect') return <svg className={`${size} text-[#E30613]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6L18 18" /></svg>;
-    if (judgment === 'missing') return <svg className={`${size} text-orange-600`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10" /><line x1="8" y1="12" x2="16" y2="12" /></svg>;
-    return <svg className={`${size} text-amber-400`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 9V14M12 17.01L12.01 16.9989" /></svg>;
-}
-
-function StatBar({ label, home, away, suffix = '' }: { label: string, home: number | string, away: number | string, homeColor?: string, awayColor?: string, suffix?: string }) {
-    const total = Number(home) + Number(away);
-    const hPercent = total > 0 ? (Number(home) / total) * 100 : 50;
-    const aPercent = total > 0 ? (Number(away) / total) * 100 : 50;
-
-    // Admin Panel Style: Blue vs Red by default
-    let hColor = '#3b82f6'; // blue-500
-    let aColor = '#ef4444'; // red-500
-
-    // Card specific colors (Yellow/Red)
-    if (label === 'Sarı Kart') {
-        hColor = '#facc15'; // yellow-400
-        aColor = '#facc15cc'; // yellow-400 with opacity to distinguish
-    } else if (label === 'Kırmızı Kart') {
-        hColor = '#ef4444'; // red-500
-        aColor = '#ef4444cc'; // red-500 with opacity
-    }
-
-    return (
-        <div className="text-xs">
-            <div className="flex justify-between mb-1 font-bold"><span>{home}{suffix}</span><span className="text-muted-foreground uppercase text-[10px] tracking-widest">{label}</span><span>{away}{suffix}</span></div>
-            <div className="flex h-1.5 rounded-full overflow-hidden bg-white/10">
-                <div style={{ width: `${hPercent}%`, backgroundColor: hColor }} className="transition-all duration-500 h-full" />
-                <div style={{ width: `${aPercent}%`, backgroundColor: aColor }} className="transition-all duration-500 h-full" />
             </div>
-        </div>
+        </main>
     );
 }
