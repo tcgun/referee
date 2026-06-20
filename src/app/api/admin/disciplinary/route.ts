@@ -2,8 +2,30 @@ import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/firebase/admin';
 import { withAdminGuard } from '@/lib/api-wrapper';
 import { disciplinaryActionSchema } from '@/lib/validations';
+import { DisciplinaryAction } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { getCachedMatches, getCachedDisciplinaryActions, writeLocalDisciplinary, invalidateCache } from '@/lib/cache';
+
+const findWeekByDate = (dateStr: string | Date | undefined, matches: Array<{ date?: string | Date; week?: number | null }>): number | null => {
+    if (!dateStr) return null;
+    if (!matches || matches.length === 0) return null;
+    const targetTime = new Date(dateStr).getTime();
+    
+    let closestMatch = null;
+    let minDiff = Infinity;
+    
+    for (const m of matches) {
+        if (!m.date) continue;
+        const mTime = new Date(m.date).getTime();
+        const diff = Math.abs(targetTime - mTime);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closestMatch = m;
+        }
+    }
+    
+    return closestMatch ? closestMatch.week || null : null;
+};
 
 export async function POST(request: Request) {
     return withAdminGuard(request, async (req) => {
@@ -43,11 +65,16 @@ export async function POST(request: Request) {
         let finalWeek = data.week ?? null;
 
         if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-            if (!finalWeek && matchId) {
+            if (!finalWeek) {
                 const matches = await getCachedMatches();
-                const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
-                if (mDoc) {
-                    finalWeek = mDoc.week || null;
+                if (matchId) {
+                    const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
+                    if (mDoc) {
+                        finalWeek = mDoc.week || null;
+                    }
+                }
+                if (!finalWeek && data.date) {
+                    finalWeek = findWeekByDate(data.date, matches);
                 }
             }
 
@@ -68,9 +95,9 @@ export async function POST(request: Request) {
             const actions = await getCachedDisciplinaryActions();
             const existingIdx = actions.findIndex(a => a.id === id);
             if (existingIdx > -1) {
-                actions[existingIdx] = { ...actions[existingIdx], ...saveData } as any; // safe cast for mock array insertion
+                actions[existingIdx] = { ...actions[existingIdx], ...saveData } as unknown as DisciplinaryAction;
             } else {
-                actions.push(saveData as any);
+                actions.push(saveData as unknown as DisciplinaryAction);
             }
 
             writeLocalDisciplinary(actions);
@@ -88,11 +115,16 @@ export async function POST(request: Request) {
         }
 
         const firestore = getAdminDb();
-        // Ensure week is present if matchId exists
-        if (!finalWeek && matchId) {
-            const matchSnap = await firestore.collection('matches').doc(matchId.replace('d-', '')).get();
-            if (matchSnap.exists) {
-                finalWeek = matchSnap.data()?.week || null;
+        if (!finalWeek) {
+            const matches = await getCachedMatches();
+            if (matchId) {
+                const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
+                if (mDoc) {
+                    finalWeek = mDoc.week || null;
+                }
+            }
+            if (!finalWeek && data.date) {
+                finalWeek = findWeekByDate(data.date, matches);
             }
         }
 

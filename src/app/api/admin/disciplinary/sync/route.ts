@@ -1,11 +1,34 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/firebase/admin';
 import { withAdminGuard } from '@/lib/api-wrapper';
+import { getCachedMatches } from '@/lib/cache';
+
+const findWeekByDate = (dateStr: string | Date | undefined, matches: Array<{ date?: string | Date; week?: number | null }>): number | null => {
+    if (!dateStr) return null;
+    if (!matches || matches.length === 0) return null;
+    const targetTime = new Date(dateStr).getTime();
+    
+    let closestMatch = null;
+    let minDiff = Infinity;
+    
+    for (const m of matches) {
+        if (!m.date) continue;
+        const mTime = new Date(m.date).getTime();
+        const diff = Math.abs(targetTime - mTime);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closestMatch = m;
+        }
+    }
+    
+    return closestMatch ? closestMatch.week || null : null;
+};
 
 export async function POST(request: Request) {
     return withAdminGuard(request, async () => {
         const firestore = getAdminDb();
         try {
+            const matches = await getCachedMatches();
             const batch = firestore.batch();
             // 1. Sync Matches (ensure competition: 'league' if missing)
             const matchSnapshot = await firestore.collection('matches').get();
@@ -59,22 +82,42 @@ export async function POST(request: Request) {
                     competitionUpdated = true;
                 }
 
-                // D. Create new doc if ID changed or match/competition updated
+                // C2. Backfill week field if missing
+                let week = data.week;
+                let weekUpdated = false;
+                if (!week) {
+                    if (matchId) {
+                        const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
+                        if (mDoc) {
+                            week = mDoc.week || null;
+                        }
+                    }
+                    if (!week && data.date) {
+                        week = findWeekByDate(data.date, matches);
+                    }
+                    if (week !== data.week) {
+                        weekUpdated = true;
+                    }
+                }
+
+                // D. Create new doc if ID changed or match/competition/week updated
                 if (newId !== oldId) {
                     const newRef = firestore.collection('disciplinary_actions').doc(newId);
                     batch.set(newRef, {
                         ...data,
                         id: newId,
                         matchId: matchId,
-                        competition: competition
+                        competition: competition,
+                        week: week
                     });
                     // Delete old doc
                     batch.delete(doc.ref);
                     count++;
-                } else if (data.matchId !== matchId || competitionUpdated) {
+                } else if (data.matchId !== matchId || competitionUpdated || weekUpdated) {
                     batch.update(doc.ref, {
                         matchId: matchId,
-                        competition: competition
+                        competition: competition,
+                        week: week
                     });
                     count++;
                 }
