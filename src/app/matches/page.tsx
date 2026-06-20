@@ -193,7 +193,7 @@ export default function MatchesListingPage() {
 
                 {/* Week Selector (Only for League) */}
                 {competition === 'league' && (
-                    <div className="flex flex-col items-center space-y-4 max-w-4xl mx-auto p-4 bg-white rounded-xl border border-slate-200 shadow-sm text-slate-800">
+                    <div className="flex flex-col items-center space-y-4 max-w-4xl mx-auto p-4 bg-[#161b22] rounded-xl border border-white/10 shadow-neo-sm text-white">
                         {/* Title: « 33.HAFTA » */}
                         <div className="flex items-center justify-center gap-3">
                             <button 
@@ -202,11 +202,11 @@ export default function MatchesListingPage() {
                                     const current = Number(selectedWeek || 1);
                                     setSelectedWeek(current > 1 ? current - 1 : 34);
                                 }}
-                                className="text-slate-800 hover:text-slate-900 font-black text-xl px-2 transition-colors cursor-pointer"
+                                className="text-white hover:text-primary font-black text-xl px-2 transition-colors cursor-pointer"
                             >
                                 &laquo;
                             </button>
-                            <span className="text-slate-900 font-extrabold text-sm uppercase tracking-wider">
+                            <span className="text-white font-extrabold text-sm uppercase tracking-wider">
                                 {selectedWeek ? `${selectedWeek}.HAFTA` : 'Hafta Seçilmedi'}
                             </span>
                             <button 
@@ -215,28 +215,28 @@ export default function MatchesListingPage() {
                                     const current = Number(selectedWeek || 1);
                                     setSelectedWeek(current < 34 ? current + 1 : 1);
                                 }}
-                                className="text-slate-800 hover:text-slate-900 font-black text-xl px-2 transition-colors cursor-pointer"
+                                className="text-white hover:text-primary font-black text-xl px-2 transition-colors cursor-pointer"
                             >
                                 &raquo;
                             </button>
                         </div>
 
                         {/* Table Grid */}
-                        <div className="w-full overflow-x-auto no-scrollbar rounded-lg border border-slate-200">
-                            <table className="min-w-full text-center border-collapse text-xs font-semibold text-slate-700">
+                        <div className="w-full overflow-x-auto no-scrollbar rounded-lg border border-white/10">
+                            <table className="min-w-full text-center border-collapse text-xs font-semibold text-gray-300">
                                 <tbody>
-                                    <tr className="border-b border-slate-200">
-                                        <td className="bg-slate-50 font-bold text-slate-800 px-3 py-2.5 border-r border-slate-200 whitespace-nowrap text-left w-20">1. Devre</td>
+                                    <tr className="border-b border-white/10">
+                                        <td className="bg-slate-950/40 font-bold text-gray-400 px-3 py-2.5 border-r border-white/10 whitespace-nowrap text-left w-20">1. Devre</td>
                                         {Array.from({ length: 17 }, (_, i) => i + 1).map(week => {
                                             const isSelected = selectedWeek === week;
                                             return (
                                                 <td 
                                                     key={week} 
                                                     onClick={() => setSelectedWeek(week)}
-                                                    className={`cursor-pointer border-r border-slate-200 hover:bg-slate-100 transition-colors font-bold px-2 py-2.5 min-w-[32px] ${
+                                                    className={`cursor-pointer border-r border-white/10 hover:bg-white/5 transition-colors font-bold px-2 py-2.5 min-w-[32px] ${
                                                         isSelected 
-                                                            ? 'bg-slate-700 text-white hover:bg-slate-800' 
-                                                            : 'bg-white text-slate-700 hover:bg-slate-50'
+                                                            ? 'bg-primary text-black hover:bg-primary/90' 
+                                                            : 'bg-[#161b22] text-gray-300 hover:bg-white/5'
                                                     }`}
                                                 >
                                                     {week}
@@ -245,17 +245,17 @@ export default function MatchesListingPage() {
                                         })}
                                     </tr>
                                     <tr>
-                                        <td className="bg-slate-50 font-bold text-slate-800 px-3 py-2.5 border-r border-slate-200 whitespace-nowrap text-left w-20">2. Devre</td>
+                                        <td className="bg-slate-950/40 font-bold text-gray-400 px-3 py-2.5 border-r border-white/10 whitespace-nowrap text-left w-20">2. Devre</td>
                                         {Array.from({ length: 17 }, (_, i) => i + 18).map(week => {
                                             const isSelected = selectedWeek === week;
                                             return (
                                                 <td 
                                                     key={week} 
                                                     onClick={() => setSelectedWeek(week)}
-                                                    className={`cursor-pointer border-r border-slate-200 hover:bg-slate-100 transition-colors font-bold px-2 py-2.5 min-w-[32px] ${
+                                                    className={`cursor-pointer border-r border-white/10 hover:bg-white/5 transition-colors font-bold px-2 py-2.5 min-w-[32px] ${
                                                         isSelected 
-                                                            ? 'bg-slate-700 text-white hover:bg-slate-800' 
-                                                            : 'bg-white text-slate-700 hover:bg-slate-50'
+                                                            ? 'bg-primary text-black hover:bg-primary/90' 
+                                                            : 'bg-[#161b22] text-gray-300 hover:bg-white/5'
                                                     }`}
                                                 >
                                                     {week}

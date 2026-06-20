@@ -1,50 +1,52 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import { Team, Match } from '@/types';
+import { Team, Match, DisciplinaryAction } from '@/types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { resolveTeamId, getTeamStadium } from '@/lib/teams';
 
 export default function TeamPage() {
     const params = useParams();
     const teamId = params.id as string;
     const [team, setTeam] = useState<Team | null>(null);
     const [matches, setMatches] = useState<Match[]>([]);
+    const [actions, setActions] = useState<DisciplinaryAction[]>([]);
+    const [activeTab, setActiveTab] = useState<'matches' | 'disciplinary'>('matches');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function fetchData() {
             if (!teamId) return;
             try {
-                // Fetch Team
+                setLoading(true);
+                // 1. Fetch Team
                 const teamSnap = await getDoc(doc(db, 'teams', teamId));
                 if (teamSnap.exists()) {
                     setTeam(teamSnap.data() as Team);
                 }
 
-                // Fetch Matches (Home or Away) - Firestore "OR" query requires "in" or multiple queries. 
-                // Simpler for MVP: Fetch all matches and filter client side or 2 queries.
-                // Or better: matches/{matchId} -> has homeTeamId field.
-                // Let's do 2 queries for now or just fetch all matches (if small dataset).
-                // Since it's MVP, fetching all matches by date is fine if small. But filtering is better.
-                // Actually best way: 'matches' collection, where homeTeamId == teamId.
+                // 2. Fetch Matches
+                const res = await fetch(`/api/public/matches?raw=true`);
+                if (res.ok) {
+                    const allMatches = await res.json() as Match[];
+                    const filteredMatches = allMatches.filter(m => 
+                        m.homeTeamId === teamId || m.awayTeamId === teamId
+                    );
+                    filteredMatches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                    setMatches(filteredMatches);
+                }
 
-                const q1 = query(collection(db, 'matches'), where('homeTeamId', '==', teamId));
-                const q2 = query(collection(db, 'matches'), where('awayTeamId', '==', teamId));
-
-                const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-                const m1 = snap1.docs.map(d => d.data() as Match);
-                const m2 = snap2.docs.map(d => d.data() as Match);
-
-                // Merge and Sort
-                const allMatches = [...m1, ...m2].sort((a, b) => {
-                    return new Date(a.date).getTime() - new Date(b.date).getTime();
+                // 3. Fetch Disciplinary Actions
+                const pfdkSnap = await getDocs(collection(db, 'disciplinary_actions'));
+                const allActions = pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction));
+                const filteredActions = allActions.filter(act => {
+                    return act.teamId === teamId || resolveTeamId(act.teamName || '') === teamId;
                 });
-
-                // Dedup if any match matches both (unlikely unless self-play)
-                setMatches(allMatches);
+                filteredActions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                setActions(filteredActions);
 
             } catch (err) {
                 console.error(err);
@@ -55,41 +57,209 @@ export default function TeamPage() {
         fetchData();
     }, [teamId]);
 
-    if (loading) return <div className="p-8 text-center">Loading match history...</div>;
-    if (!team) return <div className="p-8 text-center">Team not found</div>;
+    const parsePenalty = (text: string) => {
+        if (!text) return 0;
+        const matches = text.match(/(\d{1,3}(\.\d{3})*)\s*TL/i);
+        if (matches && matches[1]) {
+            return parseInt(matches[1].replace(/\./g, ''));
+        }
+        return 0;
+    };
+
+    const formatMoney = (val: number) => {
+        return new Intl.NumberFormat('tr-TR').format(val) + " TL";
+    };
+
+    const totalFine = actions.reduce((sum, act) => sum + parsePenalty(act.penalty || ''), 0);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+            </div>
+        );
+    }
+
+    if (!team) {
+        return (
+            <div className="min-h-screen bg-[#0d1117] flex items-center justify-center text-white">
+                <div className="text-center py-20 text-muted-foreground text-xs font-bold uppercase tracking-[0.2em]">
+                    Takım bulunamadı.
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-gray-50 p-8">
+        <div className="min-h-screen bg-[#0d1117] text-white p-4 md:p-8">
             <div className="max-w-4xl mx-auto">
-                <Link href="/" className="text-blue-500 hover:underline mb-4 block">&larr; Back to Teams</Link>
+                <Link href="/" className="text-primary hover:underline font-black text-xs uppercase tracking-wider mb-6 block w-fit">
+                    &larr; Takımlara Dön
+                </Link>
 
-                <header className="mb-8 flex items-center gap-4 bg-white p-6 rounded shadow-sm">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-500">
-                        {team.logo ? <img src={team.logo} className="w-full h-full object-contain" /> : team.name[0]}
+                <header className="mb-8 flex items-center gap-6 bg-[#161b22] p-6 rounded-2xl border border-white/10 shadow-neo">
+                    <div className="w-20 h-20 bg-slate-900 border border-white/10 rounded-full flex items-center justify-center font-bold text-gray-500 overflow-hidden shrink-0">
+                        {team.logo ? (
+                            <img src={team.logo} className="w-full h-full object-contain p-2" alt={team.name} />
+                        ) : (
+                            <span className="text-2xl font-black text-white">{team.name[0]}</span>
+                        )}
                     </div>
                     <div>
-                        <h1 className="text-3xl font-bold">{team.name}</h1>
-                        <p className="text-gray-500">Match History</p>
+                        <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tight leading-none mb-2">{team.name}</h1>
+                        <div className="flex gap-2">
+                            <span className="bg-primary/10 text-primary text-[9px] font-black px-2 py-0.5 rounded border border-primary/20 uppercase tracking-wider">
+                                SÜPER LİG
+                            </span>
+                            {getTeamStadium(teamId) && (
+                                <span className="bg-white/5 text-gray-400 text-[9px] font-black px-2 py-0.5 rounded border border-white/5 uppercase tracking-wider">
+                                    🏟️ {getTeamStadium(teamId)}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </header>
 
-                <div className="space-y-4">
-                    <h2 className="text-xl font-bold px-2">Matches</h2>
-                    {matches.length === 0 && <p className="p-4 text-gray-400">No matches found.</p>}
-
-                    {matches.map(match => (
-                        <Link key={match.id} href={`/matches/${match.id}`} className="block">
-                            <div className="bg-white p-4 rounded shadow-sm hover:shadow-md transition-all flex justify-between items-center border-l-4" style={{ borderLeftColor: match.homeTeamId === team.id ? team.colors.primary : '#ccc' }}>
-                                <div className="flex-1 text-right font-semibold">{match.homeTeamName}</div>
-                                <div className="px-4 text-center">
-                                    <div className="text-xs text-gray-400 mb-1">{new Date(match.date).toLocaleDateString()}</div>
-                                    <div className="text-xl font-bold bg-gray-100 px-3 py-1 rounded">{match.score || 'v'}</div>
-                                </div>
-                                <div className="flex-1 text-left font-semibold">{match.awayTeamName}</div>
-                            </div>
-                        </Link>
-                    ))}
+                {/* Tab Switcher */}
+                <div className="flex bg-[#161b22] p-1.5 rounded-xl border border-white/10 shadow-neo-sm overflow-hidden mb-8">
+                    <button
+                        onClick={() => setActiveTab('matches')}
+                        className={`flex-1 py-3 px-4 rounded-lg font-black text-xs uppercase tracking-widest transition-all ${
+                            activeTab === 'matches'
+                                ? 'bg-primary text-black shadow-lg scale-102'
+                                : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        Maç Geçmişi
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('disciplinary')}
+                        className={`flex-1 py-3 px-4 rounded-lg font-black text-xs uppercase tracking-widest transition-all ${
+                            activeTab === 'disciplinary'
+                                ? 'bg-red-600 text-white shadow-lg scale-102'
+                                : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        Disiplin Analizi (PFDK)
+                    </button>
                 </div>
+
+                {activeTab === 'matches' ? (
+                    <div className="space-y-4">
+                        <h2 className="text-xs font-black uppercase tracking-widest text-primary mb-4 px-2">Maç Listesi</h2>
+                        {matches.length === 0 && (
+                            <p className="p-8 text-center bg-[#161b22] border border-white/5 rounded-2xl text-muted-foreground text-xs font-bold uppercase tracking-widest">
+                                Maç kaydı bulunamadı.
+                            </p>
+                        )}
+
+                        {matches.map(match => (
+                            <Link key={match.id} href={`/matches/${match.id}`} className="block">
+                                <div className="bg-[#161b22] border border-white/10 p-4 rounded-2xl hover:border-primary/50 transition-all flex justify-between items-center relative overflow-hidden group">
+                                    <div className="absolute top-0 bottom-0 left-0 w-1.5" style={{ backgroundColor: match.homeTeamId === teamId ? team.colors?.primary || '#FF5DAD' : '#64748b' }} />
+                                    
+                                    <div className="flex-1 text-right font-black uppercase text-xs md:text-sm pr-4 group-hover:text-primary transition-colors truncate">
+                                        {match.homeTeamName}
+                                    </div>
+                                    <div className="px-4 text-center shrink-0">
+                                        <div className="text-[8px] font-black text-muted-foreground uppercase tracking-widest mb-1">
+                                            {new Date(match.date).toLocaleDateString('tr-TR')}
+                                        </div>
+                                        <div className="text-sm font-black bg-slate-900 px-3 py-1 rounded-xl border border-white/5 text-primary font-mono">
+                                            {match.score || 'v'}
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 text-left font-black uppercase text-xs md:text-sm pl-4 group-hover:text-primary transition-colors truncate">
+                                        {match.awayTeamName}
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* Stats Dashboard */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="bg-[#161b22] border border-white/10 p-6 rounded-2xl shadow-neo-sm flex flex-col items-center justify-center relative overflow-hidden group">
+                                <div className="absolute top-0 left-0 w-full h-1 bg-blue-500" />
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">TOPLAM SEVK</span>
+                                <span className="text-3xl font-black text-blue-400 font-mono">{actions.length}</span>
+                            </div>
+                            <div className="bg-[#161b22] border border-white/10 p-6 rounded-2xl shadow-neo-sm flex flex-col items-center justify-center relative overflow-hidden group">
+                                <div className="absolute top-0 left-0 w-full h-1 bg-red-500" />
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">TOPLAM CEZA</span>
+                                <span className="text-3xl font-black text-red-500 font-mono">{actions.filter(a => a.penalty).length}</span>
+                            </div>
+                            <div className="bg-[#161b22] border border-white/10 p-6 rounded-2xl shadow-neo-sm flex flex-col items-center justify-center relative overflow-hidden group">
+                                <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">TOPLAM PARA CEZASI</span>
+                                <span className="text-3xl font-black text-primary font-mono">{formatMoney(totalFine)}</span>
+                            </div>
+                        </div>
+
+                        {/* List */}
+                        <div className="space-y-4 pt-4">
+                            <h2 className="text-xs font-black uppercase tracking-widest text-primary px-2">Cezalar & Sevkler</h2>
+                            {actions.length === 0 && (
+                                <p className="p-8 text-center bg-[#161b22] border border-white/5 rounded-2xl text-muted-foreground text-xs font-bold uppercase tracking-widest">
+                                    Kayıtlı disiplin cezası bulunmamaktadır.
+                                </p>
+                            )}
+
+                            {actions.map(act => (
+                                <div key={act.id} className="bg-[#161b22] border-2 border-white/10 rounded-2xl p-6 shadow-neo-sm flex flex-col gap-4 relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 right-0 h-1 bg-red-600" />
+                                    
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                                        <div className="flex flex-col">
+                                            <span className="text-md font-black text-white uppercase tracking-tight">
+                                                👤 {act.subject}
+                                            </span>
+                                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">
+                                                {act.reason}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className="bg-slate-900 border border-white/5 text-gray-300 text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-wider">
+                                                📅 {new Date(act.date).toLocaleDateString('tr-TR')}
+                                            </span>
+                                            {act.week && (
+                                                <span className="bg-primary text-black text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-wider">
+                                                    {act.week}. HAFTA
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {act.penalty && (
+                                        <div className="bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl">
+                                            <span className="text-red-500 text-xs font-black uppercase tracking-wider">
+                                                ⚠️ Ceza: {act.penalty}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {act.note && (
+                                        <div className="bg-black/40 border border-white/5 rounded-xl p-4 text-xs text-gray-400 font-medium leading-relaxed">
+                                            {act.note}
+                                        </div>
+                                    )}
+
+                                    {act.matchId && (
+                                        <div className="flex justify-end mt-2">
+                                            <Link
+                                                href={`/matches/${act.matchId.replace(/^d-/, '')}?tab=pfdk`}
+                                                className="bg-slate-900 border border-white/10 hover:border-primary hover:text-primary text-white text-[9px] font-black px-4 py-2 rounded-lg transition-all uppercase tracking-widest active:scale-95 shadow-sm"
+                                            >
+                                                İlgili Maç Detayı ➔
+                                            </Link>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

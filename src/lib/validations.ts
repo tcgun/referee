@@ -208,6 +208,7 @@ export const statementSchema = z.object({
 export const disciplinaryActionSchema = z.object({
     id: z.string().min(1).max(100),
     teamName: z.string().max(100).optional().or(z.literal('')),
+    teamId: z.string().max(50).optional().or(z.literal('')),
     subject: z.string().min(1).max(100),
     reason: z.string().min(1).max(5000),
     matchId: z.string().max(100).optional(),

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Standing, Statement, DisciplinaryAction, RefereeStats, Match, VarIntervention, VarInterventionType, VarDecision } from '@/types';
 import { toast } from 'sonner';
+import { parsePfdkText } from '@/lib/pfdkParser';
 
 interface BaseProps {
     apiKey: string;
@@ -805,6 +806,402 @@ export const MatchSelect = ({ value, onChange, competition = 'league', group, cl
     );
 };
 
+interface ParsedAction {
+    id?: string;
+    teamName: string;
+    teamId: string;
+    subject: string;
+    reason: string;
+    penalty: string;
+    date: string;
+    matchId: string;
+    week?: number;
+    competition: 'league' | 'cup';
+    note: string;
+    matchedMatch?: Match;
+    selected: boolean;
+}
+
+interface BulkPfdkImportProps extends BaseProps {
+    onSuccess?: () => void;
+    onCancel?: () => void;
+    season?: string;
+}
+
+export const BulkPfdkImport = ({ apiKey, authToken, season, onSuccess, onCancel }: BulkPfdkImportProps) => {
+    const [rawInput, setRawInput] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [parsedItems, setParsedItems] = useState<ParsedAction[]>([]);
+    const [allMatches, setAllMatches] = useState<Match[]>([]);
+    const [saveProgress, setSaveProgress] = useState<{ current: number; total: number } | null>(null);
+
+    useEffect(() => {
+        const fetchAllMatches = async () => {
+            try {
+                const res = await fetch(`/api/public/matches?season=${season || '2025-2026'}&raw=true`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setAllMatches(data);
+                }
+            } catch (err) {
+                console.error('Matches fetch error:', err);
+            }
+        };
+        fetchAllMatches();
+    }, [season]);
+
+    const handleParse = () => {
+        if (!rawInput.trim()) {
+            toast.error('Lütfen PFDK kararlarını yapıştırın.');
+            return;
+        }
+
+        try {
+            const parsed = parsePfdkText(rawInput, allMatches);
+            if (parsed.length === 0) {
+                toast.error('Girdiğiniz metinden Süper Lig takımlarına ait herhangi bir ceza kararı ayıklanamadı.');
+                return;
+            }
+
+            const items: ParsedAction[] = parsed.map(item => ({
+                ...item,
+                selected: true
+            }));
+
+            items.sort((a, b) => {
+                const cmp = a.teamName.localeCompare(b.teamName, 'tr');
+                if (cmp !== 0) return cmp;
+                return a.subject.localeCompare(b.subject, 'tr');
+            });
+
+            setParsedItems(items);
+            toast.success(`${items.length} adet ceza kararı başarıyla ayıklandı! Lütfen gözden geçirip onaylayın.`);
+        } catch (err) {
+            console.error(err);
+            toast.error('Ayrıştırma sırasında bir hata oluştu.');
+        }
+    };
+
+    const handleSaveSelected = async () => {
+        const selectedItems = parsedItems.filter(item => item.selected);
+        if (selectedItems.length === 0) {
+            toast.error('Lütfen kaydetmek için en az bir ceza seçin.');
+            return;
+        }
+
+        setLoading(true);
+        setSaveProgress({ current: 0, total: selectedItems.length });
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let i = 0; i < selectedItems.length; i++) {
+            const item = selectedItems[i];
+            setSaveProgress({ current: i + 1, total: selectedItems.length });
+
+            try {
+                let matchId = item.matchId;
+                if (matchId && !matchId.startsWith('d-')) {
+                    matchId = `d-${matchId}`;
+                }
+
+                const body = {
+                    teamName: item.teamName,
+                    teamId: item.teamId,
+                    subject: item.subject,
+                    reason: item.reason,
+                    penalty: item.penalty,
+                    date: item.date,
+                    matchId,
+                    week: item.week,
+                    competition: item.competition,
+                    note: item.note,
+                    type: 'pfdk',
+                    season: season || '2025-2026'
+                };
+
+                const res = await fetch('/api/admin/disciplinary', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-key': apiKey,
+                        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (res.ok) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } catch (err) {
+                console.error('Error saving item:', item, err);
+                failCount++;
+            }
+        }
+
+        setLoading(false);
+        setSaveProgress(null);
+
+        if (successCount > 0) {
+            toast.success(`${successCount} ceza kararı başarıyla kaydedildi!`);
+            if (failCount > 0) {
+                toast.warning(`${failCount} karar kaydedilemedi, lütfen kontrol edin.`);
+            }
+            setParsedItems([]);
+            setRawInput('');
+            if (onSuccess) onSuccess();
+        } else {
+            toast.error('Kararlar kaydedilemedi. Bir hata oluştu.');
+        }
+    };
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                <div>
+                    <h3 className="font-bold text-sm uppercase text-slate-700 flex items-center gap-2">
+                        <span>⚡</span> Toplu PFDK Karar Girişi
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                        TFF resmi sitesindeki karar metnini buraya yapıştırarak Süper Lig takımlarını ve cezaları otomatik ayıklayın.
+                    </p>
+                </div>
+                {onCancel && (
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                        İPTAL
+                    </button>
+                )}
+            </div>
+
+            <div className="p-6 space-y-4">
+                {parsedItems.length === 0 ? (
+                    <div className="space-y-3">
+                        <textarea
+                            rows={10}
+                            value={rawInput}
+                            onChange={e => setRawInput(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs focus:outline-none focus:border-blue-500 transition-colors font-mono"
+                            placeholder="PFDK Karar metnini yapıştırın...&#10;Örn:&#10;1- GAZİANTEP FUTBOL KULÜBÜ A.Ş.’nin, 08.08.2025 tarihinde oynanan... 220.000.-TL PARA CEZASI ile cezalandırılmasına..."
+                        />
+                        <button
+                            type="button"
+                            onClick={handleParse}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg text-xs uppercase tracking-wider transition-all active:scale-[0.99]"
+                        >
+                            Metni Ayrıştır ve Eşle
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs text-slate-500 font-bold">
+                                Ayrıştırılan Ceza Sayısı: <strong className="text-slate-800">{parsedItems.length}</strong> (Seçilen: {parsedItems.filter(i => i.selected).length})
+                            </span>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setParsedItems(parsedItems.map(i => ({ ...i, selected: true })))}
+                                    className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded font-bold transition-all"
+                                >
+                                    Tümünü Seç
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setParsedItems(parsedItems.map(i => ({ ...i, selected: false })))}
+                                    className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded font-bold transition-all"
+                                >
+                                    Seçimleri Kaldır
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setParsedItems([])}
+                                    className="text-[10px] bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded font-bold transition-all"
+                                >
+                                    Temizle / Yeniden Başla
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="max-h-[450px] overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 bg-slate-50/30">
+                            {parsedItems.map((item, idx) => {
+                                const teamMatchesOnDate = allMatches.filter(m => {
+                                    const mDateStr = new Date(m.date).toISOString().split('T')[0];
+                                    const involvesTeam = m.homeTeamId === item.teamId || m.awayTeamId === item.teamId;
+                                    return involvesTeam && mDateStr === item.date;
+                                });
+
+                                return (
+                                    <div key={idx} className={`p-4 flex flex-col gap-3 transition-colors ${item.selected ? 'bg-white' : 'opacity-60 bg-slate-50'}`}>
+                                        <div className="flex items-start gap-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={item.selected}
+                                                onChange={e => {
+                                                    const updated = [...parsedItems];
+                                                    updated[idx].selected = e.target.checked;
+                                                    setParsedItems(updated);
+                                                }}
+                                                className="mt-1 h-4 w-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                                            />
+                                            <div className="flex-1 space-y-2">
+                                                <div className="flex flex-wrap justify-between items-center gap-2">
+                                                    <span className="inline-block px-2.5 py-1 text-[10px] font-black uppercase rounded bg-slate-100 text-slate-800 border border-slate-200">
+                                                        {item.teamName}
+                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] text-slate-400 font-bold font-mono">Tarih:</span>
+                                                        <input
+                                                            type="date"
+                                                            value={item.date}
+                                                            onChange={e => {
+                                                                const updated = [...parsedItems];
+                                                                updated[idx].date = e.target.value;
+                                                                const newMatch = allMatches.find(m => {
+                                                                    const mDateStr = new Date(m.date).toISOString().split('T')[0];
+                                                                    const involvesTeam = m.homeTeamId === item.teamId || m.awayTeamId === item.teamId;
+                                                                    return involvesTeam && mDateStr === e.target.value;
+                                                                });
+                                                                if (newMatch) {
+                                                                    updated[idx].matchId = newMatch.id;
+                                                                    updated[idx].week = newMatch.week;
+                                                                    updated[idx].competition = newMatch.competition || 'league';
+                                                                } else {
+                                                                    updated[idx].matchId = "";
+                                                                }
+                                                                setParsedItems(updated);
+                                                            }}
+                                                            className="text-[11px] font-bold border border-slate-200 rounded px-1.5 py-0.5 bg-slate-50 text-slate-700"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div className="space-y-1">
+                                                        <label className="text-[9px] font-bold text-slate-400 uppercase">Özne</label>
+                                                        <input
+                                                            type="text"
+                                                            value={item.subject}
+                                                            onChange={e => {
+                                                                const updated = [...parsedItems];
+                                                                updated[idx].subject = e.target.value;
+                                                                setParsedItems(updated);
+                                                            }}
+                                                            className="w-full text-xs font-bold border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-800"
+                                                            placeholder="Kulüp veya Kişi Adı"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[9px] font-bold text-slate-400 uppercase">Ceza Kararı</label>
+                                                        <input
+                                                            type="text"
+                                                            value={item.penalty}
+                                                            onChange={e => {
+                                                                const updated = [...parsedItems];
+                                                                updated[idx].penalty = e.target.value;
+                                                                setParsedItems(updated);
+                                                            }}
+                                                            className="w-full text-xs font-black border border-red-200 rounded-lg px-2.5 py-1.5 bg-red-50/40 text-red-800"
+                                                            placeholder="Örn: 2 Maç Men"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="text-[9px] font-bold text-slate-400 uppercase">İhlal Gerekçesi (Özet)</label>
+                                                    <input
+                                                        type="text"
+                                                        value={item.reason}
+                                                        onChange={e => {
+                                                            const updated = [...parsedItems];
+                                                            updated[idx].reason = e.target.value;
+                                                            setParsedItems(updated);
+                                                        }}
+                                                        className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700"
+                                                        placeholder="Örn: Saha Olayları nedeniyle"
+                                                    />
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-200/60">
+                                                    <div className="flex items-center gap-2 text-xs">
+                                                        <span className="font-bold text-slate-500">Bağlı Maç:</span>
+                                                        {teamMatchesOnDate.length > 0 ? (
+                                                            <select
+                                                                value={item.matchId}
+                                                                onChange={e => {
+                                                                    const updated = [...parsedItems];
+                                                                    updated[idx].matchId = e.target.value;
+                                                                    const foundMatch = allMatches.find(m => m.id === e.target.value);
+                                                                    if (foundMatch) {
+                                                                        updated[idx].week = foundMatch.week;
+                                                                        updated[idx].competition = foundMatch.competition || 'league';
+                                                                    }
+                                                                    setParsedItems(updated);
+                                                                }}
+                                                                className="text-xs font-bold border border-slate-200 rounded px-2 py-1 bg-white text-slate-800"
+                                                            >
+                                                                <option value="">Maçsız Sevk</option>
+                                                                {teamMatchesOnDate.map(m => (
+                                                                    <option key={m.id} value={m.id}>
+                                                                        {m.homeTeamName} - {m.awayTeamName} ({m.week}. Hafta)
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                                                    Maç Bulunamadı
+                                                                </span>
+                                                                <span className="text-[10px] text-slate-400 font-medium">(Tarihte maç bulunmuyor)</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[9px] font-mono text-slate-400 max-w-[150px] truncate" title={item.note}>
+                                                        Not: {item.note.substring(0, 30)}...
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {saveProgress && (
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-xs font-bold text-slate-600">
+                                    <span>Kaydediliyor...</span>
+                                    <span>{saveProgress.current} / {saveProgress.total}</span>
+                                </div>
+                                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200">
+                                    <div
+                                        className="bg-emerald-500 h-full transition-all duration-300"
+                                        style={{ width: `${(saveProgress.current / saveProgress.total) * 100}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={handleSaveSelected}
+                            disabled={loading || parsedItems.filter(i => i.selected).length === 0}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg text-xs uppercase tracking-wider transition-all disabled:opacity-50 active:scale-[0.99]"
+                        >
+                            {loading ? 'Kaydediliyor...' : `Seçilen Kararları Kaydet (${parsedItems.filter(i => i.selected).length})`}
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 interface DisciplinaryListProps extends BaseProps {
     onEdit: (item: DisciplinaryAction) => void;
     // Trigger to refresh list
@@ -818,6 +1215,7 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
     const [loading, setLoading] = useState(false);
     const [competition, setCompetition] = useState<'league' | 'cup'>('league');
     const [group, setGroup] = useState('');
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     const handleFetch = useCallback(async () => {
         if (!matchId) return toast.error('Lütfen Maç ID giriniz (örn: week1-gfk-gs).');
@@ -845,6 +1243,7 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
                 data = data.filter(item => (item.season || getSeasonFromDate(item.date)) === season);
             }
             setItems(data);
+            setSelectedIds([]);
             if (data.length === 0) toast.error('Bu maç IDsi ile eşleşen kayıt bulunamadı.');
         } catch (error) {
             console.error(error);
@@ -853,6 +1252,47 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
             setLoading(false);
         }
     }, [matchId, season]);
+
+    const handleDeleteSelected = async () => {
+        if (selectedIds.length === 0) return;
+        if (!confirm(`Seçilen ${selectedIds.length} disiplin kaydını toplu olarak silmek istediğinize emin misiniz?`)) return;
+
+        setLoading(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const id of selectedIds) {
+            try {
+                const res = await fetch(`/api/admin/disciplinary?id=${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'x-admin-key': apiKey,
+                        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                    }
+                });
+                if (res.ok) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } catch (err) {
+                console.error(err);
+                failCount++;
+            }
+        }
+
+        setLoading(false);
+        if (successCount > 0) {
+            setItems(prev => prev.filter(item => !selectedIds.includes(item.id)));
+            setSelectedIds([]);
+            toast.success(`${successCount} kayıt başarıyla silindi! 🗑️`);
+            if (failCount > 0) {
+                toast.warning(`${failCount} kayıt silinemedi.`);
+            }
+        } else {
+            toast.error('Toplu silme işlemi başarısız oldu.');
+        }
+    };
 
     // Auto-refresh when refreshTrigger changes, if matchId exists
     useEffect(() => {
@@ -887,6 +1327,34 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
         }
     };
 
+    const handleDeleteAll = async () => {
+        if (!confirm('DİKKAT: Veritabanındaki TÜM disiplin sevklerini ve cezalarını (disciplinary_actions) silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) return;
+        if (!confirm('Son onay: TÜM PFDK kararları silinecektir. Devam et?')) return;
+
+        setLoading(true);
+        try {
+            const res = await fetch('/api/admin/disciplinary?all=true', {
+                method: 'DELETE',
+                headers: {
+                    'x-admin-key': apiKey,
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                }
+            });
+            if (res.ok) {
+                setItems([]);
+                setSelectedIds([]);
+                toast.success('Tüm disiplin kararları veritabanından silindi! 🗑️');
+            } else {
+                toast.error('Silme işlemi başarısız oldu.');
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('Ağ hatası oluştu.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleDelete = async (id: string) => {
         if (!confirm('Bu kaydı silmek istediğinize emin misiniz?')) return;
         try {
@@ -912,15 +1380,24 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
 
     return (
         <div className="space-y-3 p-4 border border-gray-200 bg-white rounded shadow-sm h-full flex flex-col">
-            <div className="flex justify-between items-center border-b pb-2">
+            <div className="flex justify-between items-center border-b pb-2 flex-wrap gap-2">
                 <h3 className="font-bold text-lg text-gray-800">PFDK / Performans Listesi</h3>
-                <button
-                    onClick={handleSync}
-                    disabled={loading}
-                    className="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 transition-colors"
-                >
-                    {loading ? '...' : 'SENKRONİZE ET'}
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleSync}
+                        disabled={loading}
+                        className="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 transition-colors cursor-pointer"
+                    >
+                        {loading ? '...' : 'SENKRONİZE ET'}
+                    </button>
+                    <button
+                        onClick={handleDeleteAll}
+                        disabled={loading}
+                        className="text-[10px] font-bold bg-red-50 text-red-600 border border-red-200 px-2 py-1 rounded hover:bg-red-100 transition-colors cursor-pointer"
+                    >
+                        {loading ? '...' : 'TÜMÜNÜ SİL'}
+                    </button>
+                </div>
             </div>
             <div className="flex bg-gray-100 p-1 rounded-lg">
                 <button type="button" onClick={() => setCompetition('league')} className={`flex-1 py-1 rounded-md text-[9px] font-black uppercase transition-all ${competition === 'league' ? 'bg-slate-800 text-white' : 'text-gray-500'}`}>SÜPER LİG</button>
@@ -944,7 +1421,7 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
                     {loading ? '...' : 'Getir'}
                 </button>
                 <button
-                    onClick={() => { setMatchId(''); setItems([]); setGroup(''); }}
+                    onClick={() => { setMatchId(''); setItems([]); setGroup(''); setSelectedIds([]); }}
                     className="bg-gray-200 text-gray-700 px-3 rounded font-bold text-sm"
                     title="Listeyi ve seçimi temizle"
                 >
@@ -952,32 +1429,76 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
                 </button>
             </div>
 
-            <div className="space-y-2 mt-2 max-h-[400px] overflow-y-auto pr-1 flex-1">
-                {items.map(item => (
-                    <div key={item.id} className="text-xs border p-2 rounded bg-gray-50 flex justify-between items-start group hover:bg-gray-100 transition-colors">
-                        <div className="flex-1">
-                            <div className="font-bold text-blue-900 flex items-center gap-2">
-                                {item.subject}
-                                <span className={`px-1 rounded text-[9px] uppercase ${item.type === 'performance' ? 'bg-blue-200 text-blue-800' : 'bg-red-200 text-red-800'}`}>
-                                    {item.type === 'performance' ? 'PERF' : 'PFDK'}
-                                </span>
-                                {item.group && (
-                                    <span className="bg-red-100 text-red-700 px-1 rounded text-[9px] font-bold">
-                                        GRUB {item.group}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="text-[10px] text-gray-500 mb-1">{item.teamName ? item.teamName + ' - ' : ''} {item.date}</div>
-                            <p className="text-gray-700 italic border-l-2 border-gray-300 pl-1">{item.reason}</p>
-                            {item.penalty && <p className="text-red-600 font-bold text-[10px] mt-1 bg-red-50 p-1 rounded inline-block whitespace-pre-wrap">CEZA: {item.penalty}</p>}
-                        </div>
-                        <div className='flex flex-col gap-1 ml-2'>
-                            <button onClick={() => handleDelete(item.id)} className="text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity px-2 hover:bg-red-50 rounded">Sil</button>
-                            <button onClick={() => onEdit(item)} className="text-blue-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity px-2 hover:bg-blue-50 rounded">Düzenle</button>
-                        </div>
+            {items.length > 0 && (
+                <div className="flex items-center justify-between bg-slate-50 border border-slate-200 px-3 py-2 rounded text-[11px] text-slate-700">
+                    <label className="flex items-center gap-2 font-bold cursor-pointer uppercase tracking-wider">
+                        <input
+                            type="checkbox"
+                            checked={selectedIds.length === items.length}
+                            onChange={(e) => {
+                                if (e.target.checked) {
+                                    setSelectedIds(items.map(i => i.id));
+                                } else {
+                                    setSelectedIds([]);
+                                }
+                            }}
+                            className="cursor-pointer"
+                        />
+                        Tümünü Seç ({items.length})
+                    </label>
 
-                    </div>
-                ))}
+                    {selectedIds.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={handleDeleteSelected}
+                            className="bg-red-600 hover:bg-red-700 text-white font-black px-3 py-1 rounded text-[9px] uppercase tracking-widest transition-all shadow-sm active:scale-95"
+                        >
+                            Seçilenleri Sil ({selectedIds.length})
+                        </button>
+                    )}
+                </div>
+            )}
+
+            <div className="space-y-2 mt-2 max-h-[400px] overflow-y-auto pr-1 flex-1">
+                {items.map(item => {
+                    const isChecked = selectedIds.includes(item.id);
+                    return (
+                        <div key={item.id} className="text-xs border p-2 rounded bg-gray-50 flex gap-2 items-start group hover:bg-gray-100 transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                    if (e.target.checked) {
+                                        setSelectedIds(prev => [...prev, item.id]);
+                                    } else {
+                                        setSelectedIds(prev => prev.filter(id => id !== item.id));
+                                    }
+                                }}
+                                className="mt-1 cursor-pointer shrink-0"
+                            />
+                            <div className="flex-1">
+                                <div className="font-bold text-blue-900 flex items-center gap-2">
+                                    {item.subject}
+                                    <span className={`px-1 rounded text-[9px] uppercase ${item.type === 'performance' ? 'bg-blue-200 text-blue-800' : 'bg-red-200 text-red-800'}`}>
+                                        {item.type === 'performance' ? 'PERF' : 'PFDK'}
+                                    </span>
+                                    {item.group && (
+                                        <span className="bg-red-100 text-red-700 px-1 rounded text-[9px] font-bold">
+                                            GRUB {item.group}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="text-[10px] text-gray-500 mb-1">{item.teamName ? item.teamName + ' - ' : ''} {item.date}</div>
+                                <p className="text-gray-700 italic border-l-2 border-gray-300 pl-1">{item.reason}</p>
+                                {item.penalty && <p className="text-red-600 font-bold text-[10px] mt-1 bg-red-50 p-1 rounded inline-block whitespace-pre-wrap">CEZA: {item.penalty}</p>}
+                            </div>
+                            <div className='flex flex-col gap-1 ml-2 shrink-0'>
+                                <button onClick={() => handleDelete(item.id)} className="text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity px-2 hover:bg-red-50 rounded text-left">Sil</button>
+                                <button onClick={() => onEdit(item)} className="text-blue-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity px-2 hover:bg-blue-50 rounded text-left">Düzenle</button>
+                            </div>
+                        </div>
+                    );
+                })}
 
                 {items.length > 0 && (
                     <p className="text-[10px] text-gray-400 text-center pt-2">Toplam {items.length} kayıt.</p>

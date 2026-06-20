@@ -185,7 +185,7 @@ export function cleanSponsorsInText(text: string): string {
     let cleaned = text;
 
     // 1. Önce spesifik uzun kalıpları ve lig isimlerini temizle (Regex \b kullanmadan)
-    cleaned = cleaned.replace(/TRENDYOL\s+SÜPER\s+LİG/gi, 'SÜPER LİG');
+    cleaned = cleaned.replace(/TRENDYOL\s+SÜPER\s+L[İIıi]G/gi, 'SÜPER LİG');
     cleaned = cleaned.replace(/MEHMET\s+ALİ\s+YILMAZ\s+SEZONU/gi, '');
     cleaned = cleaned.replace(/MEHMET\s+ALİ\s+YILMAZ/gi, ''); // Ekstra güvenlik
     cleaned = cleaned.replace(/BAŞAKŞEHİR\s+FUTBOL\s+KULÜBÜ/gi, 'BAŞAKŞEHİR FK'); // İsmi güncelle ve koru
@@ -255,5 +255,84 @@ export const TEAM_STADIUMS: Record<string, string> = {
 export function getTeamStadium(teamId: string): string {
     const teamIdClean = teamId?.toLowerCase().trim() || '';
     return TEAM_STADIUMS[teamIdClean] || '';
+}
+
+/**
+ * Metin içerisindeki uzun/sponsorlu takım isimlerini sistemdeki temiz karşılıklarıyla değiştirir.
+ * Replaces long/sponsored team names in the text with clean system team names.
+ * @param text - Değiştirilecek metin
+ * @returns {string} - Değiştirilmiş metin
+ */
+export function replaceTeamNamesWithSystemNames(text: string): string {
+    if (!text) return text;
+    const cleaned = cleanSponsorsInText(text);
+
+    const replacements: { pattern: string; replacement: string }[] = [];
+
+    for (const [, data] of Object.entries(SUPER_LIG_TEAMS)) {
+        const sysName = data.name;
+        
+        // Add name
+        replacements.push({ pattern: data.name, replacement: sysName });
+        // Add short code
+        replacements.push({ pattern: data.short, replacement: sysName });
+        
+        // Add aliases
+        if (data.aliases) {
+            data.aliases.forEach(alias => {
+                replacements.push({ pattern: alias, replacement: sysName });
+            });
+        }
+    }
+
+    // Add uppercase and lowercase variants of all patterns to handle casing differences
+    const allReplacements = [...replacements];
+    replacements.forEach(r => {
+        const upperPattern = r.pattern.toLocaleUpperCase('tr');
+        if (upperPattern !== r.pattern) {
+            allReplacements.push({ pattern: upperPattern, replacement: r.replacement });
+        }
+        const lowerPattern = r.pattern.toLocaleLowerCase('tr');
+        if (lowerPattern !== r.pattern) {
+            allReplacements.push({ pattern: lowerPattern, replacement: r.replacement });
+        }
+    });
+
+    // Also support uppercase forms of cleaned names to make sure they are converted
+    allReplacements.push({ pattern: 'GAZİANTEP FK', replacement: 'Gaziantep FK' });
+    allReplacements.push({ pattern: 'GAZIANTEP FK', replacement: 'Gaziantep FK' });
+    allReplacements.push({ pattern: 'BAŞAKŞEHİR FK', replacement: 'Başakşehir FK' });
+    allReplacements.push({ pattern: 'BASAKSEHIR FK', replacement: 'Başakşehir FK' });
+    allReplacements.push({ pattern: 'KASIMPAŞA', replacement: 'Kasımpaşa' });
+    allReplacements.push({ pattern: 'KASIMPASA', replacement: 'Kasımpaşa' });
+
+    // Sort by pattern length descending to match longer strings first
+    allReplacements.sort((a, b) => b.pattern.length - a.pattern.length);
+
+    // Remove duplicates
+    const uniqueReplacements: typeof allReplacements = [];
+    const seenPatterns = new Set<string>();
+    for (const r of allReplacements) {
+        if (!seenPatterns.has(r.pattern)) {
+            seenPatterns.add(r.pattern);
+            uniqueReplacements.push(r);
+        }
+    }
+
+    // Perform replacements
+    let result = cleaned;
+    for (const { pattern, replacement } of uniqueReplacements) {
+        if (pattern.length < 3) continue; // Skip very short patterns to avoid false matches
+        
+        // Match with character-based boundaries (not using \b because of Turkish chars)
+        const escapedPattern = pattern.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const regex = new RegExp(`(^|[^a-zA-ZçğıöşüÇĞİÖŞÜİ])${escapedPattern}(?=[^a-zA-ZçğıöşüÇĞİÖŞÜİ]|$)`, 'g');
+        
+        result = result.replace(regex, (match, prefix) => {
+            return prefix + replacement;
+        });
+    }
+
+    return result;
 }
 

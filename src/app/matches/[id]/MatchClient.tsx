@@ -655,13 +655,13 @@ export default function MatchClient() {
                                                                     {refereeCareerStats?.matchDetails && (
                                                                         <span className="text-[10px] font-extrabold text-zinc-400 uppercase">
                                                                             Kariyer Ortalaması: {(() => {
-                                                                                const mDetails = refereeCareerStats.matchDetails || [];
+                                                                                 const mDetails = refereeCareerStats.matchDetails || [];
                                                                                  let activeSecs = 0;
                                                                                  let activeCount = 0;
                                                                                  let totalSecs = 0;
                                                                                  let totalCount = 0;
 
-                                                                                 mDetails.forEach((m: any) => {
+                                                                                 mDetails.forEach((m: { ballInPlayTime: string | null }) => {
                                                                                      const timeStr = m.ballInPlayTime;
                                                                                      if (timeStr) {
                                                                                          if (timeStr.includes('/')) {

@@ -45,8 +45,7 @@ export default function Navbar() {
         { href: '/matches', label: 'Maçlar', icon: Calendar },
         { href: '/trio', label: 'Trio Yorumları', icon: Tv },
         { href: '/critics', label: 'Yorumcular', icon: Users },
-        { href: '/pfdk', label: 'PFDK Kararları', icon: Scale },
-        { href: '/pfdk/teams', label: 'Takım Analizi', icon: BarChart3 },
+        { href: '/pfdk', label: 'Disiplin Analizi', icon: Scale },
         { href: '/statements', label: 'Açıklamalar', icon: FileText },
         { href: '/referees', label: 'Hakem İstatistikleri', icon: ShieldAlert },
         { href: '/officials', label: 'Görevliler', icon: UserCheck },
@@ -64,7 +63,7 @@ export default function Navbar() {
 
     const isLinkActive = (href: string) => {
         if (href === '/') return pathname === '/';
-        if (href === '/pfdk') return pathname.startsWith('/pfdk') && !pathname.startsWith('/pfdk/teams');
+        if (href === '/pfdk') return pathname.startsWith('/pfdk');
         return pathname.startsWith(href);
     };
 

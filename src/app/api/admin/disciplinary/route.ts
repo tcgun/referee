@@ -51,7 +51,7 @@ export async function POST(request: Request) {
                 }
             }
 
-            const saveData: any = {
+            const saveData: Record<string, unknown> = {
                 ...data,
                 id,
                 matchId: matchId || null,
@@ -59,17 +59,30 @@ export async function POST(request: Request) {
                 updatedAt: new Date().toISOString()
             };
 
-            Object.keys(saveData).forEach(key => saveData[key] === undefined && delete saveData[key]);
+            Object.keys(saveData).forEach(key => {
+                if (saveData[key] === undefined) {
+                    delete saveData[key];
+                }
+            });
 
             const actions = await getCachedDisciplinaryActions();
             const existingIdx = actions.findIndex(a => a.id === id);
             if (existingIdx > -1) {
-                actions[existingIdx] = { ...actions[existingIdx], ...saveData };
+                actions[existingIdx] = { ...actions[existingIdx], ...saveData } as any; // safe cast for mock array insertion
             } else {
-                actions.push(saveData);
+                actions.push(saveData as any);
             }
 
             writeLocalDisciplinary(actions);
+
+            // Also propagate to Firestore in Mock Mode since UI reads from it directly
+            try {
+                const firestore = getAdminDb();
+                await firestore.collection('disciplinary_actions').doc(id).set(saveData, { merge: true });
+            } catch (dbErr: unknown) {
+                console.error('Failed to sync write to Firestore in mock mode:', dbErr);
+            }
+
             invalidateCache();
             return NextResponse.json({ success: true, id });
         }
@@ -83,7 +96,7 @@ export async function POST(request: Request) {
             }
         }
 
-        const saveData: any = {
+        const saveData: Record<string, unknown> = {
             ...data,
             id,
             matchId: matchId || null,
@@ -92,17 +105,21 @@ export async function POST(request: Request) {
         };
 
         // Remove undefined fields to prevent Firestore crashes
-        Object.keys(saveData).forEach(key => saveData[key] === undefined && delete saveData[key]);
+        Object.keys(saveData).forEach(key => {
+            if (saveData[key] === undefined) {
+                delete saveData[key];
+            }
+        });
 
         try {
             await firestore.collection('disciplinary_actions').doc(id).set(saveData, { merge: true });
             invalidateCache();
             return NextResponse.json({ success: true, id });
-        } catch (dbError: any) {
+        } catch (dbError: unknown) {
             console.error('Firestore Save Error:', dbError);
             return NextResponse.json({
                 error: 'Database operation failed',
-                message: dbError.message
+                message: dbError instanceof Error ? dbError.message : String(dbError)
             }, { status: 500 });
         }
     });
@@ -116,22 +133,69 @@ export async function DELETE(request: Request) {
     return withAdminGuard(request, async (req) => {
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
+        const deleteAll = searchParams.get('all') === 'true' || id === 'all';
 
-        if (!id) {
+        if (!id && !deleteAll) {
             return NextResponse.json({ error: 'ID is required' }, { status: 400 });
         }
 
         if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-            const actions = await getCachedDisciplinaryActions();
-            const filtered = actions.filter(a => a.id !== id);
-            writeLocalDisciplinary(filtered);
+            if (deleteAll) {
+                writeLocalDisciplinary([]);
+                try {
+                    const firestore = getAdminDb();
+                    const snap = await firestore.collection('disciplinary_actions').get();
+                    const batch = firestore.batch();
+                    snap.docs.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+                    await batch.commit();
+                } catch (dbErr: unknown) {
+                    console.error('Failed to delete live Firestore disciplinary_actions collection in mock mode:', dbErr);
+                    return NextResponse.json({
+                        error: 'Mock mode local clear succeeded, but Firestore deletion failed',
+                        message: dbErr instanceof Error ? dbErr.message : String(dbErr)
+                    }, { status: 500 });
+                }
+            } else if (id) {
+                const actions = await getCachedDisciplinaryActions();
+                const filtered = actions.filter(a => a.id !== id);
+                writeLocalDisciplinary(filtered);
+                try {
+                    const firestore = getAdminDb();
+                    await firestore.collection('disciplinary_actions').doc(id).delete();
+                } catch (dbErr: unknown) {
+                    console.error('Failed to delete live Firestore disciplinary_actions doc in mock mode:', dbErr);
+                    return NextResponse.json({
+                        error: 'Mock mode local delete succeeded, but Firestore deletion failed',
+                        message: dbErr instanceof Error ? dbErr.message : String(dbErr)
+                    }, { status: 500 });
+                }
+            }
             invalidateCache();
             return NextResponse.json({ success: true });
         }
 
         const firestore = getAdminDb();
-        await firestore.collection('disciplinary_actions').doc(id).delete();
-        invalidateCache();
-        return NextResponse.json({ success: true });
+        try {
+            if (deleteAll) {
+                const snap = await firestore.collection('disciplinary_actions').get();
+                const batch = firestore.batch();
+                snap.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+            } else if (id) {
+                await firestore.collection('disciplinary_actions').doc(id).delete();
+            }
+            invalidateCache();
+            return NextResponse.json({ success: true });
+        } catch (dbError: unknown) {
+            console.error('Firestore Delete Error:', dbError);
+            return NextResponse.json({
+                error: 'Database deletion failed',
+                message: dbError instanceof Error ? dbError.message : String(dbError)
+            }, { status: 500 });
+        }
     });
 }

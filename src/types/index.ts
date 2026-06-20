@@ -216,6 +216,7 @@ export interface Statement {
 export interface DisciplinaryAction {
     id: string;
     teamName?: string;
+    teamId?: string;
     subject: string; // Player or Official Name
     reason: string;
     matchId?: string; // Optional link to a match

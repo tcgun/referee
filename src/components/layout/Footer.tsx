@@ -34,7 +34,7 @@ export const Footer = () => {
                     <div className="space-y-4">
                         <h4 className="font-black text-sm tracking-wider uppercase border-b-2 border-primary w-fit pb-1 text-black">Hızlı Linkler</h4>
                         <ul className="space-y-2 text-sm font-bold text-black">
-                            <li><Link href="/pfdk" className="hover:bg-secondary hover:text-black hover:shadow-neo-sm border-2 border-transparent hover:border-black px-1 rounded transition-all">PFDK Kararları</Link></li>
+                            <li><Link href="/pfdk" className="hover:bg-secondary hover:text-black hover:shadow-neo-sm border-2 border-transparent hover:border-black px-1 rounded transition-all">Disiplin Analizi</Link></li>
                             <li><Link href="/statements" className="hover:bg-secondary hover:text-black hover:shadow-neo-sm border-2 border-transparent hover:border-black px-1 rounded transition-all">Resmi Açıklamalar</Link></li>
                             <li><Link href="/#trio" className="hover:bg-secondary hover:text-black hover:shadow-neo-sm border-2 border-transparent hover:border-black px-1 rounded transition-all">Trio Yorumları</Link></li>
                             <li><Link href="/standings" className="hover:bg-secondary hover:text-black hover:shadow-neo-sm border-2 border-transparent hover:border-black px-1 rounded transition-all">Puan Durumu</Link></li>

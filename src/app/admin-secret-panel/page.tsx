@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { TeamForm, MatchForm, IncidentForm, OpinionForm, OfficialForm } from '@/components/admin/AdminForms';
-import { StandingForm, StatementForm, DisciplinaryForm, DisciplinaryList, RefereeStatsForm } from '@/components/admin/ExtraForms';
+import { StandingForm, StatementForm, DisciplinaryForm, DisciplinaryList, RefereeStatsForm, BulkPfdkImport } from '@/components/admin/ExtraForms';
 import { MatchIncidentsSummary } from '@/components/admin/MatchIncidentsSummary';
 import GeneratorWrapper from '@/generator-system/GeneratorWrapper';
 import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
@@ -421,7 +421,7 @@ function DatabaseSyncPanel({ apiKey, authToken }: { apiKey: string, authToken?: 
             
             <div className="p-6 space-y-4">
                 <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800 leading-relaxed font-medium">
-                    💡 <strong>Kota Koruması Aktif:</strong> Yerel Mock Modunda çalışırken kotanızı harcamadan dilediğiniz gibi veri girişi yapabilirsiniz. İşiniz bittiğinde aşağıdaki butona basarak tüm verileri canlı Firestore'a aktarın.
+                    💡 <strong>Kota Koruması Aktif:</strong> {"Yerel Mock Modunda çalışırken kotanızı harcamadan dilediğiniz gibi veri girişi yapabilirsiniz. İşiniz bittiğinde aşağıdaki butona basarak tüm verileri canlı Firestore'a aktarın."}
                 </div>
 
                 {result && (
@@ -450,29 +450,68 @@ function DatabaseSyncPanel({ apiKey, authToken }: { apiKey: string, authToken?: 
     );
 }
 
-// Wrapper for Disciplinary Section to share state
 const DisciplinaryWrapper = ({ apiKey, authToken, season }: { apiKey: string, authToken?: string, season?: string }) => {
     const [editingItem, setEditingItem] = useState<DisciplinaryAction | null>(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [mode, setMode] = useState<'manual' | 'bulk'>('manual');
 
     return (
-        <>
-            <DisciplinaryForm
-                apiKey={apiKey}
-                authToken={authToken}
-                editItem={editingItem}
-                onCancelEdit={() => setEditingItem(null)}
-                onSuccess={() => setRefreshTrigger(prev => prev + 1)}
-                season={season}
-            />
+        <div className="space-y-6">
+            <div className="flex gap-2 justify-end">
+                <button
+                    type="button"
+                    onClick={() => setMode('manual')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                        mode === 'manual'
+                            ? 'bg-slate-900 text-white shadow-md transform scale-[1.02]'
+                            : 'bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200'
+                    }`}
+                >
+                    Tekil Karar Girişi
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setMode('bulk')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                        mode === 'bulk'
+                            ? 'bg-[#00a89d] text-white shadow-md transform scale-[1.02]'
+                            : 'bg-slate-100 text-slate-500 hover:text-[#00a89d] hover:bg-slate-200'
+                    }`}
+                >
+                    Toplu Karar Aktar (PFDK)
+                </button>
+            </div>
+
+            {mode === 'manual' ? (
+                <DisciplinaryForm
+                    apiKey={apiKey}
+                    authToken={authToken}
+                    editItem={editingItem}
+                    onCancelEdit={() => setEditingItem(null)}
+                    onSuccess={() => setRefreshTrigger(prev => prev + 1)}
+                    season={season}
+                />
+            ) : (
+                <BulkPfdkImport
+                    apiKey={apiKey}
+                    authToken={authToken}
+                    season={season}
+                    onSuccess={() => setRefreshTrigger(prev => prev + 1)}
+                    onCancel={() => setMode('manual')}
+                />
+            )}
+
             <DisciplinaryList
                 apiKey={apiKey}
                 authToken={authToken}
-                onEdit={setEditingItem}
+                onEdit={(item) => {
+                    setEditingItem(item);
+                    setMode('manual');
+                }}
                 refreshTrigger={refreshTrigger}
                 season={season}
             />
-        </>
+        </div>
     );
 };
 
