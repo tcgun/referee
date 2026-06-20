@@ -3,10 +3,10 @@ import { getAdminDb } from '@/firebase/admin';
 import { withAdminGuard } from '@/lib/api-wrapper';
 import { disciplinaryActionSchema } from '@/lib/validations';
 import { v4 as uuidv4 } from 'uuid';
+import { getCachedMatches, getCachedDisciplinaryActions, writeLocalDisciplinary, invalidateCache } from '@/lib/cache';
 
 export async function POST(request: Request) {
     return withAdminGuard(request, async (req) => {
-        const firestore = getAdminDb();
         const body = await req.json();
 
         const validationResult = disciplinaryActionSchema.partial().safeParse(body);
@@ -37,12 +37,45 @@ export async function POST(request: Request) {
         };
 
         const subjectSlug = slugify(data.subject || 'unknown');
-        // Add a small random suffix to prevent collision on same match/subject
         const uniqueSuffix = uuidv4().slice(0, 4);
         const id = data.id || `d-${matchId.replace('d-', '')}-${subjectSlug}-${uniqueSuffix}`;
 
-        // Ensure week is present if matchId exists
         let finalWeek = data.week ?? null;
+
+        if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+            if (!finalWeek && matchId) {
+                const matches = await getCachedMatches();
+                const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
+                if (mDoc) {
+                    finalWeek = mDoc.week || null;
+                }
+            }
+
+            const saveData: any = {
+                ...data,
+                id,
+                matchId: matchId || null,
+                week: finalWeek,
+                updatedAt: new Date().toISOString()
+            };
+
+            Object.keys(saveData).forEach(key => saveData[key] === undefined && delete saveData[key]);
+
+            const actions = await getCachedDisciplinaryActions();
+            const existingIdx = actions.findIndex(a => a.id === id);
+            if (existingIdx > -1) {
+                actions[existingIdx] = { ...actions[existingIdx], ...saveData };
+            } else {
+                actions.push(saveData);
+            }
+
+            writeLocalDisciplinary(actions);
+            invalidateCache();
+            return NextResponse.json({ success: true, id });
+        }
+
+        const firestore = getAdminDb();
+        // Ensure week is present if matchId exists
         if (!finalWeek && matchId) {
             const matchSnap = await firestore.collection('matches').doc(matchId.replace('d-', '')).get();
             if (matchSnap.exists) {
@@ -63,6 +96,7 @@ export async function POST(request: Request) {
 
         try {
             await firestore.collection('disciplinary_actions').doc(id).set(saveData, { merge: true });
+            invalidateCache();
             return NextResponse.json({ success: true, id });
         } catch (dbError: any) {
             console.error('Firestore Save Error:', dbError);
@@ -80,7 +114,6 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
     return withAdminGuard(request, async (req) => {
-        const firestore = getAdminDb();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
 
@@ -88,7 +121,17 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'ID is required' }, { status: 400 });
         }
 
+        if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+            const actions = await getCachedDisciplinaryActions();
+            const filtered = actions.filter(a => a.id !== id);
+            writeLocalDisciplinary(filtered);
+            invalidateCache();
+            return NextResponse.json({ success: true });
+        }
+
+        const firestore = getAdminDb();
         await firestore.collection('disciplinary_actions').doc(id).delete();
+        invalidateCache();
         return NextResponse.json({ success: true });
     });
 }

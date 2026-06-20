@@ -72,6 +72,55 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season, onSuccess
         }));
     };
 
+    const updateBallInPlayTime = (val: string) => {
+        setMatch(prev => {
+            const currentStats = prev.refereeStats;
+            const prevVal = currentStats?.ballInPlayTime || '';
+            
+            let finalVal = val;
+            if (val.length > prevVal.length) {
+                // If it ends with MM:SS, append " / "
+                const matchPattern = val.match(/^(\d+:\d{2})$/);
+                if (matchPattern) {
+                    finalVal = val + ' / ';
+                }
+            }
+
+            const hasOtherFields = !!(currentStats && (
+                (currentStats.fouls !== undefined && currentStats.fouls !== 0) ||
+                (currentStats.yellowCards !== undefined && currentStats.yellowCards !== 0) ||
+                (currentStats.redCards !== undefined && currentStats.redCards !== 0) ||
+                (currentStats.incorrectDecisions !== undefined && currentStats.incorrectDecisions !== 0) ||
+                (currentStats.errorsFavoringHome !== undefined && currentStats.errorsFavoringAway !== 0) ||
+                (currentStats.homeErrors && currentStats.homeErrors.length > 0) ||
+                (currentStats.awayErrors && currentStats.awayErrors.length > 0) ||
+                (currentStats.performanceNotes && currentStats.performanceNotes.length > 0)
+            ));
+
+            if (!finalVal && !hasOtherFields) {
+                const { refereeStats, ...rest } = prev;
+                return rest;
+            }
+
+            return {
+                ...prev,
+                refereeStats: {
+                    fouls: currentStats?.fouls ?? 0,
+                    yellowCards: currentStats?.yellowCards ?? 0,
+                    redCards: currentStats?.redCards ?? 0,
+                    incorrectDecisions: currentStats?.incorrectDecisions ?? 0,
+                    errorsFavoringHome: currentStats?.errorsFavoringHome ?? 0,
+                    errorsFavoringAway: currentStats?.errorsFavoringAway ?? 0,
+                    homeErrors: currentStats?.homeErrors ?? [],
+                    awayErrors: currentStats?.awayErrors ?? [],
+                    performanceNotes: currentStats?.performanceNotes ?? [],
+                    ...currentStats,
+                    ballInPlayTime: finalVal
+                }
+            };
+        });
+    };
+
     const updateOfficial = (key: 'referees' | 'varReferees' | 'observers' | 'representatives', index: number, value: string) => {
         setMatch(prev => {
             const oldOfficials = prev.officials || {
@@ -166,6 +215,37 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season, onSuccess
                 delete payload.stats;
             } else {
                 payload.stats = cleanStats;
+            }
+        }
+
+        if (payload.refereeStats) {
+            const rs = payload.refereeStats;
+            const isEmpty = !rs.ballInPlayTime &&
+                !rs.fouls &&
+                !rs.yellowCards &&
+                !rs.redCards &&
+                !rs.incorrectDecisions &&
+                !rs.errorsFavoringHome &&
+                !rs.errorsFavoringAway &&
+                (!rs.homeErrors || rs.homeErrors.length === 0) &&
+                (!rs.awayErrors || rs.awayErrors.length === 0) &&
+                (!rs.performanceNotes || rs.performanceNotes.length === 0);
+
+            if (isEmpty) {
+                delete payload.refereeStats;
+            } else {
+                payload.refereeStats = {
+                    fouls: rs.fouls || 0,
+                    yellowCards: rs.yellowCards || 0,
+                    redCards: rs.redCards || 0,
+                    incorrectDecisions: rs.incorrectDecisions || 0,
+                    errorsFavoringHome: rs.errorsFavoringHome || 0,
+                    errorsFavoringAway: rs.errorsFavoringAway || 0,
+                    ballInPlayTime: rs.ballInPlayTime || '00:00',
+                    homeErrors: rs.homeErrors || [],
+                    awayErrors: rs.awayErrors || [],
+                    performanceNotes: rs.performanceNotes || [],
+                };
             }
         }
 
@@ -527,6 +607,71 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season, onSuccess
                     />
                 </div>
 
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 mt-2 mb-2">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                                Topun Oyunda Kaldığı Süre / Maçın Süresi
+                            </label>
+                            <input
+                                placeholder="Örn: 54:30 / 98:15"
+                                className="w-full border border-slate-300 p-2 rounded text-sm font-mono bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                value={match.refereeStats?.ballInPlayTime || ''}
+                                onChange={e => updateBallInPlayTime(e.target.value)}
+                            />
+                        </div>
+                        
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                                Maç Skoru (Ev - Deplasman)
+                            </label>
+                            <div className="flex gap-2 max-w-[200px]">
+                                <input
+                                    placeholder="Ev"
+                                    type="number"
+                                    className="border border-slate-300 p-2 w-full rounded font-bold bg-white text-sm text-center focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                    value={match.homeScore ?? ''}
+                                    onChange={e => {
+                                        const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                                        setMatch(prev => ({ ...prev, homeScore: val, score: (val !== undefined && prev.awayScore !== undefined) ? `${val}-${prev.awayScore}` : prev.score }));
+                                    }}
+                                />
+                                <span className="flex items-center text-slate-400 font-bold">-</span>
+                                <input
+                                    placeholder="Dep"
+                                    type="number"
+                                    className="border border-slate-300 p-2 w-full rounded font-bold bg-white text-sm text-center focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                    value={match.awayScore ?? ''}
+                                    onChange={e => {
+                                        const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                                        setMatch(prev => ({ ...prev, awayScore: val, score: (prev.homeScore !== undefined && val !== undefined) ? `${prev.homeScore}-${val}` : prev.score }));
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-2 border-t border-slate-200">
+                        <button
+                            type="button"
+                            onClick={() => setMatch({ ...match, status: match.status === 'published' ? 'draft' : 'published' })}
+                            className={`flex-1 py-2 rounded font-bold text-xs border transition-all cursor-pointer ${
+                                match.status === 'published'
+                                    ? 'bg-green-600 text-white border-green-700 hover:bg-green-700 shadow-sm'
+                                    : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 shadow-sm'
+                            }`}
+                        >
+                            {match.status === 'published' ? '🟢 YAYINDA' : '⚪ TASLAK'}
+                        </button>
+                        <button
+                            type="submit"
+                            className="flex-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-black text-xs shadow-md transition-all cursor-pointer uppercase tracking-wider"
+                        >
+                            Maçı Kaydet 🚀
+                        </button>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
                     <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Ev Sahibi</label>
@@ -574,7 +719,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season, onSuccess
                     </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 pt-2">
+                <div className="grid grid-cols-2 gap-3 pt-2">
                     <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Hafta</label>
                         <input type="text" className="border border-slate-200 p-2 w-full rounded font-bold bg-white text-sm" value={match.week || 1} onChange={e => {
@@ -598,32 +743,6 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season, onSuccess
                                 if (!isNaN(d.getTime())) updateMatchState({ date: d.toISOString() });
                             }}
                         />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Skor (Alternatif)</label>
-                        <div className="flex gap-1">
-                            <input
-                                placeholder="Ev"
-                                type="number"
-                                className="border border-slate-200 p-2 w-full rounded font-bold bg-white text-sm text-center"
-                                value={match.homeScore ?? ''}
-                                onChange={e => {
-                                    const val = e.target.value === '' ? undefined : parseInt(e.target.value);
-                                    setMatch(prev => ({ ...prev, homeScore: val, score: (val !== undefined && prev.awayScore !== undefined) ? `${val}-${prev.awayScore}` : prev.score }));
-                                }}
-                            />
-                            <span className="flex items-center text-slate-400 font-bold">-</span>
-                            <input
-                                placeholder="Dep"
-                                type="number"
-                                className="border border-slate-200 p-2 w-full rounded font-bold bg-white text-sm text-center"
-                                value={match.awayScore ?? ''}
-                                onChange={e => {
-                                    const val = e.target.value === '' ? undefined : parseInt(e.target.value);
-                                    setMatch(prev => ({ ...prev, awayScore: val, score: (prev.homeScore !== undefined && val !== undefined) ? `${prev.homeScore}-${val}` : prev.score }));
-                                }}
-                            />
-                        </div>
                     </div>
                 </div>
 
@@ -659,25 +778,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season, onSuccess
                     }}
                 />
 
-                <div className="flex gap-2 mt-3">
-                    <button
-                        type="button"
-                        onClick={() => setMatch({ ...match, status: match.status === 'published' ? 'draft' : 'published' })}
-                        className={`flex-1 py-2 rounded font-bold text-xs border transition-all cursor-pointer ${
-                            match.status === 'published'
-                                ? 'bg-green-600 text-white border-green-700 hover:bg-green-700 shadow-sm'
-                                : 'bg-slate-200 text-slate-755 border-slate-300 hover:bg-slate-300 shadow-sm'
-                        }`}
-                    >
-                        {match.status === 'published' ? '🟢 YAYINDA' : '⚪ TASLAK'}
-                    </button>
-                    <button
-                        type="submit"
-                        className="flex-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-black text-xs shadow-md transition-all cursor-pointer uppercase tracking-wider"
-                    >
-                        Maçı Kaydet 🚀
-                    </button>
-                </div>
+
             </div>
 
             <div className="bg-orange-50 p-3 rounded mb-4 border border-orange-100">
@@ -777,6 +878,7 @@ export const MatchForm = ({ apiKey, authToken, preloadedMatch, season, onSuccess
 
             <div className="border-t pt-2 mt-2">
                 <h4 className="font-bold text-sm text-gray-600 mb-1">Maç İstatistikleri</h4>
+
                 <div className="space-y-4 text-sm">
                     {[
                         { label: 'Topla Oynama', key: 'Possession', step: '0.1' },

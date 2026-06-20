@@ -115,6 +115,16 @@ export interface MatchEvent {
     teamId: 'home' | 'away'; // relative to match
 }
 
+export type VarInterventionType = 'penalty' | 'red_card' | 'goal_cancelled' | 'other';
+export type VarDecision = 'confirmed' | 'reversed';
+
+export interface VarIntervention {
+    minute?: number;
+    type: VarInterventionType;
+    decision: VarDecision;
+    description?: string;
+}
+
 export interface RefereeStats {
     ballInPlayTime: string; // "54:30"
     fouls: number;
@@ -126,6 +136,8 @@ export interface RefereeStats {
     homeErrors?: string[];
     awayErrors?: string[];
     performanceNotes?: string[];
+    penalties?: number;               // Maçta verilen penaltı sayısı
+    varInterventions?: VarIntervention[]; // VAR müdahalelerinin listesi
 }
 
 export type DecisionImpact = 'penalty' | 'red_card' | 'goal' | 'none' | 'unknown';

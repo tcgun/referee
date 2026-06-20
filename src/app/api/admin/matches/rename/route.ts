@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/firebase/admin';
 import { withAdminGuard } from '@/lib/api-wrapper';
+import { invalidateCache } from '@/lib/cache';
 
 export async function POST(request: Request) {
     return withAdminGuard(request, async (req) => {
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
                 await incDoc.ref.delete();
             }
             await oldMatchRef.delete();
-
+            invalidateCache();
             return NextResponse.json({ success: true, newId });
 
         } catch (error: any) {

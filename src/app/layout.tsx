@@ -39,13 +39,18 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body
-        className={`${inter.variable} ${outfit.variable} antialiased bg-black text-white overflow-x-hidden w-full font-sans`}
+        className={`${inter.variable} ${outfit.variable} antialiased bg-black text-white w-full font-sans min-h-screen flex flex-col md:flex-row`}
       >
         <Navbar />
-        {children}
-        <Footer />
+        <div className="flex-1 flex flex-col min-w-0 md:pl-64 lg:pl-72 xl:pl-80 overflow-x-clip">
+          <main className="grow">
+            {children}
+          </main>
+          <Footer />
+        </div>
         <Toaster richColors position="top-right" />
       </body>
     </html>
   );
 }
+

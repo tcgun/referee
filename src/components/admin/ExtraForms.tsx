@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { Standing, Statement, DisciplinaryAction, RefereeStats, Match } from '@/types';
+import { Standing, Statement, DisciplinaryAction, RefereeStats, Match, VarIntervention, VarInterventionType, VarDecision } from '@/types';
 import { toast } from 'sonner';
 
 interface BaseProps {
@@ -852,7 +852,7 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
         } finally {
             setLoading(false);
         }
-    }, [matchId]);
+    }, [matchId, season]);
 
     // Auto-refresh when refreshTrigger changes, if matchId exists
     useEffect(() => {
@@ -1007,8 +1007,24 @@ export const RefereeStatsForm = ({ apiKey, authToken, season }: BaseProps & { se
         errorsFavoringAway: 0,
         homeErrors: [] as string[],
         awayErrors: [] as string[],
-        performanceNotes: [] as string[]
+        performanceNotes: [] as string[],
+        penalties: 0,
+        varInterventions: [] as VarIntervention[],
     });
+
+    // VAR intervention form state
+    const [varForm, setVarForm] = useState<{
+        minute: string;
+        type: VarInterventionType;
+        decision: VarDecision;
+        description: string;
+    }>({
+        minute: '',
+        type: 'penalty',
+        decision: 'confirmed',
+        description: '',
+    });
+    const [editingVarIndex, setEditingVarIndex] = useState<number | null>(null);
 
     // Temp states for adding items
     const [tempHomeError, setTempHomeError] = useState('');
@@ -1036,7 +1052,9 @@ export const RefereeStatsForm = ({ apiKey, authToken, season }: BaseProps & { se
                     ...fetched,
                     homeErrors: fetched.homeErrors || [],
                     awayErrors: fetched.awayErrors || [],
-                    performanceNotes: fetched.performanceNotes || []
+                    performanceNotes: fetched.performanceNotes || [],
+                    penalties: fetched.penalties ?? 0,
+                    varInterventions: fetched.varInterventions || [],
                 });
             } else {
                 toast.error('Maç bulundu ancak kayıtlı istatistik yok veya maç yok.');
@@ -1245,8 +1263,24 @@ export const RefereeStatsForm = ({ apiKey, authToken, season }: BaseProps & { se
 
             <div className="grid grid-cols-2 gap-3 pb-2 border-b">
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500">Topla Oynama (dk)</label>
-                    <input placeholder="örn: 54:30" className="border border-gray-300 p-2 w-full rounded" value={stats.ballInPlayTime} onChange={e => setStats({ ...stats, ballInPlayTime: e.target.value })} />
+                    <label className="text-xs font-bold text-gray-500">Topun Oyunda Kaldığı Süre / Maçın Süresi</label>
+                    <input 
+                        placeholder="örn: 54:30 / 98:15" 
+                        className="border border-gray-300 p-2 w-full rounded" 
+                        value={stats.ballInPlayTime} 
+                        onChange={e => {
+                            const val = e.target.value;
+                            const prevVal = stats.ballInPlayTime || '';
+                            let finalVal = val;
+                            if (val.length > prevVal.length) {
+                                const matchPattern = val.match(/^(\d+:\d{2})$/);
+                                if (matchPattern) {
+                                    finalVal = val + ' / ';
+                                }
+                            }
+                            setStats({ ...stats, ballInPlayTime: finalVal });
+                        }} 
+                    />
                 </div>
                 <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-500">Faul Sayısı</label>
@@ -1260,7 +1294,11 @@ export const RefereeStatsForm = ({ apiKey, authToken, season }: BaseProps & { se
                     <label className="text-xs font-bold text-gray-500">Kırmızı Kart</label>
                     <input type="number" className="border border-gray-300 p-2 w-full rounded" value={stats.redCards} onChange={e => setStats({ ...stats, redCards: +e.target.value })} />
                 </div>
-                <div className="space-y-1 col-span-2">
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-500">Penaltı Sayısı 🔴</label>
+                    <input type="number" min={0} className="border border-orange-300 bg-orange-50 p-2 w-full rounded font-bold text-orange-800" value={stats.penalties ?? 0} onChange={e => setStats({ ...stats, penalties: +e.target.value })} />
+                </div>
+                <div className="space-y-1 col-span-1">
                     <label className="text-xs font-bold text-gray-500">Toplam Hatalı Karar (Otomatik Paketlenir)</label>
                     <input type="number" className="border border-gray-300 p-2 w-full rounded bg-gray-100" readOnly value={(stats.homeErrors?.length || 0) + (stats.awayErrors?.length || 0)} />
                 </div>
@@ -1335,6 +1373,156 @@ export const RefereeStatsForm = ({ apiKey, authToken, season }: BaseProps & { se
                         </li>
                     ))}
                 </ul>
+            </div>
+
+            {/* VAR Interventions Panel */}
+            <div className="bg-purple-50 p-3 rounded border border-purple-200 space-y-3">
+                <h4 className="font-bold text-purple-900 text-sm border-b border-purple-200 pb-1 flex items-center gap-2">
+                    <span>📺 VAR Müdahaleleri</span>
+                    <span className="bg-purple-200 text-purple-800 text-[9px] font-black px-1.5 py-0.5 rounded">
+                        {(stats.varInterventions || []).length} KAYIT
+                    </span>
+                </h4>
+
+                {/* VAR entry form */}
+                <div className="grid grid-cols-2 gap-2 bg-white p-2 rounded border border-purple-100">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Müdahale Türü</label>
+                        <select
+                            className="border border-gray-300 p-1.5 w-full rounded text-sm font-bold"
+                            value={varForm.type}
+                            onChange={e => setVarForm({ ...varForm, type: e.target.value as VarInterventionType })}
+                        >
+                            <option value="penalty">🔴 Penaltı</option>
+                            <option value="red_card">🟥 Kırmızı Kart</option>
+                            <option value="goal_cancelled">⚽❌ Gol İptali</option>
+                            <option value="other">🔍 Diğer</option>
+                        </select>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Karar</label>
+                        <div className="flex gap-1 h-[34px]">
+                            <button
+                                type="button"
+                                onClick={() => setVarForm({ ...varForm, decision: 'confirmed' })}
+                                className={`flex-1 rounded text-xs font-black transition-all ${
+                                    varForm.decision === 'confirmed'
+                                        ? 'bg-green-600 text-white'
+                                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                }`}
+                            >
+                                ✅ Doğrulandı
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setVarForm({ ...varForm, decision: 'reversed' })}
+                                className={`flex-1 rounded text-xs font-black transition-all ${
+                                    varForm.decision === 'reversed'
+                                        ? 'bg-red-600 text-white'
+                                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                }`}
+                            >
+                                🔄 Değiştirildi
+                            </button>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Dakika (Opsiyonel)</label>
+                        <input
+                            type="number" min={1} max={120}
+                            placeholder="örn: 67"
+                            className="border border-gray-300 p-1.5 w-full rounded text-sm"
+                            value={varForm.minute}
+                            onChange={e => setVarForm({ ...varForm, minute: e.target.value })}
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Açıklama (Opsiyonel)</label>
+                        <input
+                            placeholder="Kısa açıklama..."
+                            className="border border-gray-300 p-1.5 w-full rounded text-sm"
+                            value={varForm.description}
+                            onChange={e => setVarForm({ ...varForm, description: e.target.value })}
+                        />
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        const intervention: VarIntervention = {
+                            type: varForm.type,
+                            decision: varForm.decision,
+                            ...(varForm.minute ? { minute: parseInt(varForm.minute, 10) } : {}),
+                            ...(varForm.description ? { description: varForm.description } : {}),
+                        };
+                        if (editingVarIndex !== null) {
+                            const updated = [...(stats.varInterventions || [])];
+                            updated[editingVarIndex] = intervention;
+                            setStats({ ...stats, varInterventions: updated });
+                            setEditingVarIndex(null);
+                        } else {
+                            setStats({ ...stats, varInterventions: [...(stats.varInterventions || []), intervention] });
+                        }
+                        setVarForm({ minute: '', type: 'penalty', decision: 'confirmed', description: '' });
+                    }}
+                    className={`w-full py-1.5 rounded text-xs font-black transition-all ${
+                        editingVarIndex !== null
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-purple-700 text-white hover:bg-purple-800'
+                    }`}
+                >
+                    {editingVarIndex !== null ? '✏️ Güncelle' : '+ VAR Müdahalesi Ekle'}
+                </button>
+
+                {/* VAR intervention list */}
+                {(stats.varInterventions || []).length > 0 && (
+                    <ul className="space-y-1.5">
+                        {(stats.varInterventions || []).map((v, i) => {
+                            const typeLabel = { penalty: '🔴 Penaltı', red_card: '🟥 Kırmızı Kart', goal_cancelled: '⚽❌ Gol İptali', other: '🔍 Diğer' }[v.type];
+                            const decisionLabel = v.decision === 'confirmed' ? '✅ Doğrulandı' : '🔄 Değiştirildi';
+                            const decisionColor = v.decision === 'confirmed' ? 'text-green-700 bg-green-50 border-green-200' : 'text-red-700 bg-red-50 border-red-200';
+                            return (
+                                <li key={i} className="flex items-center justify-between bg-white border border-purple-100 rounded p-2 text-xs group">
+                                    <div className="flex items-center gap-2 flex-1">
+                                        <span className="font-black">{typeLabel}</span>
+                                        {v.minute && <span className="text-gray-500">{v.minute}&apos;</span>}
+                                        <span className={`px-1.5 py-0.5 rounded border text-[10px] font-black ${decisionColor}`}>{decisionLabel}</span>
+                                        {v.description && <span className="text-gray-500 italic truncate max-w-[120px]">{v.description}</span>}
+                                    </div>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setVarForm({
+                                                    minute: v.minute?.toString() || '',
+                                                    type: v.type,
+                                                    decision: v.decision,
+                                                    description: v.description || '',
+                                                });
+                                                setEditingVarIndex(i);
+                                            }}
+                                            className="text-blue-600 font-bold px-2 hover:bg-blue-50 rounded"
+                                        >D</button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const updated = [...(stats.varInterventions || [])];
+                                                updated.splice(i, 1);
+                                                setStats({ ...stats, varInterventions: updated });
+                                                if (editingVarIndex === i) {
+                                                    setEditingVarIndex(null);
+                                                    setVarForm({ minute: '', type: 'penalty', decision: 'confirmed', description: '' });
+                                                }
+                                            }}
+                                            className="text-red-500 font-bold px-2 hover:bg-red-50 rounded"
+                                        >Sil</button>
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
             </div>
 
             <button className="bg-green-600 text-white font-bold p-3 rounded w-full hover:bg-green-700 shadow-md">

@@ -3,10 +3,11 @@ import { getAdminDb } from '@/firebase/admin';
 import { withAdminGuard } from '@/lib/api-wrapper';
 import { matchSchema } from '@/lib/validations';
 import { v4 as uuidv4 } from 'uuid';
+import { invalidateCache, getCachedMatches, writeLocalMatches } from '@/lib/cache';
+import { Match } from '@/types';
 
 export async function GET(request: Request) {
     return withAdminGuard(request, async (req) => {
-        const firestore = getAdminDb();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
 
@@ -16,6 +17,16 @@ export async function GET(request: Request) {
 
         console.log(`[API] Fetching match id: "${id}" (len: ${id.length})`); // DEBUG LOG
 
+        if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+            const matches = await getCachedMatches();
+            const match = matches.find(m => m.id === id);
+            if (!match) {
+                return NextResponse.json({ error: 'Match not found' }, { status: 404 });
+            }
+            return NextResponse.json(match);
+        }
+
+        const firestore = getAdminDb();
         const snap = await firestore.collection('matches').doc(id).get();
         if (!snap.exists) {
             return NextResponse.json({ error: 'Match not found' }, { status: 404 });
@@ -27,7 +38,6 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
     return withAdminGuard(request, async (req) => {
-        const firestore = getAdminDb();
         const body = await req.json();
 
         // Allow partial updates for flexibility
@@ -37,24 +47,37 @@ export async function POST(request: Request) {
         }
 
         const data = validationResult.data;
-        // Ensure ID presence (if new doc, use provided or generate?)
-        // Schema checks ID existence, but if partial, maybe ID is missing?
-        // Basic rule: ID must be known to update/create.
         if (!data.id) {
-            // Check if we can generate one or if it's required. Schema says required string.
-            // If user sends partial without ID, we can't update.
             return NextResponse.json({ error: 'ID is required for update/create' }, { status: 400 });
         }
 
-        await firestore.collection('matches').doc(data.id).set(data, { merge: true });
+        if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+            const matches = await getCachedMatches();
+            const existingIdx = matches.findIndex(m => m.id === data.id);
+            
+            let mergedMatch: Match;
+            if (existingIdx > -1) {
+                mergedMatch = { ...matches[existingIdx], ...data } as Match;
+                matches[existingIdx] = mergedMatch;
+            } else {
+                mergedMatch = data as Match;
+                matches.push(mergedMatch);
+            }
 
+            writeLocalMatches(matches);
+            invalidateCache();
+            return NextResponse.json({ success: true, id: data.id });
+        }
+
+        const firestore = getAdminDb();
+        await firestore.collection('matches').doc(data.id).set(data, { merge: true });
+        invalidateCache();
         return NextResponse.json({ success: true, id: data.id });
     });
 }
 
 export async function DELETE(request: Request) {
     return withAdminGuard(request, async (req) => {
-        const firestore = getAdminDb();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
 
@@ -62,6 +85,15 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'ID is required' }, { status: 400 });
         }
 
+        if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+            const matches = await getCachedMatches();
+            const filtered = matches.filter(m => m.id !== id);
+            writeLocalMatches(filtered);
+            invalidateCache();
+            return NextResponse.json({ success: true });
+        }
+
+        const firestore = getAdminDb();
         const matchRef = firestore.collection('matches').doc(id);
 
         /** 
@@ -85,6 +117,7 @@ export async function DELETE(request: Request) {
 
         // 5. Finally delete the match document itself
         await matchRef.delete();
+        invalidateCache();
 
         return NextResponse.json({ success: true });
     });

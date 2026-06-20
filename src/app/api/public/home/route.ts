@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/firebase/admin';
 import { Opinion, Match, DisciplinaryAction, Statement, Standing } from '@/types';
+import { getCachedMatches, getCachedDisciplinaryActions, getCachedStatements, getCachedStandings } from '@/lib/cache';
 
 export const revalidate = 1800; // Cache for 30 minutes
 
@@ -17,6 +18,60 @@ interface GroupedOpinion {
 
 export async function GET() {
     try {
+        if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+            const allMatches = await getCachedMatches();
+            
+            const getLocalGroupedOpinions = (matchesList: Match[], type: 'trio' | 'general') => {
+                const groups: { [key: string]: GroupedOpinion } = {};
+                for (const m of matchesList) {
+                    const incidents = (m as any).incidents || [];
+                    const matchOpinions: Opinion[] = [];
+                    let againstCount = 0;
+
+                    for (const inc of incidents) {
+                        const opinions = inc.opinions || [];
+                        const typeOpinions = opinions.filter((o: any) => (o.type || 'trio') === type);
+                        matchOpinions.push(...typeOpinions);
+
+                        const hasIncorrect = opinions.some((o: any) => o.judgment === 'incorrect');
+                        if (hasIncorrect) againstCount++;
+                    }
+
+                    if (matchOpinions.length > 0) {
+                        const hScore = m.homeScore !== undefined ? m.homeScore : '-';
+                        const aScore = m.awayScore !== undefined ? m.awayScore : '-';
+                        const displayScore = (hScore !== '-' || aScore !== '-') ? `${hScore} - ${aScore}` : (m.score || 'v');
+
+                        groups[m.id] = {
+                            matchId: m.id,
+                            matchName: `${m.week}. Hafta: ${m.homeTeamName} - ${m.awayTeamName}`,
+                            week: m.week,
+                            homeTeam: m.homeTeamName,
+                            awayTeam: m.awayTeamName,
+                            score: displayScore,
+                            opinions: matchOpinions,
+                            againstCount
+                        };
+                    }
+                }
+                return Object.values(groups).sort((a, b) => (b.week || 0) - (a.week || 0));
+            };
+
+            const trioGrouped = getLocalGroupedOpinions(allMatches, 'trio');
+            const generalGrouped = getLocalGroupedOpinions(allMatches, 'general');
+            const pfdkActions = await getCachedDisciplinaryActions();
+            const statements = await getCachedStatements();
+            const standings = await getCachedStandings();
+
+            return NextResponse.json({
+                trioGrouped,
+                generalGrouped,
+                pfdkActions,
+                statements,
+                standings
+            });
+        }
+
         const firestore = getAdminDb();
 
         const groupOpinions = async (docs: Array<FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>>) => {

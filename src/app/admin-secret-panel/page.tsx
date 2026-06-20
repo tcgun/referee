@@ -366,6 +366,90 @@ function BulkFixtureImport({ apiKey, authToken, season, onSuccess }: BulkFixture
     );
 }
 
+function DatabaseSyncPanel({ apiKey, authToken }: { apiKey: string, authToken?: string }) {
+    const [syncing, setSyncing] = useState(false);
+    const [result, setResult] = useState<{ operationsCount: number, batchesCount: number } | null>(null);
+
+    const handleSync = async () => {
+        if (!confirm('Yerelde biriktirdiğiniz tüm verileri (maçlar, yorumlar, puan durumu vb.) canlı Firestore veritabanına aktarmak istediğinizden emin misiniz? Bu işlem canlı Firestore verilerini güncelleyecektir.')) {
+            return;
+        }
+
+        setSyncing(true);
+        setResult(null);
+
+        try {
+            const res = await fetch('/api/admin/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-key': apiKey,
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                }
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setResult(data);
+                alert(`Senkronizasyon Başarılı! Toplam ${data.operationsCount} işlem ${data.batchesCount} batch halinde Firestore'a yazıldı. ✅`);
+            } else {
+                let errText = 'Hata oluştu.';
+                try {
+                    const errJson = await res.json();
+                    errText = errJson.error || errText;
+                } catch {}
+                alert(`Senkronizasyon Başarısız: ${errText}`);
+            }
+        } catch (error) {
+            console.error('[SyncPanel] Save error:', error);
+            alert('Ağ hatası oluştu.');
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="font-bold text-sm uppercase text-slate-700 flex items-center gap-2">
+                    <span>🔄</span> Veritabanı Senkronizasyonu (Local &rarr; Cloud)
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                    Yereldeki tüm JSON dosyalarını canlı Firestore veritabanına tek bir seferde yükler.
+                </p>
+            </div>
+            
+            <div className="p-6 space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800 leading-relaxed font-medium">
+                    💡 <strong>Kota Koruması Aktif:</strong> Yerel Mock Modunda çalışırken kotanızı harcamadan dilediğiniz gibi veri girişi yapabilirsiniz. İşiniz bittiğinde aşağıdaki butona basarak tüm verileri canlı Firestore'a aktarın.
+                </div>
+
+                {result && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-xs font-bold text-green-700">
+                        Senkronizasyon Başarılı! ✅ {result.operationsCount} işlem, {result.batchesCount} batch halinde yazıldı.
+                    </div>
+                )}
+
+                <button
+                    type="button"
+                    onClick={handleSync}
+                    disabled={syncing}
+                    className="w-full bg-[#00a89d] hover:bg-[#009187] text-white font-bold py-2.5 px-4 rounded-lg text-xs uppercase tracking-wider transition-colors disabled:opacity-50 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
+                >
+                    {syncing ? (
+                        <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Senkronize Ediliyor...
+                        </>
+                    ) : (
+                        'Yerel Verileri Firestore\'a Senkronize Et'
+                    )}
+                </button>
+            </div>
+        </div>
+    );
+}
+
 // Wrapper for Disciplinary Section to share state
 const DisciplinaryWrapper = ({ apiKey, authToken, season }: { apiKey: string, authToken?: string, season?: string }) => {
     const [editingItem, setEditingItem] = useState<DisciplinaryAction | null>(null);
@@ -496,39 +580,21 @@ function AdminContent() {
             }
             setSetupLoading(true);
             try {
-                const { collection, getDocs, query, where, orderBy, limit } = await import('firebase/firestore');
-                const { db } = await import('@/firebase/client');
-                const q = query(
-                    collection(db, 'matches'),
-                    where('week', '==', Number(setupSelectedWeek)),
-                    orderBy('date', 'desc')
-                );
-                const snap = await getDocs(q);
-                let fetched = snap.docs.map(d => ({ ...d.data(), id: d.id } as Match));
-                if (selectedSeason) {
-                    fetched = fetched.filter(m => (m.season || '2025-2026') === selectedSeason);
+                const res = await fetch(`/api/public/matches?season=${selectedSeason}&week=${setupSelectedWeek}&raw=true`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const sorted = Array.isArray(data) ? [...data].sort((a, b) => {
+                        const timeA = a.date ? new Date(a.date).getTime() : 0;
+                        const timeB = b.date ? new Date(b.date).getTime() : 0;
+                        return timeA - timeB;
+                    }) : [];
+                    setSetupMatches(sorted);
+                } else {
+                    setSetupMatches([]);
                 }
-
-                // Check incidents for each match in parallel
-                const fetchedWithStatus = await Promise.all(
-                    fetched.map(async (m) => {
-                        try {
-                            const incQ = query(collection(db, 'matches', m.id, 'incidents'), limit(1));
-                            const incSnap = await getDocs(incQ);
-                            return {
-                                ...m,
-                                hasIncidents: !incSnap.empty
-                            };
-                        } catch (err) {
-                            console.error(`Error checking incidents for match ${m.id}`, err);
-                            return { ...m, hasIncidents: false };
-                        }
-                    })
-                );
-
-                setSetupMatches(fetchedWithStatus);
             } catch (e) {
                 console.error("Setup matches fetch error", e);
+                setSetupMatches([]);
             } finally {
                 setSetupLoading(false);
             }
@@ -558,42 +624,11 @@ function AdminContent() {
     const fetchMatchById = async (id: string, silent = false) => {
         if (!id) return;
         try {
-            const { doc, getDoc, collection, getDocs } = await import('firebase/firestore');
-            const { db } = await import('@/firebase/client');
-
-            const matchSnap = await getDoc(doc(db, 'matches', id));
-
-            if (matchSnap.exists()) {
-                const matchData = matchSnap.data() as Match;
-                setLoadedMatch(matchData);
-
-                const incQ = collection(db, 'matches', id, 'incidents');
-                const incSnap = await getDocs(incQ);
-
-                const incidentsWithOpinions = await Promise.all(incSnap.docs.map(async (incDoc) => {
-                    const incData = incDoc.data() as Incident;
-                    incData.id = incDoc.id;
-                    const opQ = collection(db, 'matches', id, 'incidents', incData.id, 'opinions');
-                    const opSnap = await getDocs(opQ);
-                    const opinions = opSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Opinion[];
-                    return { ...incData, opinions };
-                }));
-
-                // Sort by minute (handling strings/numbers)
-                incidentsWithOpinions.sort((a, b) => {
-                    const parse = (m: string | number) => {
-                        if (typeof m === 'number') return m;
-                        // Handle "45+2" format
-                        if (typeof m === 'string' && m.includes('+')) {
-                            const [base, ext] = m.split('+').map(Number);
-                            return base + (ext / 100);
-                        }
-                        return parseFloat(m) || 0;
-                    };
-                    return parse(a.minute) - parse(b.minute);
-                });
-
-                setLoadedIncidents(incidentsWithOpinions);
+            const res = await fetch(`/api/public/matches?id=${id}`);
+            if (res.ok) {
+                const data = await res.json();
+                setLoadedMatch(data.match);
+                setLoadedIncidents(data.incidents || []);
                 if (!silent) alert('Veriler Güncellendi! ✅');
             } else {
                 if (!silent) alert('Maç bulunamadı!');
@@ -952,7 +987,8 @@ function AdminContent() {
                             </div>
 
                             {/* Secondary Row: Forms */}
-                            <div className="grid md:grid-cols-2 gap-8">
+                            <div className="grid md:grid-cols-3 gap-8">
+                                <DatabaseSyncPanel apiKey={apiKey} authToken={authToken} />
                                 <BulkFixtureImport 
                                     apiKey={apiKey} 
                                     authToken={authToken} 

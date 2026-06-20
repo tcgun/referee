@@ -4,6 +4,22 @@ import { Match, Opinion } from '@/types';
 export const revalidate = 1800; // Cache for 30 minutes
 
 export async function GET() {
+    if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+        return NextResponse.json({
+            controversial: {
+                matchName: "Antalyaspor - Kasımpaşa",
+                count: 2
+            },
+            referee: {
+                name: "ALPER AKARSU",
+                count: 1
+            },
+            pfdk: {
+                count: 2
+            }
+        });
+    }
+
     try {
         const firestore = getAdminDb();
 
@@ -118,10 +134,19 @@ export async function GET() {
         });
 
     } catch (error: any) {
-        console.error('Stats Error:', error);
+        console.error('Stats Error (Returning Fallback):', error);
         return NextResponse.json({
-            error: 'Failed to calc stats',
-            details: error instanceof Error ? error.message : String(error)
-        }, { status: 500 });
+            controversial: {
+                matchName: "-",
+                count: 0
+            },
+            referee: {
+                name: "-",
+                count: 0
+            },
+            pfdk: {
+                count: 0
+            }
+        });
     }
 }

@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/firebase/client';
 import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
 import { useParams } from 'next/navigation';
 import { cleanSponsorsInText, getTeamStadium } from '@/lib/teams';
@@ -11,15 +9,6 @@ import Link from 'next/link';
 interface IncidentWithOpinions extends Incident {
     opinions: Opinion[];
 }
-
-const parseMinute = (minStr: string | number): number => {
-    const minStrClean = minStr.toString().replace('.dk', '').replace(/\s+/g, '');
-    if (minStrClean.includes('+')) {
-        const parts = minStrClean.split('+');
-        return (parseInt(parts[0]) || 90) + (parseInt(parts[1]) || 0);
-    }
-    return parseInt(minStrClean) || 0;
-};
 
 export default function MatchClient() {
     const params = useParams();
@@ -35,7 +24,28 @@ export default function MatchClient() {
     const [fixtures, setFixtures] = useState<Match[]>([]);
     
     // UI Tab state
-    const [activeTab, setActiveTab] = useState<'analiz' | 'istatistik' | 'gorevliler' | 'pfdk'>('analiz');
+    const [activeTab, setActiveTab] = useState<'analiz' | 'hakem' | 'istatistik' | 'gorevliler' | 'pfdk'>('analiz');
+
+    // Referee Career stats
+    const [refereeCareerStats, setRefereeCareerStats] = useState<{
+        official?: {
+            name: string;
+            region?: string;
+            rating?: number;
+            classification?: string;
+        };
+        career?: {
+            totalMatches: number;
+            avgYellowPerMatch: number;
+            avgRedPerMatch: number;
+            avgFoulsPerMatch: number;
+            avgPenaltiesPerMatch: number;
+        };
+        matchDetails?: {
+            ballInPlayTime: string | null;
+        }[];
+    } | null>(null);
+    const [refereeCareerLoading, setRefereeCareerLoading] = useState<boolean>(false);
     
     // Load state
     const [loading, setLoading] = useState<boolean>(true);
@@ -145,54 +155,17 @@ export default function MatchClient() {
             if (!matchId) return;
             setLoading(true);
             try {
-                const matchRef = doc(db, 'matches', matchId);
-                const matchSnap = await getDoc(matchRef);
+                const res = await fetch(`/api/public/matches?id=${matchId}`);
+                if (!res.ok) throw new Error("Match not found");
+                const data = await res.json();
+                
+                setMatch(data.match);
+                setIncidents(data.incidents || []);
+                setDisciplinaryActions(data.disciplinaryActions || []);
 
-                if (matchSnap.exists()) {
-                    const matchData = matchSnap.data() as Match;
-                    setMatch(matchData);
-
-                    // Fetch Incidents subcollection
-                    const incQ = collection(db, 'matches', matchId, 'incidents');
-                    const incSnap = await getDocs(incQ);
-
-                    const incidentsWithOpinionsList = await Promise.all(incSnap.docs.map(async (incDoc) => {
-                        const incData = incDoc.data() as Incident;
-                        incData.id = incDoc.id;
-                        
-                        const opQ = collection(db, 'matches', matchId, 'incidents', incDoc.id, 'opinions');
-                        const opSnap = await getDocs(opQ);
-                        const opinions = opSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Opinion[];
-                        
-                        return { ...incData, opinions } as IncidentWithOpinions;
-                    }));
-
-                    // Sort incidents by minute
-                    incidentsWithOpinionsList.sort((a, b) => {
-                        return parseMinute(a.minute) - parseMinute(b.minute);
-                    });
-
-                    setIncidents(incidentsWithOpinionsList);
-
-                    // Fetch Disciplinary actions for this match
-                    const pfdkQ = query(collection(db, 'disciplinary_actions'), where('matchId', '==', matchId));
-                    const pfdkSnap = await getDocs(pfdkQ);
-                    const pfdkList = pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction));
-                    setDisciplinaryActions(pfdkList);
-
-                    // Set initial selectors
-                    setSelectedWeek(matchData.week || 1);
-                    setSelectedSeason(matchData.season || '2025-2026');
-
-                    // Fetch all matches for the season to compute official statistics
-                    const allMatchesQ = query(
-                        collection(db, 'matches'),
-                        where('season', '==', matchData.season || '2025-2026')
-                    );
-                    const allMatchesSnap = await getDocs(allMatchesQ);
-                    const allMatchesList = allMatchesSnap.docs.map(d => ({ ...d.data(), id: d.id } as Match));
-                    setAllSeasonMatches(allMatchesList);
-                }
+                const seasonVal = data.match.season || '2025-2026';
+                setSelectedWeek(data.match.week || 1);
+                setSelectedSeason(seasonVal);
             } catch (err) {
                 console.error("Match fetch details error:", err);
             } finally {
@@ -202,28 +175,93 @@ export default function MatchClient() {
         fetchMatchData();
     }, [matchId]);
 
+    // We will update the allMatches fetch below to use `raw=true` so we have full official stats.
+    useEffect(() => {
+        if (!match) return;
+        async function fetchAllSeasonMatches() {
+            try {
+                const res = await fetch(`/api/public/matches?season=${match?.season || '2025-2026'}&raw=true`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setAllSeasonMatches(data);
+                }
+            } catch (e) {
+                console.error("Error fetching season matches:", e);
+            }
+        }
+        fetchAllSeasonMatches();
+    }, [match]);
+
+    // Helper to generate name slug
+    const nameToSlug = (name: string): string => {
+        if (!name) return '';
+        return name
+            .replace(/İ/g, 'i')
+            .replace(/I/g, 'i')
+            .replace(/ı/g, 'i')
+            .replace(/Ğ/g, 'g')
+            .replace(/ğ/g, 'g')
+            .replace(/Ü/g, 'u')
+            .replace(/ü/g, 'u')
+            .replace(/Ş/g, 's')
+            .replace(/ş/g, 's')
+            .replace(/Ö/g, 'o')
+            .replace(/ö/g, 'o')
+            .replace(/Ç/g, 'c')
+            .replace(/ç/g, 'c')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s-]/g, '')
+            .trim()
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-');
+    };
+
+    // Fetch Referee Career Stats
+    const refereeName = match?.referee;
+    useEffect(() => {
+        if (!refereeName) {
+            setRefereeCareerStats(null);
+            return;
+        }
+        async function fetchRefereeCareer() {
+            setRefereeCareerLoading(true);
+            try {
+                const slug = nameToSlug(refereeName || '');
+                const res = await fetch(`/api/stats/referees/${slug}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setRefereeCareerStats(data);
+                } else {
+                    setRefereeCareerStats(null);
+                }
+            } catch (e) {
+                console.error("Error fetching referee career stats:", e);
+                setRefereeCareerStats(null);
+            } finally {
+                setRefereeCareerLoading(false);
+            }
+        }
+        fetchRefereeCareer();
+    }, [refereeName]);
+
     // 2. Dynamic Fixtures Fetch
     useEffect(() => {
         async function fetchFixtures() {
             if (!selectedSeason || !selectedWeek) return;
             setFixturesLoading(true);
             try {
-                const fixturesQ = query(
-                    collection(db, 'matches'),
-                    where('season', '==', selectedSeason),
-                    where('week', '==', selectedWeek)
-                );
-                const snap = await getDocs(fixturesQ);
-                const list = snap.docs.map(d => ({ ...d.data(), id: d.id } as Match));
-                
-                // Sort by date ascending
-                list.sort((a, b) => {
-                    const dA = a.date ? new Date(a.date).getTime() : 0;
-                    const dB = b.date ? new Date(b.date).getTime() : 0;
-                    return dA - dB;
-                });
-                
-                setFixtures(list);
+                const res = await fetch(`/api/public/matches?season=${selectedSeason}&week=${selectedWeek}&raw=true`);
+                if (res.ok) {
+                    const list = await res.json();
+                    // Sort by date ascending
+                    list.sort((a: Match, b: Match) => {
+                        const dA = a.date ? new Date(a.date as string).getTime() : 0;
+                        const dB = b.date ? new Date(b.date as string).getTime() : 0;
+                        return dA - dB;
+                    });
+                    setFixtures(list);
+                }
             } catch (err) {
                 console.error("Fixtures fetch error:", err);
             } finally {
@@ -379,6 +417,14 @@ export default function MatchClient() {
                                     POZİSYON ANALİZİ
                                 </button>
                                 <button
+                                    onClick={() => setActiveTab('hakem')}
+                                    className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all whitespace-nowrap ${
+                                        activeTab === 'hakem' ? 'bg-primary text-black shadow-lg font-bold' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                                    }`}
+                                >
+                                    HAKEM İSTATİSTİKLERİ
+                                </button>
+                                <button
                                     onClick={() => setActiveTab('istatistik')}
                                     className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all whitespace-nowrap ${
                                         activeTab === 'istatistik' ? 'bg-primary text-black shadow-lg font-bold' : 'text-zinc-400 hover:text-white hover:bg-white/5'
@@ -409,31 +455,6 @@ export default function MatchClient() {
                                 {activeTab === 'analiz' && (
                                     <div className="space-y-6">
                                         
-                                        {/* Referee stats summary card if exists */}
-                                        {match.refereeStats && (
-                                            <div className="bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
-                                                <h3 className="text-xs font-black tracking-widest text-[#00a89d] uppercase">HAKEM MAÇ İSTATİSTİKLERİ</h3>
-                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                    <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 text-center">
-                                                        <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Toplam Faul</span>
-                                                        <span className="text-xl font-mono font-black text-white">{match.refereeStats.fouls || 0}</span>
-                                                    </div>
-                                                    <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 text-center">
-                                                        <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Top Oynama Süresi</span>
-                                                        <span className="text-xl font-mono font-black text-white">{match.refereeStats.ballInPlayTime || '50:00'}</span>
-                                                    </div>
-                                                    <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 text-center">
-                                                        <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Sarı Kartlar</span>
-                                                        <span className="text-xl font-mono font-black text-amber-400">{match.refereeStats.yellowCards || 0}</span>
-                                                    </div>
-                                                    <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 text-center">
-                                                        <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Kırmızı Kartlar</span>
-                                                        <span className="text-xl font-mono font-black text-rose-500">{match.refereeStats.redCards || 0}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
                                         {/* List of Incidents */}
                                         {incidents.length === 0 ? (
                                             <div className="text-center py-12 bg-[#161b22] border border-white/10 rounded-3xl">
@@ -509,6 +530,342 @@ export default function MatchClient() {
                                                         )}
                                                     </div>
                                                 ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {activeTab === 'hakem' && (
+                                    <div className="space-y-6">
+                                        {/* Hakem Profil Kartı */}
+                                        <div className="bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+                                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                                <div>
+                                                    <span className="text-[10px] font-black text-primary uppercase tracking-widest block mb-1">Müsabaka Hakemi</span>
+                                                    <h2 className="text-2xl font-black uppercase text-white tracking-tight">
+                                                        {match.referee || 'Belirtilmedi'}
+                                                    </h2>
+                                                    {refereeCareerStats?.official && (
+                                                        <p className="text-xs text-zinc-400 font-semibold mt-1">
+                                                            {refereeCareerStats.official.classification && `${refereeCareerStats.official.classification} | `}
+                                                            {refereeCareerStats.official.region && `${refereeCareerStats.official.region}`}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                {refereeCareerStats?.career && (
+                                                    <div className="bg-zinc-900/60 border border-white/5 rounded-2xl p-4 flex items-center gap-4 shrink-0 w-full md:w-auto">
+                                                        <div className="text-center md:text-right">
+                                                            <span className="text-[10px] font-black text-zinc-500 uppercase block mb-0.5">Toplam Kariyer Maçı</span>
+                                                            <span className="text-xl font-mono font-black text-white">{refereeCareerStats.career.totalMatches || 0}</span>
+                                                        </div>
+                                                        {refereeCareerStats.official?.rating && refereeCareerStats.official.rating > 0 && (
+                                                            <div className="h-10 w-px bg-white/10" />
+                                                        )}
+                                                        {refereeCareerStats.official?.rating && refereeCareerStats.official.rating > 0 && (
+                                                            <div className="text-center md:text-left">
+                                                                <span className="text-[10px] font-black text-zinc-500 uppercase block mb-0.5">Değerlendirme Notu</span>
+                                                                <span className="text-xl font-mono font-black text-emerald-400">{refereeCareerStats.official.rating.toFixed(1)}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Karşılaştırmalı İstatistikler */}
+                                        <div className="bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6">
+                                            <div className="space-y-1 border-b border-white/5 pb-4">
+                                                <h3 className="text-xs font-black tracking-widest text-[#00a89d] uppercase">KARŞILAŞTIRMALI MAÇ / KARİYER İSTATİSTİKLERİ</h3>
+                                                <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Bu Maçtaki Performans vs Hakemin Kariyer Ortalaması</p>
+                                            </div>
+
+                                            {refereeCareerLoading ? (
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-pulse">
+                                                    {Array.from({ length: 4 }).map((_, idx) => (
+                                                        <div key={idx} className="h-20 bg-zinc-900/50 rounded-2xl border border-white/5" />
+                                                    ))}
+                                                </div>
+                                            ) : (() => {
+                                                const matchFouls = match.refereeStats?.fouls || (match.stats ? (Number(match.stats.homeFouls || 0) + Number(match.stats.awayFouls || 0)) : 0);
+                                                const matchYellow = match.refereeStats?.yellowCards || (match.stats ? (Number(match.stats.homeYellowCards || 0) + Number(match.stats.awayYellowCards || 0)) : 0);
+                                                const matchRed = match.refereeStats?.redCards || (match.stats ? (Number(match.stats.homeRedCards || 0) + Number(match.stats.awayRedCards || 0)) : 0);
+                                                const matchPenalties = match.refereeStats?.penalties || 0;
+                                                const ballInPlay = match.refereeStats?.ballInPlayTime;
+
+                                                return (
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                        {/* Fauller */}
+                                                        <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between">
+                                                            <div>
+                                                                <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Fauller</span>
+                                                                <span className="text-xl font-mono font-black text-white">{matchFouls}</span>
+                                                            </div>
+                                                            {refereeCareerStats?.career && (
+                                                                <span className="text-[9px] font-extrabold text-zinc-400 uppercase mt-2 block border-t border-white/5 pt-1.5">
+                                                                    Ort: {refereeCareerStats.career.avgFoulsPerMatch}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Sarı Kartlar */}
+                                                        <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between">
+                                                            <div>
+                                                                <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Sarı Kartlar</span>
+                                                                <span className="text-xl font-mono font-black text-amber-400">{matchYellow}</span>
+                                                            </div>
+                                                            {refereeCareerStats?.career && (
+                                                                <span className="text-[9px] font-extrabold text-zinc-400 uppercase mt-2 block border-t border-white/5 pt-1.5">
+                                                                    Ort: {refereeCareerStats.career.avgYellowPerMatch}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Kırmızı Kartlar */}
+                                                        <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between">
+                                                            <div>
+                                                                <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Kırmızı Kartlar</span>
+                                                                <span className="text-xl font-mono font-black text-rose-500">{matchRed}</span>
+                                                            </div>
+                                                            {refereeCareerStats?.career && (
+                                                                <span className="text-[9px] font-extrabold text-zinc-400 uppercase mt-2 block border-t border-white/5 pt-1.5">
+                                                                    Ort: {refereeCareerStats.career.avgRedPerMatch}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Penaltılar */}
+                                                        <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between">
+                                                            <div>
+                                                                <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Penaltılar</span>
+                                                                <span className="text-xl font-mono font-black text-[#00a89d]">{matchPenalties}</span>
+                                                            </div>
+                                                            {refereeCareerStats?.career && (
+                                                                <span className="text-[9px] font-extrabold text-zinc-400 uppercase mt-2 block border-t border-white/5 pt-1.5">
+                                                                    Ort: {refereeCareerStats.career.avgPenaltiesPerMatch}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Topun Oyunda Kalma Süresi - Alt Kısımda Tam Genişlik */}
+                                                        <div className="bg-zinc-900/40 p-5 rounded-2xl border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 col-span-2 md:col-span-4 mt-2">
+                                                            <div>
+                                                                <span className="text-[9px] font-black text-zinc-500 uppercase block mb-1">Topun Oyunda Kaldığı Süre / Maçın Süresi</span>
+                                                                <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 mt-1">
+                                                                    <span className="text-xl font-mono font-black text-white">{ballInPlay || 'Belirtilmedi'}</span>
+                                                                    {refereeCareerStats?.matchDetails && (
+                                                                        <span className="text-[10px] font-extrabold text-zinc-400 uppercase">
+                                                                            Kariyer Ortalaması: {(() => {
+                                                                                const mDetails = refereeCareerStats.matchDetails || [];
+                                                                                 let activeSecs = 0;
+                                                                                 let activeCount = 0;
+                                                                                 let totalSecs = 0;
+                                                                                 let totalCount = 0;
+
+                                                                                 mDetails.forEach((m: any) => {
+                                                                                     const timeStr = m.ballInPlayTime;
+                                                                                     if (timeStr) {
+                                                                                         if (timeStr.includes('/')) {
+                                                                                             const parts = timeStr.split('/');
+                                                                                             // Active
+                                                                                             const actPart = parts[0].trim().split(':');
+                                                                                             if (actPart.length === 2) {
+                                                                                                 const mins = parseInt(actPart[0], 10);
+                                                                                                 const secs = parseInt(actPart[1], 10);
+                                                                                                 if (!isNaN(mins) && !isNaN(secs)) {
+                                                                                                     activeSecs += mins * 60 + secs;
+                                                                                                     activeCount++;
+                                                                                                 }
+                                                                                             }
+                                                                                             // Total
+                                                                                             const totPart = parts[1].trim().split(':');
+                                                                                             if (totPart.length === 2) {
+                                                                                                 const mins = parseInt(totPart[0], 10);
+                                                                                                 const secs = parseInt(totPart[1], 10);
+                                                                                                 if (!isNaN(mins) && !isNaN(secs)) {
+                                                                                                     totalSecs += mins * 60 + secs;
+                                                                                                     totalCount++;
+                                                                                                 }
+                                                                                             }
+                                                                                         } else {
+                                                                                             const parts = timeStr.trim().split(':');
+                                                                                             if (parts.length === 2) {
+                                                                                                 const mins = parseInt(parts[0], 10);
+                                                                                                 const secs = parseInt(parts[1], 10);
+                                                                                                 if (!isNaN(mins) && !isNaN(secs)) {
+                                                                                                     activeSecs += mins * 60 + secs;
+                                                                                                     activeCount++;
+                                                                                                 }
+                                                                                             }
+                                                                                         }
+                                                                                     }
+                                                                                 });
+
+                                                                                 const formatSeconds = (totalSeconds: number) => {
+                                                                                     const mins = Math.floor(totalSeconds / 60);
+                                                                                     const secs = Math.round(totalSeconds % 60);
+                                                                                     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                                                                                 };
+
+                                                                                 const avgActive = activeCount > 0 ? formatSeconds(activeSecs / activeCount) : 'Belirtilmedi';
+                                                                                 const avgTotal = totalCount > 0 ? formatSeconds(totalSecs / totalCount) : 'Belirtilmedi';
+
+                                                                                 if (activeCount === 0 && totalCount === 0) return 'Belirtilmedi';
+                                                                                 if (totalCount === 0) return avgActive;
+                                                                                 return `${avgActive} / ${avgTotal}`;
+                                                                            })()}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-[10px] font-extrabold text-zinc-500 uppercase">
+                                                                Topun Oyunda Kaldığı Süre / Maçın Süresi
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+
+                                        {/* Hakem Hataları ve Faktörleri */}
+                                        {match.refereeStats && (
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                {/* Sol Panel: Hata İstatistik Özetleri */}
+                                                <div className="bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6">
+                                                    <div className="space-y-1 border-b border-white/5 pb-4">
+                                                        <h3 className="text-xs font-black tracking-widest text-[#FF5DAD] uppercase">HAKEM HATA ANALİZİ</h3>
+                                                        <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Maçtaki Hakem Faktörü Özet İstatistikleri</p>
+                                                    </div>
+
+                                                    <div className="space-y-4">
+                                                        <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 flex justify-between items-center">
+                                                            <span className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Toplam Yanlış Karar</span>
+                                                            <span className="text-xl font-mono font-black text-rose-500">{match.refereeStats.incorrectDecisions || 0}</span>
+                                                        </div>
+                                                        <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 flex justify-between items-center">
+                                                            <span className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Ev Sahibi Lehine Hata</span>
+                                                            <span className="text-xl font-mono font-black text-amber-500">{match.refereeStats.errorsFavoringHome || 0}</span>
+                                                        </div>
+                                                        <div className="bg-zinc-900/40 p-4 rounded-2xl border border-white/5 flex justify-between items-center">
+                                                            <span className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Deplasman Lehine Hata</span>
+                                                            <span className="text-xl font-mono font-black text-blue-400">{match.refereeStats.errorsFavoringAway || 0}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Sağ Panel: Ev Sahibi / Deplasman Lehine Hata Listeleri ve Performans Notları */}
+                                                <div className="md:col-span-2 bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6">
+                                                    <div className="space-y-1 border-b border-white/5 pb-4">
+                                                        <h3 className="text-xs font-black tracking-widest text-primary uppercase">HATA DETAYLARI VE NOTLAR</h3>
+                                                        <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Pozisyon Bazlı Hakem Hataları ve Değerlendirmeler</p>
+                                                    </div>
+
+                                                    <div className="space-y-6">
+                                                        {/* Ev Sahibi Lehine Yapılan Hatalar Listesi */}
+                                                        <div>
+                                                            <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2">EV SAHİBİ LEHİNE HATALAR</h4>
+                                                            {match.refereeStats.homeErrors && match.refereeStats.homeErrors.length > 0 ? (
+                                                                <ul className="space-y-2">
+                                                                    {match.refereeStats.homeErrors.map((err, i) => (
+                                                                        <li key={i} className="text-xs text-zinc-300 font-semibold bg-zinc-900/30 border border-white/5 rounded-xl p-3 flex gap-2.5 items-start">
+                                                                            <span className="text-amber-500 shrink-0 font-bold">•</span>
+                                                                            <span>{err}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            ) : (
+                                                                <p className="text-xs text-zinc-500 italic font-semibold pl-1">Ev sahibi lehine tespit edilmiş hata bulunmamaktadır.</p>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Deplasman Lehine Yapılan Hatalar Listesi */}
+                                                        <div>
+                                                            <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">DEPLASMAN LEHİNE HATALAR</h4>
+                                                            {match.refereeStats.awayErrors && match.refereeStats.awayErrors.length > 0 ? (
+                                                                <ul className="space-y-2">
+                                                                    {match.refereeStats.awayErrors.map((err, i) => (
+                                                                        <li key={i} className="text-xs text-zinc-300 font-semibold bg-zinc-900/30 border border-white/5 rounded-xl p-3 flex gap-2.5 items-start">
+                                                                            <span className="text-blue-400 shrink-0 font-bold">•</span>
+                                                                            <span>{err}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            ) : (
+                                                                <p className="text-xs text-zinc-500 italic font-semibold pl-1">Deplasman lehine tespit edilmiş hata bulunmamaktadır.</p>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Performans Notları */}
+                                                        <div>
+                                                            <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">HAKEM PERFORMANS NOTLARI</h4>
+                                                            {match.refereeStats.performanceNotes && match.refereeStats.performanceNotes.length > 0 ? (
+                                                                <ul className="space-y-2">
+                                                                    {match.refereeStats.performanceNotes.map((note, i) => (
+                                                                        <li key={i} className="text-xs text-zinc-300 font-semibold bg-zinc-900/30 border border-white/5 rounded-xl p-3 flex gap-2.5 items-start">
+                                                                            <span className="text-zinc-400 shrink-0 font-bold">•</span>
+                                                                            <span>{note}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            ) : (
+                                                                <p className="text-xs text-zinc-500 italic font-semibold pl-1">Performans notu eklenmemiştir.</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* VAR Müdahaleleri */}
+                                        {match.refereeStats?.varInterventions && match.refereeStats.varInterventions.length > 0 && (
+                                            <div className="bg-[#161b22] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6">
+                                                <div className="space-y-1 border-b border-white/5 pb-4">
+                                                    <h3 className="text-xs font-black tracking-widest text-[#FF5DAD] uppercase">VAR MÜDAHALELERİ</h3>
+                                                    <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Maçtaki VAR İncelemeleri ve Sonuçları</p>
+                                                </div>
+
+                                                <div className="space-y-4">
+                                                    {match.refereeStats.varInterventions.map((vi, idx) => {
+                                                        const typeLabels: Record<string, string> = {
+                                                            penalty: 'Penaltı İncelemesi',
+                                                            red_card: 'Kırmızı Kart İncelemesi',
+                                                            goal_cancelled: 'Gol İptali İncelemesi',
+                                                            other: 'Diğer İnceleme'
+                                                        };
+                                                        const decisionLabels: Record<string, string> = {
+                                                            confirmed: 'Karar Onaylandı',
+                                                            reversed: 'Karar Değiştirildi'
+                                                        };
+                                                        
+                                                        return (
+                                                            <div key={idx} className="bg-zinc-900/30 border border-white/5 rounded-2xl p-4 space-y-3">
+                                                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                                                    <div className="flex items-center gap-3">
+                                                                        {vi.minute !== undefined && (
+                                                                            <span className="bg-[#FF5DAD] text-black font-black text-[10px] px-2 py-1 rounded">
+                                                                                {vi.minute}. Dk
+                                                                            </span>
+                                                                        )}
+                                                                        <span className="text-xs font-black text-white uppercase tracking-wider">
+                                                                            {typeLabels[vi.type] || vi.type}
+                                                                        </span>
+                                                                    </div>
+                                                                    <span className={`text-[10px] font-black px-2.5 py-1 rounded uppercase tracking-wider border ${
+                                                                        vi.decision === 'confirmed' 
+                                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                                                                            : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                                                    }`}>
+                                                                        {decisionLabels[vi.decision] || vi.decision}
+                                                                    </span>
+                                                                </div>
+                                                                {vi.description && (
+                                                                    <p className="text-xs text-zinc-300 font-medium leading-relaxed bg-zinc-950/40 p-3 rounded-xl border border-white/5">
+                                                                        {vi.description}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
                                         )}
                                     </div>

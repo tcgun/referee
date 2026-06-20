@@ -11,11 +11,6 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Check if config is present
-if (!firebaseConfig.projectId) {
-  console.error("Firebase Config Missing!", firebaseConfig);
-}
-
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);

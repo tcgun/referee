@@ -66,11 +66,18 @@ export default function TeamDisciplinaryAnalysis() {
         </div>
     );
 
-    if (!data) return null;
+    if (!data || !data.teams) return (
+        <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
+            <div className="text-center py-20 text-muted-foreground text-xs font-bold uppercase tracking-[0.2em]">
+                {data && 'error' in data ? (data as any).error : "Veri yüklenirken bir hata oluştu veya kota aşıldı."}
+            </div>
+        </div>
+    );
 
     const filteredTeams = data.teams.filter(t =>
         t.teamName.toLowerCase().includes(search.toLowerCase())
     );
+
 
     const formatMoney = (val: number) => {
         return new Intl.NumberFormat('tr-TR').format(val) + " TL";
@@ -228,7 +235,7 @@ export default function TeamDisciplinaryAnalysis() {
 
                             {/* Right: Full Interactive Table */}
                             <div className="lg:col-span-2">
-                                <div className="bg-[#161b22] border-2 border-white/20 rounded-2xl overflow-hidden shadow-neo-sm h-full flex flex-col">
+                                <div className="bg-[#161b22] border-2 border-white/20 rounded-2xl md:overflow-visible shadow-neo-sm h-full flex flex-col">
                                     <div className="p-6 border-b border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
                                         <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">SIRALAMALI ANALİZ TABLOSU</h3>
                                         <div className="relative w-full md:w-64">
@@ -243,14 +250,14 @@ export default function TeamDisciplinaryAnalysis() {
                                         </div>
                                     </div>
 
-                                    <div className="overflow-x-auto flex-1">
+                                    <div className="overflow-x-auto md:overflow-visible flex-1 no-scrollbar">
                                         <table className="w-full text-left border-collapse">
-                                            <thead className="bg-black/20 text-gray-500">
+                                            <thead className="sticky top-16 md:top-0 z-10 bg-[#161b22] text-gray-500 shadow-sm border-b border-white/5">
                                                 <tr>
-                                                    <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em]">TAKIM</th>
+                                                    <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] rounded-tl-2xl">TAKIM</th>
                                                     <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-center">SEVK</th>
                                                     <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-center">CEZA</th>
-                                                    <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-right">TOPLAM CEZA</th>
+                                                    <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-right rounded-tr-2xl">TOPLAM CEZA</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5">

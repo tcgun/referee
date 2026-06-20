@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/firebase/admin';
+import { getCachedMatches, getCachedDisciplinaryActions } from '@/lib/cache';
 
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const season = searchParams.get('season') || '2025-2026';
 
-        const db = getAdminDb();
-        const snap = await db.collection('disciplinary_actions').get();
-        let actions = snap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+        let actions = await getCachedDisciplinaryActions();
 
         // Helper to resolve season YYYY-YYYY from date
         const getSeasonFromDate = (dateStr: string): string => {
@@ -118,8 +116,7 @@ export async function GET(request: Request) {
         }).sort((a, b) => b.totalFine - a.totalFine);
 
         // Query matches to calculate foul and card stats
-        const matchesSnap = await db.collection('matches').get();
-        let matches = matchesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+        let matches = await getCachedMatches();
         matches = matches.filter((m: any) => (m.season || '2025-2026') === season);
 
         const teamFouls: Record<string, number> = {};
