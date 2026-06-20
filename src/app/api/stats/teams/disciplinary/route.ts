@@ -1,26 +1,57 @@
 import { NextResponse } from 'next/server';
 import { getCachedMatches, getCachedDisciplinaryActions } from '@/lib/cache';
+import { DisciplinaryAction, Match } from '@/types';
+
+// Season format: "2024-2025", "2025-2026" vb.
+const SEASON_REGEX = /^\d{4}-\d{4}$/;
+
+interface TeamDisciplinaryStats {
+    teamName: string;
+    referralCount: number;
+    penaltyCount: number;
+    totalFine: number;
+    leagueFine: number;
+    cupFine: number;
+    reasons: Record<string, number>;
+    subTypes: Record<string, number>;
+}
 
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
-        const season = searchParams.get('season') || '2025-2026';
+        const seasonParam = searchParams.get('season') || '2025-2026';
 
-        let actions = await getCachedDisciplinaryActions();
+        // Input validation — kötü niyetli değerleri engelle
+        if (!SEASON_REGEX.test(seasonParam)) {
+            return NextResponse.json(
+                { error: 'Geçersiz sezon formatı. Beklenen: YYYY-YYYY' },
+                { status: 400 }
+            );
+        }
+        const season = seasonParam;
+
+        // Paralel veri çekme — sıralı yerine eşzamanlı
+        const [allActions, allMatches] = await Promise.all([
+            getCachedDisciplinaryActions(),
+            getCachedMatches()
+        ]);
 
         // Helper to resolve season YYYY-YYYY from date
         const getSeasonFromDate = (dateStr: string): string => {
             if (!dateStr) return '2025-2026';
             const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return '2025-2026'; // Geçersiz tarih koruması
             const year = d.getFullYear();
-            const month = d.getMonth() + 1; // 1-indexed
+            const month = d.getMonth() + 1;
             return month >= 7 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
         };
 
         // Filter actions by season
-        actions = actions.filter((act: any) => getSeasonFromDate(act.date) === season);
+        const actions = (allActions as DisciplinaryAction[]).filter(
+            (act) => getSeasonFromDate(act.date) === season
+        );
 
-        const teamStats: Record<string, any> = {};
+        const teamStats: Record<string, TeamDisciplinaryStats> = {};
         const weeklyGlobalStats: Record<number, number> = {};
         const subjectBreakdown: Record<string, number> = {
             'KULÜP': 0,
@@ -30,16 +61,16 @@ export async function GET(request: Request) {
             'DİĞER': 0
         };
 
-        const parsePenalty = (text: string) => {
+        const parsePenalty = (text: string): number => {
             if (!text) return 0;
             const matches = text.match(/(\d{1,3}(\.\d{3})*)\s*TL/i);
-            if (matches && matches[1]) {
+            if (matches?.[1]) {
                 return parseInt(matches[1].replace(/\./g, ''));
             }
             return 0;
         };
 
-        const competitionStats: Record<string, { totalFine: number, referralCount: number, penaltyCount: number }> = {
+        const competitionStats: Record<string, { totalFine: number; referralCount: number; penaltyCount: number }> = {
             'league': { totalFine: 0, referralCount: 0, penaltyCount: 0 },
             'cup': { totalFine: 0, referralCount: 0, penaltyCount: 0 }
         };
@@ -47,17 +78,27 @@ export async function GET(request: Request) {
         const detectSubjectType = (subject: string): string => {
             const s = (subject || '').toUpperCase();
             if (s.includes('KULÜBÜ') || s.includes('A.Ş.')) return 'KULÜP';
-            if (s.includes('İDARECİSİ') || s.includes('BAŞKANI')) return 'İDARECİ';
+            if (s.includes('İDARECİSİ') || s.includes('BAŞKANI') || s.includes('YÖNETİCİSİ')) return 'İDARECİ';
             if (s.includes('TEKNİK') || s.includes('ANTRENÖR')) return 'TEKNİK SORUMLU';
-            if (s.length > 3) return 'FUTBOLCU'; // Likely a player name
-            return 'DİĞER';
+            // "Kulüp" string'i genelde kulübe ait cezalarda subject olarak kullanılır
+            if (s === 'KULÜP' || s.length <= 3) return 'DİĞER';
+            return 'FUTBOLCU';
         };
 
-        actions.forEach((act: any) => {
+        actions.forEach((act) => {
             const team = act.teamName || 'DİĞER';
             const week = act.week || 0;
             const comp = act.competition || 'league';
-            const penaltyVal = parsePenalty(act.penalty);
+            
+            // Tahkim itiraz durumuna göre efektif ceza hesabı
+            let effectivePenaltyText = act.penalty || '';
+            if (act.appealStatus === 'accepted') {
+                effectivePenaltyText = '';
+            } else if (act.appealStatus === 'partially_accepted' && act.appealedPenalty) {
+                effectivePenaltyText = act.appealedPenalty;
+            }
+            
+            const penaltyVal = parsePenalty(effectivePenaltyText);
             const subType = detectSubjectType(act.subject || '');
 
             // Global Competition Stats
@@ -67,7 +108,7 @@ export async function GET(request: Request) {
                 if (act.penalty) competitionStats[comp].penaltyCount++;
             }
 
-            // Global Weekly Trend (League Only usually, or combined)
+            // Global Weekly Trend
             if (comp === 'league' && week > 0) {
                 weeklyGlobalStats[week] = (weeklyGlobalStats[week] || 0) + penaltyVal;
             }
@@ -84,8 +125,8 @@ export async function GET(request: Request) {
                     totalFine: 0,
                     leagueFine: 0,
                     cupFine: 0,
-                    reasons: {} as Record<string, number>,
-                    subTypes: {} as Record<string, number>
+                    reasons: {},
+                    subTypes: {}
                 };
             }
 
@@ -107,7 +148,9 @@ export async function GET(request: Request) {
         const cupTotalFine = competitionStats['cup'].totalFine;
 
         const finalizedTeams = Object.values(teamStats).map(stats => {
-            const sortedReasons = Object.entries(stats.reasons).sort((a: any, b: any) => b[1] - a[1]);
+            const sortedReasons = Object.entries(stats.reasons).sort(
+                (a, b) => (b[1] as number) - (a[1] as number)
+            );
             return {
                 ...stats,
                 mostCommonReason: sortedReasons[0]?.[0] || 'YOK',
@@ -115,9 +158,10 @@ export async function GET(request: Request) {
             };
         }).sort((a, b) => b.totalFine - a.totalFine);
 
-        // Query matches to calculate foul and card stats
-        let matches = await getCachedMatches();
-        matches = matches.filter((m: any) => (m.season || '2025-2026') === season);
+        // Maç istatistiklerini hesapla
+        const matches = (allMatches as Match[]).filter(
+            (m) => (m.season || '2025-2026') === season
+        );
 
         const teamFouls: Record<string, number> = {};
         const teamYellows: Record<string, number> = {};
@@ -125,7 +169,7 @@ export async function GET(request: Request) {
         const refereeFouls: Record<string, number> = {};
         const refereeCards: Record<string, number> = {};
 
-        matches.forEach((m: any) => {
+        matches.forEach((m) => {
             const hTeam = m.homeTeamName;
             const aTeam = m.awayTeamName;
             const ref = m.referee;

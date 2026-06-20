@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { TeamForm, MatchForm, IncidentForm, OpinionForm, OfficialForm } from '@/components/admin/AdminForms';
-import { StandingForm, StatementForm, DisciplinaryForm, DisciplinaryList, RefereeStatsForm, BulkPfdkImport } from '@/components/admin/ExtraForms';
+import { StandingForm, StatementForm, DisciplinaryForm, DisciplinaryList, RefereeStatsForm, BulkPfdkImport, BulkTahkimImport } from '@/components/admin/ExtraForms';
 import { MatchIncidentsSummary } from '@/components/admin/MatchIncidentsSummary';
 import GeneratorWrapper from '@/generator-system/GeneratorWrapper';
 import { Match, Incident, Opinion, DisciplinaryAction } from '@/types';
@@ -453,7 +453,7 @@ function DatabaseSyncPanel({ apiKey, authToken }: { apiKey: string, authToken?: 
 const DisciplinaryWrapper = ({ apiKey, authToken, season }: { apiKey: string, authToken?: string, season?: string }) => {
     const [editingItem, setEditingItem] = useState<DisciplinaryAction | null>(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
-    const [mode, setMode] = useState<'manual' | 'bulk'>('manual');
+    const [mode, setMode] = useState<'manual' | 'bulk' | 'tahkim'>('manual');
 
     return (
         <div className="space-y-6">
@@ -480,9 +480,20 @@ const DisciplinaryWrapper = ({ apiKey, authToken, season }: { apiKey: string, au
                 >
                     Toplu Karar Aktar (PFDK)
                 </button>
+                <button
+                    type="button"
+                    onClick={() => setMode('tahkim')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                        mode === 'tahkim'
+                            ? 'bg-indigo-600 text-white shadow-md transform scale-[1.02]'
+                            : 'bg-slate-100 text-slate-500 hover:text-indigo-600 hover:bg-slate-200'
+                    }`}
+                >
+                    Toplu Karar Aktar (Tahkim)
+                </button>
             </div>
 
-            {mode === 'manual' ? (
+            {mode === 'manual' && (
                 <DisciplinaryForm
                     apiKey={apiKey}
                     authToken={authToken}
@@ -491,13 +502,22 @@ const DisciplinaryWrapper = ({ apiKey, authToken, season }: { apiKey: string, au
                     onSuccess={() => setRefreshTrigger(prev => prev + 1)}
                     season={season}
                 />
-            ) : (
+            )}
+            {mode === 'bulk' && (
                 <BulkPfdkImport
                     apiKey={apiKey}
                     authToken={authToken}
                     season={season}
                     onSuccess={() => setRefreshTrigger(prev => prev + 1)}
                     onCancel={() => setMode('manual')}
+                />
+            )}
+            {mode === 'tahkim' && (
+                <BulkTahkimImport
+                    apiKey={apiKey}
+                    authToken={authToken}
+                    season={season}
+                    onSuccess={() => setRefreshTrigger(prev => prev + 1)}
                 />
             )}
 

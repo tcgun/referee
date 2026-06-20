@@ -219,4 +219,10 @@ export const disciplinaryActionSchema = z.object({
     note: z.string().max(10000).optional().or(z.literal('')), // Full legal text
     competition: z.enum(['league', 'cup']).optional(),
     season: z.string().regex(REGEX_SEASON, MSG_SEASON).optional(),
+    appealStatus: z.enum(['none', 'pending', 'accepted', 'rejected', 'partially_accepted']).optional().or(z.literal('')),
+    appealedPenalty: z.string().max(1000).optional().or(z.literal('')),
+    appealNote: z.string().max(10000).optional().or(z.literal('')),
+    appealDate: z.string().regex(REGEX_DATE, MSG_DATE).optional().or(z.literal('')),
 });
+
+

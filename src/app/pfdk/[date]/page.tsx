@@ -142,7 +142,7 @@ export default function PfdkDatePage() {
                     </Link>
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                         <div>
-                            <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase text-primary">{displayDate}</h1>
+                            <h1 className="text-3xl font-black tracking-tighter uppercase text-primary">{displayDate}</h1>
                             <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">
                                 PFDK KARARLARI VE SEVKLERİ
                             </p>
@@ -175,7 +175,7 @@ export default function PfdkDatePage() {
                                                 {matchId ? (
                                                     <Link
                                                         href={`/matches/${matchId}?tab=pfdk`}
-                                                        className="w-full md:w-auto bg-primary text-black font-black text-sm px-6 py-3 rounded-xl border-2 border-black shadow-neo-sm hover:translate-y-[-2px] active:translate-y-[0px] transition-all text-center"
+                                                        className="w-full md:w-auto bg-primary text-black font-black text-sm px-6 py-3 rounded-xl border-2 border-black shadow-neo-sm hover:translate-y-[-2px] active:translate-y-0 transition-all text-center"
                                                     >
                                                         SEVKLER VE CEZALAR İÇİN TIKLAYIN ➔
                                                     </Link>
@@ -252,9 +252,21 @@ function DisciplinaryItem({ act, activeTab, cleanPenalty }: { act: DisciplinaryA
                 {/* Result Line (Penalty) */}
                 {act.penalty && (
                     <div className="flex items-center gap-2 flex-wrap mt-1 pl-2 md:pl-0">
-                        <span className="text-md font-bold text-gray-900 border-l-2 border-primary pl-2">
+                        <span className={`text-md font-bold text-gray-900 border-l-2 border-primary pl-2 ${act.appealStatus === 'accepted' || act.appealStatus === 'partially_accepted' ? 'line-through opacity-60' : ''}`}>
                             {cleanPenalty(act.penalty)}
                         </span>
+                        {act.appealStatus && act.appealStatus !== 'none' && (
+                            <span className={`text-[9px] font-black px-2 py-1 rounded border uppercase tracking-wider ${
+                                act.appealStatus === 'accepted' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                act.appealStatus === 'partially_accepted' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                act.appealStatus === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                'bg-blue-50 text-blue-700 border-blue-200'
+                            }`}>
+                                {act.appealStatus === 'accepted' ? 'Tahkim: İptal' :
+                                 act.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${act.appealedPenalty})` :
+                                 act.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                            </span>
+                        )}
                         <div className="flex items-center gap-2">
                             {act.type === 'performance' && <span className="bg-blue-50 text-blue-600 text-[9px] font-bold px-1.5 py-0.5 rounded border border-blue-100">HAKEM PERFORMANSI</span>}
                         </div>

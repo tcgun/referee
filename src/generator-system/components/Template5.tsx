@@ -1,7 +1,7 @@
 import React from "react";
 import { useStore } from "../store/useStore";
 import { PRESETS } from "../types";
-import { MessageSquareWarning, Check, X, HelpCircle } from "lucide-react";
+import { Check, X, HelpCircle } from "lucide-react";
 import BaseTemplate from "./common/BaseTemplate";
 
 interface Props {
@@ -61,7 +61,7 @@ const Template5: React.FC<Props> = ({ domRef }) => {
         <BaseTemplate domRef={domRef} overlayContent={overlayContent} showBrandingHeader={true} showBrandingBar={true}>
             {/* Background Gradient matching brand theme */}
             <div className="absolute inset-0 bg-[#0a0a0a] z-0">
-                <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a1a] via-[#0a0a0a] to-[#050505]" />
+                <div className="absolute inset-0 bg-linear-to-b from-[#1a1a1a] via-[#0a0a0a] to-[#050505]" />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[radial-gradient(circle_at_center,rgba(255,20,147,0.03)_0%,transparent_70%)]" />
             </div>
 
@@ -115,17 +115,17 @@ const Template5: React.FC<Props> = ({ domRef }) => {
                             <div className="w-12 md:w-16 shrink-0 flex flex-col justify-center items-center">
                                 {mistake.icon === 'check' && (
                                     <div className="bg-green-500 rounded-full p-2 md:p-3 flex items-center justify-center border-[3px] border-black shadow-[4px_4px_0px_#FFD700]">
-                                        <Check className="w-6 h-6 md:w-8 md:h-8 text-white stroke-[3]" />
+                                        <Check className="w-6 h-6 md:w-8 md:h-8 text-white stroke-3" />
                                     </div>
                                 )}
                                 {mistake.icon === 'cross' && (
                                     <div className="bg-red-500 rounded-full p-2 md:p-3 flex items-center justify-center border-[3px] border-black shadow-[4px_4px_0px_#FFD700]">
-                                        <X className="w-6 h-6 md:w-8 md:h-8 text-white stroke-[3]" />
+                                        <X className="w-6 h-6 md:w-8 md:h-8 text-white stroke-3" />
                                     </div>
                                 )}
                                 {mistake.icon === 'question' && (
                                     <div className="bg-blue-500 rounded-full p-2 md:p-3 flex items-center justify-center border-[3px] border-black shadow-[4px_4px_0px_#FFD700]">
-                                        <HelpCircle className="w-6 h-6 md:w-8 md:h-8 text-white stroke-[3]" />
+                                        <HelpCircle className="w-6 h-6 md:w-8 md:h-8 text-white stroke-3" />
                                     </div>
                                 )}
                             </div>
@@ -210,10 +210,10 @@ const Template5: React.FC<Props> = ({ domRef }) => {
                                             </span>
                                             <div className="bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded-md flex items-center justify-end gap-2 shadow-[0_0_10px_rgba(239,68,68,0.1)] w-full">
                                                 <div className="relative w-4 h-4 flex items-center justify-center shrink-0">
-                                                    <div className="absolute w-2.5 h-3.5 bg-red-500 rounded-[1px] border border-black rotate-[15deg] shadow-sm ml-1" />
-                                                    <div className="absolute w-2.5 h-3.5 bg-yellow-400 rounded-[1px] border border-black -rotate-[10deg] -ml-2 shadow-sm" />
+                                                    <div className="absolute w-2.5 h-3.5 bg-red-500 rounded-[1px] border border-black rotate-15 shadow-sm ml-1" />
+                                                    <div className="absolute w-2.5 h-3.5 bg-yellow-400 rounded-[1px] border border-black -rotate-10 -ml-2 shadow-sm" />
                                                 </div>
-                                                <span style={{ fontSize: `${rowDescPx}px` }} className="text-red-100 font-bold uppercase tracking-wide break-words text-right">
+                                                <span style={{ fontSize: `${rowDescPx}px` }} className="text-red-100 font-bold uppercase tracking-wide wrap-break-word text-right">
                                                     {mistake.cardPlayer.replace(/^(HATALI:\s*|EKSİK:\s*|KART:\s*|HATALI\s*|EKSİK\s*|KART\s*)/i, '').replace(/\s*\|\s*(HATALI:\s*|EKSİK:\s*|KART:\s*|HATALI\s*|EKSİK\s*|KART\s*)/i, ' | ')}
                                                 </span>
                                             </div>

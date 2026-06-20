@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Standing, Statement, DisciplinaryAction, RefereeStats, Match, VarIntervention, VarInterventionType, VarDecision } from '@/types';
 import { toast } from 'sonner';
 import { parsePfdkText } from '@/lib/pfdkParser';
+import { ParsedAppeal } from '@/lib/tahkimParser';
 
 interface BaseProps {
     apiKey: string;
@@ -430,7 +431,8 @@ interface DisciplinaryFormProps extends BaseProps {
 export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, onSuccess, season }: DisciplinaryFormProps) => {
     const [action, setAction] = useState<Partial<DisciplinaryAction>>({
         teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-        type: 'pfdk', matchId: '', note: '', competition: 'league', group: ''
+        type: 'pfdk', matchId: '', note: '', competition: 'league', group: '',
+        appealStatus: 'none', appealedPenalty: '', appealNote: '', appealDate: ''
     });
     const [pfdkTarget, setPfdkTarget] = useState<'player' | 'staff' | 'club' | 'other'>('player');
     const [decisionType, setDecisionType] = useState<'referral' | 'penalty'>('penalty');
@@ -440,7 +442,11 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
         if (editItem) {
             setAction({
                 ...editItem,
-                date: editItem.date
+                date: editItem.date,
+                appealStatus: editItem.appealStatus || 'none',
+                appealedPenalty: editItem.appealedPenalty || '',
+                appealNote: editItem.appealNote || '',
+                appealDate: editItem.appealDate || ''
             });
             if (editItem.type === 'pfdk') {
                 if (editItem.subject === 'Kulüp') setPfdkTarget('club');
@@ -450,7 +456,8 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
         } else {
             setAction({
                 teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-                type: 'pfdk', matchId: '', note: '', competition: 'league', group: ''
+                type: 'pfdk', matchId: '', note: '', competition: 'league', group: '',
+                appealStatus: 'none', appealedPenalty: '', appealNote: '', appealDate: ''
             });
             setDecisionType('penalty');
         }
@@ -466,6 +473,16 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
 
         if (decisionType === 'referral') {
             finalAction.penalty = '';
+            finalAction.appealStatus = 'none';
+            finalAction.appealedPenalty = '';
+            finalAction.appealNote = '';
+            finalAction.appealDate = '';
+        }
+
+        if (finalAction.appealStatus === 'none') {
+            finalAction.appealedPenalty = '';
+            finalAction.appealNote = '';
+            finalAction.appealDate = '';
         }
 
         // --- DATA CLEANING START ---
@@ -483,6 +500,12 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
             // Matches: "40.000.-TL", "40.000.- TL", "40.000  .-  TL" etc.
             p = p.replace(/(\d+)\s*\.-\s*TL/g, '$1 TL');
             finalAction.penalty = p.trim();
+        }
+
+        if (finalAction.appealedPenalty) {
+            let p = finalAction.appealedPenalty.replace(/^Ceza:\s*/i, '');
+            p = p.replace(/(\d+)\s*\.-\s*TL/g, '$1 TL');
+            finalAction.appealedPenalty = p.trim();
         }
         // --- DATA CLEANING END ---
 
@@ -509,7 +532,8 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
             if (!editItem) {
                 setAction({
                     teamName: '', subject: '', reason: '', penalty: '', date: new Date().toISOString().split('T')[0],
-                    type: 'pfdk', matchId: '', note: '', competition: action.competition || 'league'
+                    type: 'pfdk', matchId: '', note: '', competition: action.competition || 'league',
+                    appealStatus: 'none', appealedPenalty: '', appealNote: '', appealDate: ''
                 });
                 setDecisionType('penalty');
             }
@@ -681,23 +705,82 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
 
             {
                 action.type === 'pfdk' && decisionType === 'penalty' && (
-                    <div className="relative">
-                        <textarea
-                            placeholder="Verilen Ceza (Kısa Özet) - Örn: 2 Maç Men"
-                            className="border border-red-200 bg-red-50 p-2 w-full rounded text-red-800 placeholder-red-300 font-bold min-h-[60px]"
-                            value={action.penalty || ''}
-                            onChange={e => setAction({ ...action, penalty: e.target.value })}
-                            required
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setAction(prev => ({ ...prev, penalty: (prev.penalty ? prev.penalty + '\n' : '') + '- ' }))}
-                            className="absolute bottom-2 right-2 bg-red-200 hover:bg-red-300 text-red-800 text-xs px-2 py-1 rounded shadow-sm"
-                            title="Yeni Satır Ekle"
-                        >
-                            + Satır
-                        </button>
-                    </div>
+                    <>
+                        <div className="relative">
+                            <textarea
+                                placeholder="Verilen Ceza (Kısa Özet) - Örn: 2 Maç Men"
+                                className="border border-red-200 bg-red-50 p-2 w-full rounded text-red-800 placeholder-red-300 font-bold min-h-[60px]"
+                                value={action.penalty || ''}
+                                onChange={e => setAction({ ...action, penalty: e.target.value })}
+                                required
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setAction(prev => ({ ...prev, penalty: (prev.penalty ? prev.penalty + '\n' : '') + '- ' }))}
+                                className="absolute bottom-2 right-2 bg-red-200 hover:bg-red-300 text-red-800 text-xs px-2 py-1 rounded shadow-sm"
+                                title="Yeni Satır Ekle"
+                            >
+                                + Satır
+                            </button>
+                        </div>
+
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3 mt-2">
+                            <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-1 flex items-center gap-1.5">
+                                ⚖️ Tahkim Kurulu İtiraz Detayları
+                            </h4>
+                            
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase">İtiraz Durumu</label>
+                                <select 
+                                    className="border border-gray-300 p-2 w-full rounded text-sm bg-white"
+                                    value={action.appealStatus || 'none'}
+                                    onChange={e => setAction({ ...action, appealStatus: e.target.value as any })}
+                                >
+                                    <option value="none">İtiraz Yok</option>
+                                    <option value="pending">İtiraz Edildi / Karar Bekleniyor</option>
+                                    <option value="accepted">İtiraz Kabul Edildi (Ceza Kaldırıldı)</option>
+                                    <option value="partially_accepted">Kısmen Kabul Edildi (Ceza İndirildi)</option>
+                                    <option value="rejected">İtiraz Reddedildi</option>
+                                </select>
+                            </div>
+
+                            {action.appealStatus === 'partially_accepted' && (
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Tahkim Sonrası Yeni Ceza (Özet)</label>
+                                    <input
+                                        placeholder="Örn: 110.000 TL Para Cezası veya 2 Maç Men"
+                                        className="border border-gray-300 p-2 w-full rounded text-sm"
+                                        value={action.appealedPenalty || ''}
+                                        onChange={e => setAction({ ...action, appealedPenalty: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                            )}
+
+                            {action.appealStatus && action.appealStatus !== 'none' && (
+                                <>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Tahkim Karar Tarihi</label>
+                                        <input
+                                            type="date"
+                                            className="border border-gray-300 p-2 w-full rounded text-sm"
+                                            value={action.appealDate || ''}
+                                            onChange={e => setAction({ ...action, appealDate: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Tahkim Resmi Karar Metni</label>
+                                        <textarea
+                                            placeholder="Tahkim kararı resmi metni..."
+                                            className="border border-gray-300 p-2 w-full rounded h-20 text-xs font-mono"
+                                            value={action.appealNote || ''}
+                                            onChange={e => setAction({ ...action, appealNote: e.target.value })}
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </>
                 )
             }
 
@@ -1490,7 +1573,25 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
                                 </div>
                                 <div className="text-[10px] text-gray-500 mb-1">{item.teamName ? item.teamName + ' - ' : ''} {item.date}</div>
                                 <p className="text-gray-700 italic border-l-2 border-gray-300 pl-1">{item.reason}</p>
-                                {item.penalty && <p className="text-red-600 font-bold text-[10px] mt-1 bg-red-50 p-1 rounded inline-block whitespace-pre-wrap">CEZA: {item.penalty}</p>}
+                                {item.penalty && (
+                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                        <p className={`text-red-600 font-bold text-[10px] bg-red-50 p-1 rounded inline-block whitespace-pre-wrap ${item.appealStatus === 'accepted' || item.appealStatus === 'partially_accepted' ? 'line-through opacity-65' : ''}`}>
+                                            CEZA: {item.penalty}
+                                        </p>
+                                        {item.appealStatus && item.appealStatus !== 'none' && (
+                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border uppercase ${
+                                                item.appealStatus === 'accepted' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                item.appealStatus === 'partially_accepted' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                item.appealStatus === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                'bg-blue-50 text-blue-700 border-blue-200'
+                                            }`}>
+                                                {item.appealStatus === 'accepted' ? `Tahkim: İptal` :
+                                                 item.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${item.appealedPenalty})` :
+                                                 item.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <div className='flex flex-col gap-1 ml-2 shrink-0'>
                                 <button onClick={() => handleDelete(item.id)} className="text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity px-2 hover:bg-red-50 rounded text-left">Sil</button>
@@ -2050,5 +2151,279 @@ export const RefereeStatsForm = ({ apiKey, authToken, season }: BaseProps & { se
                 Karneyi Kaydet
             </button>
         </form>
+    );
+};
+
+interface BulkTahkimImportProps extends BaseProps {
+    season?: string;
+    onSuccess?: () => void;
+}
+
+export const BulkTahkimImport = ({ apiKey, authToken, season, onSuccess }: BulkTahkimImportProps) => {
+    const [bulkText, setBulkText] = useState('');
+    const [parsedAppeals, setParsedAppeals] = useState<ParsedAppeal[]>([]);
+    const [teamActions, setTeamActions] = useState<Record<string, DisciplinaryAction[]>>({});
+    const [selectedMatches, setSelectedMatches] = useState<Record<number, string>>({});
+    const [checkedAppeals, setCheckedAppeals] = useState<Record<number, boolean>>({});
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    const handleParse = async () => {
+        if (!bulkText.trim()) {
+            return toast.warning('Lütfen Tahkim karar metnini yapıştırın.');
+        }
+
+        setLoading(true);
+        try {
+            const { parseTahkimText } = await import('@/lib/tahkimParser');
+            const appeals = parseTahkimText(bulkText);
+
+            if (appeals.length === 0) {
+                toast.error('Metinden herhangi bir itiraz kararı ayrıştırılamadı.');
+                setLoading(false);
+                return;
+            }
+
+            setParsedAppeals(appeals);
+
+            // Fetch team disciplinary actions
+            const { collection, getDocs, query, where } = await import('firebase/firestore');
+            const { db } = await import('@/firebase/client');
+
+            const uniqueTeamIds = Array.from(new Set(appeals.map(a => a.teamId)));
+            const actionsMap: Record<string, DisciplinaryAction[]> = {};
+
+            for (const tId of uniqueTeamIds) {
+                const q = query(
+                    collection(db, 'disciplinary_actions'),
+                    where('teamId', '==', tId)
+                );
+                const snap = await getDocs(q);
+                const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DisciplinaryAction));
+                // Sort by date descending
+                docs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                actionsMap[tId] = docs;
+            }
+
+            setTeamActions(actionsMap);
+
+            // Auto match
+            const initialMatches: Record<number, string> = {};
+            const initialChecked: Record<number, boolean> = {};
+
+            appeals.forEach((appeal, index) => {
+                const actions = actionsMap[appeal.teamId] || [];
+                const normAppealSub = appeal.subject.toLowerCase().trim();
+
+                // Find the best match
+                let bestMatchId = 'none';
+                
+                const matchedAction = actions.find(action => {
+                    if (action.type === 'performance') return false;
+                    const normActionSub = action.subject.toLowerCase().trim();
+                    if (normAppealSub === 'kulüp') {
+                        return normActionSub === 'kulüp';
+                    }
+                    return (
+                        normActionSub.includes(normAppealSub) || 
+                        normAppealSub.includes(normActionSub) ||
+                        normActionSub.split(' ').some(part => part.length > 2 && normAppealSub.includes(part))
+                    );
+                });
+
+                if (matchedAction) {
+                    bestMatchId = matchedAction.id;
+                    initialChecked[index] = true;
+                } else {
+                    initialChecked[index] = false;
+                }
+
+                initialMatches[index] = bestMatchId;
+            });
+
+            setSelectedMatches(initialMatches);
+            setCheckedAppeals(initialChecked);
+            toast.success(`${appeals.length} itiraz kararı başarıyla ayrıştırıldı.`);
+        } catch (err) {
+            console.error(err);
+            toast.error('Ayrıştırma veya veritabanı sorgulama sırasında hata oluştu.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        const toSave = parsedAppeals.filter((_, idx) => checkedAppeals[idx] && selectedMatches[idx] !== 'none');
+        if (toSave.length === 0) {
+            return toast.warning('Kaydedilecek veya eşleşen geçerli bir karar seçilmedi.');
+        }
+
+        setSaving(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let idx = 0; idx < parsedAppeals.length; idx++) {
+            if (!checkedAppeals[idx] || selectedMatches[idx] === 'none') continue;
+
+            const appeal = parsedAppeals[idx];
+            const actionId = selectedMatches[idx];
+            const originalAction = teamActions[appeal.teamId]?.find(a => a.id === actionId);
+
+            if (!originalAction) continue;
+
+            const updatedAction: DisciplinaryAction = {
+                ...originalAction,
+                appealStatus: appeal.appealStatus,
+                appealedPenalty: appeal.appealedPenalty,
+                appealNote: appeal.appealNote,
+                appealDate: appeal.appealDate
+            };
+
+            // clean appealed penalty
+            if (updatedAction.appealedPenalty) {
+                let p = updatedAction.appealedPenalty.replace(/^Ceza:\s*/i, '');
+                p = p.replace(/(\d+)\s*\.-\s*TL/g, '$1 TL');
+                updatedAction.appealedPenalty = p.trim();
+            }
+
+            try {
+                const res = await fetch('/api/admin/disciplinary', {
+                    method: 'POST', // POST acts as UPSERT/set merge in our route
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-key': apiKey,
+                        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                    },
+                    body: JSON.stringify(updatedAction),
+                });
+
+                if (res.ok) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } catch (err) {
+                console.error(err);
+                failCount++;
+            }
+        }
+
+        setSaving(false);
+        if (successCount > 0) {
+            toast.success(`${successCount} ceza kaydı Tahkim kararları ile başarıyla güncellendi! ✅`);
+            if (failCount > 0) {
+                toast.warning(`${failCount} güncelleme başarısız oldu.`);
+            }
+            // Clear state
+            setParsedAppeals([]);
+            setBulkText('');
+            if (onSuccess) onSuccess();
+        } else {
+            toast.error('Güncelleme işlemi başarısız oldu.');
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-xl">
+                <h4 className="text-white font-bold mb-2 flex items-center gap-2 overflow-hidden text-sm">
+                    <span className="bg-indigo-600 p-1 rounded">⚖️</span> TOPLU TAHKİM KARARLARI GİRİŞİ (Bülten Ayrıştırıcı)
+                </h4>
+                <textarea
+                    className="w-full h-32 bg-slate-800 border border-slate-700 rounded-lg p-3 text-xs text-indigo-100 font-mono focus:ring-2 focus:ring-indigo-500 mb-2 outline-none"
+                    placeholder="TFF Tahkim Kurulu kararları metnini buraya yapıştırın..."
+                    value={bulkText}
+                    onChange={e => setBulkText(e.target.value)}
+                />
+                <button
+                    onClick={handleParse}
+                    disabled={loading}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2 rounded-lg text-xs transition-transform active:scale-95 disabled:opacity-50"
+                >
+                    {loading ? 'AYRIŞTIRILIYOR VE EŞLEŞTİRİLİYOR...' : 'BÜLTENİ AYRIŞTIR'}
+                </button>
+            </div>
+
+            {parsedAppeals.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center sticky top-0 z-10">
+                        <h4 className="font-bold text-sm uppercase text-slate-700">Ayrıştırılan ve Eşleşen İtirazlar ({parsedAppeals.length})</h4>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded font-black text-xs shadow-sm transition-transform active:scale-95 disabled:opacity-50"
+                        >
+                            {saving ? 'KAYDEDİLİYOR...' : 'SEÇİLEN DEĞİŞİKLİKLERİ UYGULA'}
+                        </button>
+                    </div>
+
+                    <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
+                        {parsedAppeals.map((appeal, index) => {
+                            const actions = teamActions[appeal.teamId] || [];
+                            const selectedVal = selectedMatches[index] || 'none';
+                            const isChecked = checkedAppeals[index] || false;
+
+                            return (
+                                <div key={index} className={`p-4 hover:bg-slate-50/50 transition-colors flex gap-3 items-start ${!isChecked ? 'opacity-60' : ''}`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={e => setCheckedAppeals({ ...checkedAppeals, [index]: e.target.checked })}
+                                        className="mt-1 cursor-pointer"
+                                    />
+                                    
+                                    <div className="flex-1 space-y-2">
+                                        <div className="flex justify-between items-start flex-wrap gap-1">
+                                            <div>
+                                                <span className="font-extrabold text-slate-900 text-xs bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5 mr-2">
+                                                    {appeal.teamName}
+                                                </span>
+                                                <span className="font-bold text-slate-800 text-xs">
+                                                    Özne: {appeal.subject}
+                                                </span>
+                                            </div>
+                                            
+                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border uppercase ${
+                                                appeal.appealStatus === 'accepted' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                appeal.appealStatus === 'partially_accepted' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                appeal.appealStatus === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                'bg-blue-50 text-blue-700 border-blue-200'
+                                            }`}>
+                                                {appeal.appealStatus === 'accepted' ? 'Tahkim: İptal' :
+                                                 appeal.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${appeal.appealedPenalty})` :
+                                                 appeal.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                                            </span>
+                                        </div>
+
+                                        <p className="text-[10px] text-slate-500 font-mono bg-slate-50 p-1.5 rounded border border-slate-100">
+                                            {appeal.appealNote}
+                                        </p>
+
+                                        {/* Matching dropdown */}
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Veritabanındaki PFDK Sevk/Ceza Kaydı Eşleşmesi</label>
+                                            <select
+                                                value={selectedVal}
+                                                onChange={e => setSelectedMatches({ ...selectedMatches, [index]: e.target.value })}
+                                                className={`text-xs border p-1.5 rounded w-full bg-white font-medium ${
+                                                    selectedVal === 'none' ? 'border-rose-300 text-rose-600' : 'border-slate-300 text-slate-700'
+                                                }`}
+                                            >
+                                                <option value="none">-- Eşleşme Yok (Es geç veya manuel seç) --</option>
+                                                {actions.map(action => (
+                                                    <option key={action.id} value={action.id}>
+                                                        [{action.date}] {action.subject} - {action.penalty || 'Ceza Yok/Sevk'} ({action.reason.substring(0, 40)}...)
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };

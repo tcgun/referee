@@ -37,7 +37,7 @@ const BaseTemplate: React.FC<BaseTemplateProps> = ({
     const isLandscape = preset.width > preset.height;
 
     // Tema Renkleri
-    const THEMES: Record<string, any> = {
+    const THEMES: Record<string, { bg: string; darkBg: string; text: string; vYellow: string }> = {
         varsayim: {
             bg: "#FDF6E3",
             darkBg: "#000000",
@@ -80,7 +80,7 @@ const BaseTemplate: React.FC<BaseTemplateProps> = ({
                         ) : (
                             <div className="w-full h-full bg-slate-900" />
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                        <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent" />
                     </>
                 ) : (
                     <>
@@ -101,7 +101,7 @@ const BaseTemplate: React.FC<BaseTemplateProps> = ({
 
             {/* LOGO (Right Top) */}
             {showLogo && showBrandingHeader && (
-                <div className={`absolute ${isLandscape ? 'top-4 right-4' : 'top-6 right-6'} z-[60]`}>
+                <div className={`absolute ${isLandscape ? 'top-4 right-4' : 'top-6 right-6'} z-60`}>
                     <div className="bg-[#FFD700] text-black border-[3px] border-black shadow-[4px_4px_15px_rgba(255,0,150,0.4)] px-8 py-3">
                         <span className="text-4xl font-black tracking-tighter uppercase text-black leading-none select-none">
                             VARSAYIM
@@ -142,7 +142,7 @@ const BaseTemplate: React.FC<BaseTemplateProps> = ({
                                 { key: 'facebook', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg> },
                                 { key: 'youtube', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg> }
                             ].map((handle) => {
-                                const value = (handles as any)[handle.key];
+                                const value = (handles as Record<string, string>)[handle.key];
                                 if (!value) return null;
                                 return (
                                     <div key={handle.key} className="flex items-center gap-2 grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all">

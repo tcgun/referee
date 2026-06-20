@@ -70,7 +70,17 @@ export default function TeamPage() {
         return new Intl.NumberFormat('tr-TR').format(val) + " TL";
     };
 
-    const totalFine = actions.reduce((sum, act) => sum + parsePenalty(act.penalty || ''), 0);
+    const getFinalPenalty = (act: DisciplinaryAction) => {
+        if (act.appealStatus === 'accepted') {
+            return '';
+        }
+        if (act.appealStatus === 'partially_accepted' && act.appealedPenalty) {
+            return act.appealedPenalty;
+        }
+        return act.penalty || '';
+    };
+
+    const totalFine = actions.reduce((sum, act) => sum + parsePenalty(getFinalPenalty(act)), 0);
 
     if (loading) {
         return (
@@ -232,10 +242,34 @@ export default function TeamPage() {
                                     </div>
 
                                     {act.penalty && (
-                                        <div className="bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl">
-                                            <span className="text-red-500 text-xs font-black uppercase tracking-wider">
-                                                ⚠️ Ceza: {act.penalty}
-                                            </span>
+                                        <div className="bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl flex flex-wrap items-center gap-2 justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-red-500 text-xs font-black uppercase tracking-wider ${act.appealStatus === 'accepted' || act.appealStatus === 'partially_accepted' ? 'line-through opacity-60' : ''}`}>
+                                                    ⚠️ Ceza: {act.penalty}
+                                                </span>
+                                                {act.appealStatus && act.appealStatus !== 'none' && (
+                                                    <span className={`text-[9px] font-black px-2 py-1 rounded border uppercase tracking-wider ${
+                                                        act.appealStatus === 'accepted' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                        act.appealStatus === 'partially_accepted' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                        act.appealStatus === 'rejected' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                                                        'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                    }`}>
+                                                        {act.appealStatus === 'accepted' ? 'Tahkim: İptal' :
+                                                         act.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${act.appealedPenalty})` :
+                                                         act.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {act.appealStatus && act.appealStatus !== 'none' && act.appealNote && (
+                                        <div className="bg-indigo-950/20 border border-indigo-500/10 rounded-xl p-4 text-xs text-gray-400 font-medium leading-relaxed mt-1">
+                                            <div className="font-bold text-indigo-400 mb-1 flex items-center justify-between">
+                                                <span>⚖️ Tahkim Kurulu Kararı</span>
+                                                {act.appealDate && <span className="text-[9px] text-zinc-500">{act.appealDate}</span>}
+                                            </div>
+                                            {act.appealNote}
                                         </div>
                                     )}
 

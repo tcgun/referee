@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { useStore } from "../store/useStore";
 import { PRESETS } from "../types";
 import BaseTemplate from "./common/BaseTemplate";
@@ -16,7 +16,6 @@ const Template3: React.FC<Props> = ({ domRef }) => {
         officials,
         showMatchInfo,
         matchWeek,
-        separator,
         date,
         showVar,
         showAvar,
@@ -29,7 +28,6 @@ const Template3: React.FC<Props> = ({ domRef }) => {
     const ratio = preset.height / preset.width;
 
     const isTall = ratio > 1.5;     // 9:16
-    const isPortrait = ratio > 1.1; // 4:5
     const isWide = ratio < 1;       // 16:9
 
     const multiplier = fontSizeMultiplier || 1;
@@ -66,12 +64,12 @@ const Template3: React.FC<Props> = ({ domRef }) => {
         <BaseTemplate domRef={domRef} showBrandingHeader={true} showBrandingBar={true}>
             {/* ARKAPLAN GRADYANI (Görseldeki gibi merkezden parlayan karanlık) */}
             <div className="absolute inset-0 bg-[#0a0a0a] z-0">
-                <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a1a] via-[#0a0a0a] to-[#050505]" />
+                <div className="absolute inset-0 bg-linear-to-b from-[#1a1a1a] via-[#0a0a0a] to-[#050505]" />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[radial-gradient(circle_at_center,rgba(255,215,0,0.03)_0%,transparent_70%)]" />
             </div>
 
             {/* ÜST SOL: BAŞLIK VE MAÇ BİLGİSİ */}
-            <div className="absolute top-0 left-0 p-4 z-[60] flex flex-col items-start gap-2">
+            <div className="absolute top-0 left-0 p-4 z-60 flex flex-col items-start gap-2">
                 <div className="bg-[#FFD700] text-black border-[3px] border-black px-6 py-2 shadow-[4px_4px_0px_#000]">
                     <span
                         style={{ fontSize: `${mainTitlePx}px` }}
@@ -119,7 +117,7 @@ const Template3: React.FC<Props> = ({ domRef }) => {
                         <h2 style={{ fontSize: `${mainRefereePx}px` }} className="text-white font-black uppercase italic tracking-tighter leading-none drop-shadow-[0_10px_15px_rgba(0,0,0,0.8)]">
                             {officials.referee?.name || "İSİMSİZ HAKEM"}
                         </h2>
-                        <div className="w-4/5 h-[2px] bg-gradient-to-r from-transparent via-white/20 to-transparent mt-8" />
+                        <div className="w-4/5 h-[2px] bg-linear-to-r from-transparent via-white/20 to-transparent mt-8" />
                     </div>
 
                     {/* YARDIMCILAR */}
@@ -157,7 +155,7 @@ const Template3: React.FC<Props> = ({ domRef }) => {
                 <div className="w-full max-w-6xl grid grid-cols-2 gap-4 mt-auto mb-12">
                     {/* VAR BOX (Görseldeki koyu gri-siyah kutular) */}
                     {showVar && (
-                        <div className="bg-[#111] border-[1px] border-white/10 p-5 flex flex-col items-center justify-center text-center shadow-2xl min-h-[140px] rounded-sm">
+                        <div className="bg-[#111] border border-white/10 p-5 flex flex-col items-center justify-center text-center shadow-2xl min-h-[140px] rounded-sm">
                             <span style={{ fontSize: `${boxLabelPx}px` }} className="text-[#FF0096] font-black uppercase tracking-[0.3em] mb-3 drop-shadow-sm">VAR HAKEMİ</span>
                             <span style={{ fontSize: `${boxNamePx}px` }} className="text-white font-bold uppercase italic tracking-tighter leading-tight drop-shadow-md">
                                 {officials.var?.name || "-"}
@@ -166,7 +164,7 @@ const Template3: React.FC<Props> = ({ domRef }) => {
                     )}
                     {/* AVAR BOX */}
                     {showAvar && (
-                        <div className="bg-[#111] border-[1px] border-white/10 p-5 flex flex-col items-center justify-center text-center shadow-2xl min-h-[140px] rounded-sm">
+                        <div className="bg-[#111] border border-white/10 p-5 flex flex-col items-center justify-center text-center shadow-2xl min-h-[140px] rounded-sm">
                             <span style={{ fontSize: `${boxLabelPx}px` }} className="text-[#FF0096] font-black uppercase tracking-[0.3em] mb-3 drop-shadow-sm">AVAR HAKEMİ</span>
                             <span style={{ fontSize: `${boxNamePx}px` }} className="text-white font-bold uppercase italic tracking-tighter leading-tight drop-shadow-md">
                                 {officials.avar?.name || "-"}
@@ -175,7 +173,7 @@ const Template3: React.FC<Props> = ({ domRef }) => {
                     )}
                     {/* GÖZLEMCİ BOX */}
                     {showObserver && (
-                        <div className="bg-[#111] border-[1px] border-white/10 p-5 flex flex-col items-center justify-center text-center shadow-2xl min-h-[140px] rounded-sm">
+                        <div className="bg-[#111] border border-white/10 p-5 flex flex-col items-center justify-center text-center shadow-2xl min-h-[140px] rounded-sm">
                             <span style={{ fontSize: `${boxLabelPx}px` }} className="text-[#FFD700] font-black uppercase tracking-[0.3em] mb-3 opacity-90">GÖZLEMCİ</span>
                             <span style={{ fontSize: `${boxNamePx}px` }} className="text-white font-bold uppercase italic tracking-tighter leading-tight drop-shadow-md">
                                 {officials.observer?.name || "-"}
@@ -184,7 +182,7 @@ const Template3: React.FC<Props> = ({ domRef }) => {
                     )}
                     {/* TEMSİLCİ BOX */}
                     {showRepresentative && (
-                        <div className="bg-[#111] border-[1px] border-white/10 p-5 flex flex-col items-center justify-center text-center shadow-2xl min-h-[140px] rounded-sm">
+                        <div className="bg-[#111] border border-white/10 p-5 flex flex-col items-center justify-center text-center shadow-2xl min-h-[140px] rounded-sm">
                             <span style={{ fontSize: `${boxLabelPx}px` }} className="text-[#FFD700] font-black uppercase tracking-[0.3em] mb-3 opacity-90">TEMSİLCİ</span>
                             <div className="flex flex-col items-center gap-1">
                                 {renderReps()}

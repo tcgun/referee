@@ -33,15 +33,16 @@ export default function AdminLoginPage() {
         try {
             await signInWithEmailAndPassword(auth, email, password);
             router.push('/admin-secret-panel');
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Login error:', err);
-            if (err.code === 'auth/invalid-credential') {
+            const firebaseErr = err as { code?: string; message?: string };
+            if (firebaseErr.code === 'auth/invalid-credential') {
                 setError('Geçersiz email veya şifre.');
-            } else if (err.code === 'auth/too-many-requests') {
+            } else if (firebaseErr.code === 'auth/too-many-requests') {
                 setError('Çok fazla başarısız deneme. Lütfen biraz bekleyin.');
             } else {
                 // Show actual error details for debugging
-                setError(`Hata: ${err.code} - ${err.message}`);
+                setError(`Hata: ${firebaseErr.code} - ${firebaseErr.message}`);
             }
         } finally {
             setLoading(false);
@@ -78,12 +79,12 @@ export default function AdminLoginPage() {
 
                 <div className="bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl overflow-hidden relative group">
                     {/* TOP ACCENT LINE */}
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50"></div>
+                    <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-primary to-transparent opacity-50"></div>
 
                     <form onSubmit={handleLogin} className="space-y-6">
                         {error && (
                             <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-xs font-bold flex items-center gap-3 animate-shake">
-                                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                <AlertCircle className="w-4 h-4 shrink-0" />
                                 {error}
                             </div>
                         )}

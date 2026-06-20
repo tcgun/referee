@@ -228,4 +228,8 @@ export interface DisciplinaryAction {
     group?: string; // Added for group grouping (A, B, C)
     note?: string; // Full legal text
     season?: string;
+    appealStatus?: 'none' | 'pending' | 'accepted' | 'rejected' | 'partially_accepted';
+    appealedPenalty?: string;
+    appealNote?: string;
+    appealDate?: string;
 }
