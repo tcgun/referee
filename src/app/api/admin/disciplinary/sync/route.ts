@@ -82,21 +82,26 @@ export async function POST(request: Request) {
                     competitionUpdated = true;
                 }
 
-                // C2. Backfill week field if missing
-                let week = data.week;
+                // C2. Backfill week field if missing or incorrect
+                let week = data.week !== undefined && data.week !== null ? data.week : null;
                 let weekUpdated = false;
-                if (!week) {
-                    if (matchId) {
+                if (!matchId) {
+                    if (week !== null) {
+                        week = null;
+                        weekUpdated = true;
+                    }
+                } else {
+                    if (week === null) {
                         const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
                         if (mDoc) {
                             week = mDoc.week || null;
                         }
-                    }
-                    if (!week && data.date) {
-                        week = findWeekByDate(data.date, matches);
-                    }
-                    if (week !== data.week) {
-                        weekUpdated = true;
+                        if (week === null && data.date) {
+                            week = findWeekByDate(data.date, matches);
+                        }
+                        if (week !== data.week) {
+                            weekUpdated = true;
+                        }
                     }
                 }
 

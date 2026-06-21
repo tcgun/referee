@@ -138,6 +138,7 @@ export default function DisciplinaryAnalysisPage() {
         teams: TeamStats[],
         weeklyTrend: WeeklyTrend[],
         subjectBreakdown: Record<string, number>,
+        categoryActions?: Record<string, Array<{ id: string; subject: string; teamName: string; penalty: string; date: string; reason: string; appealStatus?: string; appealedPenalty?: string }>>,
         leagueTotalFine: number,
         matchStats?: {
             mostFouledTeam: { name: string, count: number } | null;
@@ -150,9 +151,11 @@ export default function DisciplinaryAnalysisPage() {
     const [loadingTeams, setLoadingTeams] = useState(true);
     const [search, setSearch] = useState('');
     const [currentStatIndex, setCurrentStatIndex] = useState(0);
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
     useEffect(() => {
         if (activeTab !== 'teams') return;
+        setSelectedCategory(null);
         async function fetchStats() {
             try {
                 setLoadingTeams(true);
@@ -365,7 +368,7 @@ export default function DisciplinaryAnalysisPage() {
                                 <div className="grid grid-cols-1 gap-6">
                                     {sortedGroups.map(group => {
                                         const groupActions = groupMap[group];
-                                        const referralCount = groupActions.filter(a => !a.penalty).length;
+                                        const referralCount = groupActions.length;
                                         const penaltyCount = groupActions.filter(a => a.penalty).length;
                                         const firstAction = groupActions[0];
                                         const matchId = firstAction?.matchId?.replace(/^d-/, '');
@@ -509,14 +512,23 @@ export default function DisciplinaryAnalysisPage() {
                                             <h3 className="text-xs font-black uppercase tracking-widest text-primary mb-6 flex items-center gap-2">
                                                 <span className="w-2 h-2 rounded-full bg-primary"></span> SEVK KATEGORİLERİ
                                             </h3>
-                                            <div className="space-y-4">
+                                            <div className="space-y-2">
                                                 {Object.entries(teamsData.subjectBreakdown).sort((a, b) => b[1] - a[1]).map(([label, count]) => {
                                                     const total = Object.values(teamsData.subjectBreakdown).reduce((a, b) => a + b, 0);
                                                     const perc = total > 0 ? (count / total) * 100 : 0;
+                                                    const isSelected = selectedCategory === label;
                                                     return (
-                                                        <div key={label}>
+                                                        <div 
+                                                            key={label}
+                                                            onClick={() => setSelectedCategory(isSelected ? null : label)}
+                                                            className={`p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                                                                isSelected 
+                                                                    ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(255,255,0,0.1)]' 
+                                                                    : 'bg-transparent hover:bg-white/5 border-white/5'
+                                                            }`}
+                                                        >
                                                             <div className="flex justify-between text-[10px] font-black mb-1.5 uppercase tracking-tighter">
-                                                                <span>{label}</span>
+                                                                <span className={isSelected ? 'text-primary' : 'text-white'}>{label}</span>
                                                                 <span className="text-gray-500">{count} ADET</span>
                                                             </div>
                                                             <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
@@ -527,6 +539,42 @@ export default function DisciplinaryAnalysisPage() {
                                                 })}
                                             </div>
                                         </div>
+
+                                        {/* Category Details Card */}
+                                        {selectedCategory && teamsData?.categoryActions?.[selectedCategory] && (
+                                            <div className="bg-[#161b22] border-2 border-primary/40 rounded-2xl p-6 shadow-[0_0_20px_rgba(255,255,0,0.05)] animate-in fade-in slide-in-from-top-4 duration-300">
+                                                <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/10">
+                                                    <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                                        <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span> {selectedCategory} SEVK DETAYI
+                                                    </h3>
+                                                    <button 
+                                                        onClick={() => setSelectedCategory(null)}
+                                                        className="text-[9px] font-black text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded border border-white/10 transition-colors uppercase"
+                                                    >
+                                                        KAPAT
+                                                     </button>
+                                                </div>
+                                                <div className="space-y-3.5 max-h-96 overflow-y-auto pr-1 no-scrollbar">
+                                                    {teamsData.categoryActions[selectedCategory].length === 0 ? (
+                                                        <p className="text-center text-[10px] font-bold text-gray-500 py-4 uppercase">BU KATEGORİDE SEVK BULUNMUYOR.</p>
+                                                    ) : (
+                                                        teamsData.categoryActions[selectedCategory].map((item, idx) => (
+                                                            <div key={idx} className="bg-black/40 border border-white/5 p-3.5 rounded-xl flex flex-col gap-1.5 hover:border-white/10 transition-colors">
+                                                                 <div className="flex justify-between items-start gap-2">
+                                                                     <span className="text-xs font-black text-white uppercase tracking-tight">{item.subject}</span>
+                                                                     <span className="text-[8px] font-black px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary uppercase shrink-0">{cleanSponsorsInText(item.teamName)}</span>
+                                                                 </div>
+                                                                 <p className="text-[10px] text-gray-400 font-bold leading-relaxed">{item.reason}</p>
+                                                                 <div className="flex items-center justify-between mt-1 text-[10px] font-black text-red-500 border-t border-white/5 pt-1.5">
+                                                                     <span className="truncate pr-2">{item.penalty}</span>
+                                                                     <span className="text-gray-500 text-[8px] font-mono shrink-0">{item.date}</span>
+                                                                 </div>
+                                                             </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Weekly Trend */}
                                         <div className="bg-[#161b22] border-2 border-white/20 rounded-2xl p-6 shadow-neo-sm">

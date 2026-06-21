@@ -1,5 +1,6 @@
 import { SUPER_LIG_TEAMS, getTeamName, replaceTeamNamesWithSystemNames } from '@/lib/teams';
 import { normalizeTurkish } from '@/lib/turkishUtils';
+import { extractDate, parseCategoryFromText } from './pfdkParser';
 
 export interface ParsedAppeal {
     teamName: string;
@@ -9,6 +10,7 @@ export interface ParsedAppeal {
     appealedPenalty: string;
     appealNote: string;
     appealDate: string;
+    category?: string;
 }
 
 export function parseTahkimText(rawInput: string): ParsedAppeal[] {
@@ -16,20 +18,24 @@ export function parseTahkimText(rawInput: string): ParsedAppeal[] {
         return [];
     }
 
+    const defaultDate = extractDate(rawInput) || new Date().toISOString().split('T')[0];
+
     const paragraphs: string[] = [];
     let currentParagraph = "";
     
     for (const line of rawInput.split('\n')) {
         const trimmed = line.trim();
         if (!trimmed) {
-            if (currentParagraph) {
+            // Only split on blank lines if the current paragraph seems complete (ends with a period/punctuation)
+            const endsWithSentenceFinisher = /[.!?]['"’”)•“]?\s*$/.test(currentParagraph);
+            if (currentParagraph && endsWithSentenceFinisher) {
                 paragraphs.push(currentParagraph);
                 currentParagraph = "";
             }
             continue;
         }
         
-        const isNewClause = /^\d+[-.]/.test(trimmed);
+        const isNewClause = /^\d+[-.]/.test(trimmed) || /^[-•*]\s+/.test(trimmed);
         if (isNewClause && currentParagraph) {
             paragraphs.push(currentParagraph);
             currentParagraph = trimmed;
@@ -46,7 +52,6 @@ export function parseTahkimText(rawInput: string): ParsedAppeal[] {
     }
 
     const items: ParsedAppeal[] = [];
-    const todayStr = new Date().toISOString().split('T')[0];
 
     for (const p of paragraphs) {
         const normP = normalizeTurkish(p);
@@ -90,7 +95,7 @@ export function parseTahkimText(rawInput: string): ParsedAppeal[] {
 
         // 2. Resolve Subject (Person or Club)
         let subject = "Kulüp";
-        const subjectRegex = /(?:idarecisi|yöneticisi|başkanı|antrenörü|teknik sorumlusu|futbolcusu|sporcusu|görevlisi|masörü|teknik direktörü)\s+([A-ZÇĞİÖŞÜa-zçğıöşü\s’'-]{3,30})(?=['’’](?:nin|nın|nun|nün|in|ın|un|ün|i|ı|u|ü|a|e|den|dan|ta|te|da|de|la|le)\b)/i;
+        const subjectRegex = /(?:[iİıI]darec[iİıI]s[iİıI]|yönet[iİıI]c[iİıI]s[iİıI]|başkan[ıİiI]|antrenörü|tekn[iİıI]k\s+sorumlusu|tekn[iİıI]k\s+d[iİıI]rektörü|futbolcusu|sporcusu|görevl[iİıI]s[iİıI]|masörü)\s+([A-ZÇĞİÖŞÜa-zçğıöşü\s'-]{3,30})(?=['’’](?:nin|nın|nun|nün|in|ın|un|ün|i|ı|u|ü|a|e|den|dan|ta|te|da|de|la|le)\b)/i;
         const subMatch = p.match(subjectRegex);
         if (subMatch) {
             subject = subMatch[1].trim();
@@ -111,7 +116,8 @@ export function parseTahkimText(rawInput: string): ParsedAppeal[] {
         } else if (isRejected) {
             appealStatus = 'rejected';
         } else {
-            appealStatus = 'pending';
+            // It is an introduction/header paragraph, skip it
+            continue;
         }
 
         // 4. Resolve Appealed Penalty (for partially_accepted)
@@ -142,6 +148,8 @@ export function parseTahkimText(rawInput: string): ParsedAppeal[] {
             appealedPenalty = "İtiraz Reddedildi";
         }
 
+        const category = parseCategoryFromText(p, subject);
+
         items.push({
             teamName,
             teamId,
@@ -149,7 +157,8 @@ export function parseTahkimText(rawInput: string): ParsedAppeal[] {
             appealStatus,
             appealedPenalty,
             appealNote: replaceTeamNamesWithSystemNames(p),
-            appealDate: todayStr
+            appealDate: defaultDate,
+            category
         });
     }
 

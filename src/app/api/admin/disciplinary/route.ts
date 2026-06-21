@@ -62,18 +62,16 @@ export async function POST(request: Request) {
         const uniqueSuffix = uuidv4().slice(0, 4);
         const id = data.id || `d-${matchId.replace('d-', '')}-${subjectSlug}-${uniqueSuffix}`;
 
-        let finalWeek = data.week ?? null;
+        let finalWeek = data.week !== undefined && data.week !== null ? data.week : null;
 
         if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-            if (!finalWeek) {
+            if (finalWeek === null && matchId) {
                 const matches = await getCachedMatches();
-                if (matchId) {
-                    const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
-                    if (mDoc) {
-                        finalWeek = mDoc.week || null;
-                    }
+                const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
+                if (mDoc) {
+                    finalWeek = mDoc.week || null;
                 }
-                if (!finalWeek && data.date) {
+                if (finalWeek === null && data.date) {
                     finalWeek = findWeekByDate(data.date, matches);
                 }
             }
@@ -115,15 +113,13 @@ export async function POST(request: Request) {
         }
 
         const firestore = getAdminDb();
-        if (!finalWeek) {
+        if (finalWeek === null && matchId) {
             const matches = await getCachedMatches();
-            if (matchId) {
-                const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
-                if (mDoc) {
-                    finalWeek = mDoc.week || null;
-                }
+            const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
+            if (mDoc) {
+                finalWeek = mDoc.week || null;
             }
-            if (!finalWeek && data.date) {
+            if (finalWeek === null && data.date) {
                 finalWeek = findWeekByDate(data.date, matches);
             }
         }
@@ -166,13 +162,44 @@ export async function DELETE(request: Request) {
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
         const deleteAll = searchParams.get('all') === 'true' || id === 'all';
+        const clearAppeals = searchParams.get('clearAppeals') === 'true';
 
-        if (!id && !deleteAll) {
+        if (!id && !deleteAll && !clearAppeals) {
             return NextResponse.json({ error: 'ID is required' }, { status: 400 });
         }
 
         if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-            if (deleteAll) {
+            if (clearAppeals) {
+                const actions = await getCachedDisciplinaryActions();
+                const updated = actions.map(a => ({
+                    ...a,
+                    appealStatus: 'none',
+                    appealedPenalty: '',
+                    appealNote: '',
+                    appealDate: ''
+                }));
+                writeLocalDisciplinary(updated as unknown as DisciplinaryAction[]);
+                try {
+                    const firestore = getAdminDb();
+                    const snap = await firestore.collection('disciplinary_actions').get();
+                    const batch = firestore.batch();
+                    snap.docs.forEach(doc => {
+                        batch.update(doc.ref, {
+                            appealStatus: 'none',
+                            appealedPenalty: '',
+                            appealNote: '',
+                            appealDate: ''
+                        });
+                    });
+                    await batch.commit();
+                } catch (dbErr: unknown) {
+                    console.error('Failed to clear live Firestore appeals in mock mode:', dbErr);
+                    return NextResponse.json({
+                        error: 'Mock mode local clear succeeded, but Firestore update failed',
+                        message: dbErr instanceof Error ? dbErr.message : String(dbErr)
+                    }, { status: 500 });
+                }
+            } else if (deleteAll) {
                 writeLocalDisciplinary([]);
                 try {
                     const firestore = getAdminDb();
@@ -210,7 +237,19 @@ export async function DELETE(request: Request) {
 
         const firestore = getAdminDb();
         try {
-            if (deleteAll) {
+            if (clearAppeals) {
+                const snap = await firestore.collection('disciplinary_actions').get();
+                const batch = firestore.batch();
+                snap.docs.forEach(doc => {
+                    batch.update(doc.ref, {
+                        appealStatus: 'none',
+                        appealedPenalty: '',
+                        appealNote: '',
+                        appealDate: ''
+                    });
+                });
+                await batch.commit();
+            } else if (deleteAll) {
                 const snap = await firestore.collection('disciplinary_actions').get();
                 const batch = firestore.batch();
                 snap.docs.forEach(doc => {
@@ -223,9 +262,9 @@ export async function DELETE(request: Request) {
             invalidateCache();
             return NextResponse.json({ success: true });
         } catch (dbError: unknown) {
-            console.error('Firestore Delete Error:', dbError);
+            console.error('Firestore Delete/Clear Error:', dbError);
             return NextResponse.json({
-                error: 'Database deletion failed',
+                error: 'Database operation failed',
                 message: dbError instanceof Error ? dbError.message : String(dbError)
             }, { status: 500 });
         }

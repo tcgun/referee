@@ -59,6 +59,20 @@ describe('PFDK Parser Tests', () => {
             referee: 'Zorbay Küçük',
             varReferee: 'Mustafa İlker Coşkun',
             competition: 'league'
+        },
+        {
+            id: 'week1-fb-ts-2025-08-09',
+            homeTeamId: 'fb',
+            awayTeamId: 'ts',
+            homeTeamName: 'Fenerbahçe',
+            awayTeamName: 'Trabzonspor',
+            date: '2025-08-09T19:00:00.000Z',
+            week: 1,
+            season: '2025-2026',
+            stadium: 'Şükrü Saracoğlu',
+            referee: 'Kadir Sağlam',
+            varReferee: 'Hakan Ceylan',
+            competition: 'league'
         }
     ];
 
@@ -79,13 +93,15 @@ describe('PFDK Parser Tests', () => {
 
         6- TÜMOSAN KONYASPOR Kulübü idarecisi CELALETTİN HAKAN KATIRCI’nın, 10.08.2025 tarihinde oynanan İKAS EYÜPSPOR-TÜMOSAN KONYASPOR müsabakasında akredite edilmediği yeşil zeminde bulunmasından dolayı talimatlara aykırılık nedeniyle FDT’nin 46/1. maddesi uyarınca 40.000.-TL PARA CEZASI ile cezalandırılmasına,
 
+        8- FENERBAHÇE A.Ş.’nin, 09.08.2025 tarihinde Kulüp resmi internet sitesinde yapılan paylaşımda yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamalar nedeniyle FDT’nin 38/1-b maddesi uyarınca 2.700.000.-TL PARA CEZASI ile cezalandırılmasına,
+
         9- EMİNEVİM ÜMRANİYESPOR Kulübünün, 08.08.2025 tarihinde oynanan EMİNEVİM ÜMRANİYESPOR-MANİSA FUTBOL KULÜBÜ Trendyol 1. Lig müsabakasında, akreditasyon sisteminin işletilmemesinden dolayı talimatlara aykırılık nedeniyle FDT’nin 46/1. maddesi uyarınca 110.000.-TL PARA CEZASI ile cezalandırılmasına,
         `;
 
         const result = parsePfdkText(rawText, mockMatches);
 
         // Should ignore Ümraniyespor (1. Lig team not in registered teams)
-        expect(result.length).toBe(6);
+        expect(result.length).toBe(7);
 
         // Gaziantep FK Saha Olayları
         expect(result[0].teamId).toBe('gaz');
@@ -93,36 +109,50 @@ describe('PFDK Parser Tests', () => {
         expect(result[0].penalty).toBe('220.000 TL Para Cezası');
         expect(result[0].matchId).toBe('week1-gaz-gal-2025-08-08');
         expect(result[0].week).toBe(1);
+        expect(result[0].category).toBe('KULÜP');
 
         // Gaziantep FK Kart Bloke (Aynı Müsabaka)
         expect(result[1].teamId).toBe('gaz');
         expect(result[1].subject).toBe('Kulüp');
         expect(result[1].penalty).toContain('Kart Bloke (GÜNEY KALE ARKASI ALT TRİBÜN D blok');
         expect(result[1].matchId).toBe('week1-gaz-gal-2025-08-08');
+        expect(result[1].category).toBe('KULÜP');
 
         // Galatasaray Saha Olayları
         expect(result[2].teamId).toBe('gal');
         expect(result[2].subject).toBe('Kulüp');
         expect(result[2].penalty).toBe('220.000 TL Para Cezası');
         expect(result[2].matchId).toBe('week1-gaz-gal-2025-08-08');
+        expect(result[2].category).toBe('KULÜP');
 
         // Gençlerbirliği Rıfat Songür
         expect(result[3].teamId).toBe('gen');
         expect(result[3].subject).toBe('RIFAT SONGÜR');
         expect(result[3].penalty).toBe('40.000 TL Para Cezası');
         expect(result[3].matchId).toBe('week1-sam-gen-2025-08-09');
+        expect(result[3].category).toBe('İDARECİ');
 
         // Kasımpaşa Özgür Öçal
         expect(result[4].teamId).toBe('kas');
         expect(result[4].subject).toBe('ÖZGÜR ÖÇAL');
         expect(result[4].penalty).toBe('40.000 TL Para Cezası');
         expect(result[4].matchId).toBe('week1-ant-kas-2025-08-09');
+        expect(result[4].category).toBe('TEKNİK SORUMLU');
 
         // Konyaspor Celalettin Hakan Katırcı
         expect(result[5].teamId).toBe('kon');
         expect(result[5].subject).toBe('CELALETTİN HAKAN KATIRCI');
         expect(result[5].penalty).toBe('40.000 TL Para Cezası');
         expect(result[5].matchId).toBe('week1-eyu-kon-2025-08-10');
+        expect(result[5].category).toBe('İDARECİ');
+
+        // Fenerbahçe Açıklamalar (Non-Match-Related)
+        expect(result[6].teamId).toBe('fen');
+        expect(result[6].subject).toBe('Kulüp');
+        expect(result[6].penalty).toBe('2.700.000 TL Para Cezası');
+        expect(result[6].matchId).toBe('');
+        expect(result[6].week).toBeUndefined();
+        expect(result[6].category).toBe('KULÜP');
 
         // Check cleaned note text
         expect(result[0].note).toContain('Gaziantep FK-Galatasaray SÜPER LİG müsabakasında');

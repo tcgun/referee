@@ -58,7 +58,7 @@ export async function GET(request: Request) {
             'FUTBOLCU': 0,
             'İDARECİ': 0,
             'TEKNİK SORUMLU': 0,
-            'DİĞER': 0
+            'KULÜP ÇALIŞANI': 0
         };
 
         const parsePenalty = (text: string): number => {
@@ -75,15 +75,57 @@ export async function GET(request: Request) {
             'cup': { totalFine: 0, referralCount: 0, penaltyCount: 0 }
         };
 
-        const detectSubjectType = (subject: string): string => {
+        const normalizeCategory = (role: string): string => {
+            const r = role.toLowerCase().trim();
+            if (r.includes('idareci') || r.includes('yönetici') || r.includes('başkan')) {
+                return 'İDARECİ';
+            }
+            if (r.includes('futbolcu') || r.includes('sporcu')) {
+                return 'FUTBOLCU';
+            }
+            if (r.includes('teknik') || r.includes('antrenör')) {
+                return 'TEKNİK SORUMLU';
+            }
+            if (r.includes('görevli') || r.includes('masör') || r.includes('fizyoterapist') || r.includes('doktor') || r.includes('çalışan') || r.includes('temsilci') || r.includes('personel')) {
+                return 'KULÜP ÇALIŞANI';
+            }
+            return r.toUpperCase()
+                .replace(/i/g, 'İ')
+                .replace(/ı/g, 'I')
+                .replace(/ğ/g, 'Ğ')
+                .replace(/ü/g, 'Ü')
+                .replace(/ş/g, 'Ş')
+                .replace(/ö/g, 'Ö')
+                .replace(/ç/g, 'Ç');
+        };
+
+        const detectSubjectType = (subject: string, note?: string): string => {
             const s = (subject || '').toUpperCase();
-            if (s.includes('KULÜBÜ') || s.includes('A.Ş.')) return 'KULÜP';
+            if (s === 'KULÜP' || s.includes('KULÜBÜ') || s.includes('A.Ş.')) return 'KULÜP';
+
+            if (note && subject) {
+                const normNote = note.toLowerCase();
+                const normSubject = subject.toLowerCase();
+                const escapedSubject = normSubject.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                const regex = new RegExp(`(?:\\b([a-zçğıöşüıİ]+(?:\\s+[a-zçğıöşüıİ]+){0,2})\\s+)?${escapedSubject}`, 'i');
+                const match = normNote.match(regex);
+                if (match && match[1]) {
+                    const role = match[1].trim();
+                    const cleanRole = role.replace(/^(?:ve|veya|ile|aynı|müsabakada|müsabakasında|sonrasında|tarihinde|tarihli)\s+/, '').trim();
+                    if (cleanRole && cleanRole.length > 2) {
+                        return normalizeCategory(cleanRole);
+                    }
+                }
+            }
+
             if (s.includes('İDARECİSİ') || s.includes('BAŞKANI') || s.includes('YÖNETİCİSİ')) return 'İDARECİ';
             if (s.includes('TEKNİK') || s.includes('ANTRENÖR')) return 'TEKNİK SORUMLU';
-            // "Kulüp" string'i genelde kulübe ait cezalarda subject olarak kullanılır
-            if (s === 'KULÜP' || s.length <= 3) return 'DİĞER';
+            if (s.includes('GÖREVLİSİ') || s.includes('MASÖRÜ') || s.includes('FİZYOTERAPİSTİ') || s.includes('DOKTORU') || s.includes('ÇALIŞANI') || s.includes('TEMSİLCİSİ')) return 'KULÜP ÇALIŞANI';
+
             return 'FUTBOLCU';
         };
+
+        const categoryActions: Record<string, Array<{ id: string; subject: string; teamName: string; penalty: string; date: string; reason: string; appealStatus?: string; appealedPenalty?: string }>> = {};
 
         actions.forEach((act) => {
             const team = act.teamName || 'DİĞER';
@@ -99,7 +141,7 @@ export async function GET(request: Request) {
             }
             
             const penaltyVal = parsePenalty(effectivePenaltyText);
-            const subType = detectSubjectType(act.subject || '');
+            const subType = act.category ? act.category.toUpperCase() : detectSubjectType(act.subject || '', act.note || '');
 
             // Global Competition Stats
             if (competitionStats[comp]) {
@@ -115,6 +157,21 @@ export async function GET(request: Request) {
 
             // Global Subject Breakdown
             subjectBreakdown[subType] = (subjectBreakdown[subType] || 0) + 1;
+
+            // Group by category action
+            if (!categoryActions[subType]) {
+                categoryActions[subType] = [];
+            }
+            categoryActions[subType].push({
+                id: act.id,
+                subject: act.subject || 'Bilinmiyor',
+                teamName: team,
+                penalty: effectivePenaltyText || 'Ceza Yok',
+                date: act.date,
+                reason: act.reason || '',
+                appealStatus: act.appealStatus,
+                appealedPenalty: act.appealedPenalty
+            });
 
             // Team Specific Stats
             if (!teamStats[team]) {
@@ -216,6 +273,7 @@ export async function GET(request: Request) {
                 .map(([week, total]) => ({ week: parseInt(week), total }))
                 .sort((a, b) => a.week - b.week),
             subjectBreakdown,
+            categoryActions,
             leagueTotalFine,
             cupTotalFine,
             competitionStats,

@@ -66,3 +66,55 @@ describe('validations - matchSchema', () => {
         expect(result.success).toBe(true);
     });
 });
+
+import { disciplinaryActionSchema } from './validations';
+
+describe('validations - disciplinaryActionSchema', () => {
+    const validBaseAction = {
+        id: 'action-1',
+        subject: 'Fenerbahçe',
+        reason: 'Sportmenliğe aykırı açıklama',
+        date: '2025-08-09',
+    };
+
+    it('should validate a valid base action', () => {
+        const result = disciplinaryActionSchema.safeParse(validBaseAction);
+        expect(result.success).toBe(true);
+    });
+
+    it('should allow null and undefined for optional fields', () => {
+        const actionWithNulls = {
+            ...validBaseAction,
+            week: null,
+            matchId: null,
+            teamName: null,
+            teamId: null,
+            type: null,
+            penalty: null,
+            note: null,
+            competition: null,
+            season: null,
+            appealStatus: null,
+            appealedPenalty: null,
+            appealNote: null,
+            appealDate: null,
+        };
+        const result = disciplinaryActionSchema.safeParse(actionWithNulls);
+        expect(result.success).toBe(true);
+    });
+
+    it('should allow empty strings or omission for optional fields', () => {
+        const actionWithEmptyStrings = {
+            ...validBaseAction,
+            teamName: '',
+            teamId: '',
+            appealStatus: '',
+            appealedPenalty: '',
+            appealNote: '',
+            appealDate: '',
+        };
+        const result = disciplinaryActionSchema.safeParse(actionWithEmptyStrings);
+        expect(result.success).toBe(true);
+    });
+});
+

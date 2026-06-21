@@ -24,24 +24,28 @@ describe('Tahkim Parser Tests', () => {
         expect(result[0].subject).toBe('CELALETTİN HAKAN KATIRCI');
         expect(result[0].appealStatus).toBe('accepted');
         expect(result[0].appealedPenalty).toBe('Ceza Kaldırıldı');
+        expect(result[0].appealDate).toBe('2025-08-21');
 
         // Gaziantep FK - Partially Accepted (Ceza İndirildi: 220k -> 110k)
         expect(result[1].teamId).toBe('gaz');
         expect(result[1].subject).toBe('Kulüp');
         expect(result[1].appealStatus).toBe('partially_accepted');
         expect(result[1].appealedPenalty).toBe('110.000 TL Para Cezası');
+        expect(result[1].appealDate).toBe('2025-08-21');
 
         // Galatasaray - Rejected (İtiraz Reddedildi)
         expect(result[2].teamId).toBe('gal');
         expect(result[2].subject).toBe('Kulüp');
         expect(result[2].appealStatus).toBe('rejected');
         expect(result[2].appealedPenalty).toBe('İtiraz Reddedildi');
+        expect(result[2].appealDate).toBe('2025-08-21');
 
         // Fenerbahçe Edin Dzeko - Partially Accepted (3 Maç Men -> 2 Maç Men)
         expect(result[3].teamId).toBe('fen');
         expect(result[3].subject).toBe('EDIN DZEKO');
         expect(result[3].appealStatus).toBe('partially_accepted');
         expect(result[3].appealedPenalty).toBe('2 Maç Men');
+        expect(result[3].appealDate).toBe('2025-08-21');
     });
 
     it('should parse Fenerbahçe specific appeal decisions correctly', () => {
@@ -57,26 +61,51 @@ describe('Tahkim Parser Tests', () => {
 
         const result = parseTahkimText(rawText);
 
-        // Result will be 4 elements: the intro paragraph (resolved as pending since it matches 'Fenerbahçe' but no clear status) and 3 decision bullet points.
-        // We are interested in the decision bullet points starting from index 1.
-        expect(result.length).toBe(4);
+        // Result will be 3 elements: the intro paragraph is skipped since it is not a decision, and only 3 decision bullet points are returned.
+        expect(result.length).toBe(3);
 
         // First decision: Saha Olayları - Rejected
+        expect(result[0].teamId).toBe('fen');
+        expect(result[0].subject).toBe('Kulüp');
+        expect(result[0].appealStatus).toBe('rejected');
+        expect(result[0].appealedPenalty).toBe('İtiraz Reddedildi');
+
+        // Second decision: Sportif Ekipman - Rejected
         expect(result[1].teamId).toBe('fen');
         expect(result[1].subject).toBe('Kulüp');
         expect(result[1].appealStatus).toBe('rejected');
         expect(result[1].appealedPenalty).toBe('İtiraz Reddedildi');
 
-        // Second decision: Sportif Ekipman - Rejected
+        // Third decision: Pedro Machado - Rejected
         expect(result[2].teamId).toBe('fen');
-        expect(result[2].subject).toBe('Kulüp');
+        expect(result[2].subject).toBe('Pedro Luis Ferreira Machado');
         expect(result[2].appealStatus).toBe('rejected');
         expect(result[2].appealedPenalty).toBe('İtiraz Reddedildi');
+    });
 
-        // Third decision: Pedro Machado - Rejected
-        expect(result[3].teamId).toBe('fen');
-        expect(result[3].subject).toBe('Pedro Luis Ferreira Machado');
-        expect(result[3].appealStatus).toBe('rejected');
-        expect(result[3].appealedPenalty).toBe('İtiraz Reddedildi');
+    it('should correctly parse appeal decisions with multi-line/blank-line copy-paste issues', () => {
+        const rawText = `
+        Fenerbahçe Futbol A.Ş.’nin ve İdarecisi Sertaç Komsuoğlu’nun PFDK’nın 14.08.2025 tarih ve E.2025-2026/7 - K.2025-2026/11 sayılı kararına itirazı incelendi. Yapılan müzakere neticesinde;
+
+        - Fenerbahçe Futbol A.Ş.’nin 09.08.2025 tarihinde Kulüp resmi internet sitesinde yapılan paylaşımda yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamalar nedeniyle FDT’nin 38/1-b maddesi uyarınca 2.700.000,00 TL para cezası ile cezalandırılmasına dair kararda sübut, hukuki niteleme ve cezanın tayini bakımından bir isabetsizlik bulunmadığı anlaşıldığından, başvurunun reddi ile kararın onanmasına, oybirliğiyle,
+
+        - Fenerbahçe Futbol A.Ş.’nin İdarecisi Sertaç Komsuoğlu’nun 09.08.2025 tarihinde Kulüp resmi internet sitesinde ve 10.08.2025 tarihinde SporX medya kuruluşunda paylaşılan beyanlarında yer alan Futbolun ve Kurumların İtibarını Zedelemeye
+
+        Yönelik Açıklamaları nedeniyle FDT’nin 38/1-a maddesi uyarınca 30 gün hak mahrumiyeti ve 3.000.000,00 TL para cezası ile cezalandırılmasına dair kararda ayrıntısı gerekçeli kararda açıklanacağı üzere aleyhe bozma yasağı gözetilerek kararın onanmasına, oyçokluğuyla,
+        `;
+
+        const result = parseTahkimText(rawText);
+        expect(result.length).toBe(2); // The header is skipped, leaving only the 2 actual decisions
+
+        // First decision: Kulüp - Rejected/Onaylandı
+        expect(result[0].subject).toBe('Kulüp');
+        expect(result[0].appealStatus).toBe('rejected');
+        expect(result[0].appealedPenalty).toBe('İtiraz Reddedildi');
+
+        // Second decision: Sertaç Komsuoğlu - Rejected/Onaylandı (should combine sections despite blank line)
+        expect(result[1].subject).toBe('Sertaç Komsuoğlu');
+        expect(result[1].appealStatus).toBe('rejected');
+        expect(result[1].appealedPenalty).toBe('İtiraz Reddedildi');
     });
 });
+

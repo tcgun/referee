@@ -347,7 +347,8 @@ export const StatementForm = ({ apiKey, authToken, season }: BaseProps & { seaso
                     setStatement({ title: '', content: '', entity: '', type: 'tff', date: new Date().toISOString().split('T')[0] });
                 }
             } else {
-                toast.error('Hata: İşlem başarısız.');
+                const errData = await res.json().catch(() => ({}));
+                toast.error(`Hata: ${errData.error || 'İşlem başarısız.'}`);
             }
         } catch {
             toast.error('Bağlantı Hatası');
@@ -903,6 +904,7 @@ interface ParsedAction {
     note: string;
     matchedMatch?: Match;
     selected: boolean;
+    category?: string;
 }
 
 interface BulkPfdkImportProps extends BaseProps {
@@ -977,6 +979,7 @@ export const BulkPfdkImport = ({ apiKey, authToken, season, onSuccess, onCancel 
 
         let successCount = 0;
         let failCount = 0;
+        let lastErrorMsg = '';
 
         for (let i = 0; i < selectedItems.length; i++) {
             const item = selectedItems[i];
@@ -1000,7 +1003,8 @@ export const BulkPfdkImport = ({ apiKey, authToken, season, onSuccess, onCancel 
                     competition: item.competition,
                     note: item.note,
                     type: 'pfdk',
-                    season: season || '2025-2026'
+                    season: season || '2025-2026',
+                    category: item.category
                 };
 
                 const res = await fetch('/api/admin/disciplinary', {
@@ -1017,10 +1021,14 @@ export const BulkPfdkImport = ({ apiKey, authToken, season, onSuccess, onCancel 
                     successCount++;
                 } else {
                     failCount++;
+                    const errData = await res.json().catch(() => ({}));
+                    lastErrorMsg = errData.error || `Status ${res.status}`;
+                    console.error('Failed to save item:', item, errData);
                 }
             } catch (err) {
                 console.error('Error saving item:', item, err);
                 failCount++;
+                lastErrorMsg = err instanceof Error ? err.message : String(err);
             }
         }
 
@@ -1030,13 +1038,13 @@ export const BulkPfdkImport = ({ apiKey, authToken, season, onSuccess, onCancel 
         if (successCount > 0) {
             toast.success(`${successCount} ceza kararı başarıyla kaydedildi!`);
             if (failCount > 0) {
-                toast.warning(`${failCount} karar kaydedilemedi, lütfen kontrol edin.`);
+                toast.warning(`${failCount} karar kaydedilemedi: ${lastErrorMsg}`);
             }
             setParsedItems([]);
             setRawInput('');
             if (onSuccess) onSuccess();
         } else {
-            toast.error('Kararlar kaydedilemedi. Bir hata oluştu.');
+            toast.error(`Kararlar kaydedilemedi. Bir hata oluştu: ${lastErrorMsg}`);
         }
     };
 
@@ -1164,7 +1172,7 @@ export const BulkPfdkImport = ({ apiKey, authToken, season, onSuccess, onCancel 
                                                     </div>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                                     <div className="space-y-1">
                                                         <label className="text-[9px] font-bold text-slate-400 uppercase">Özne</label>
                                                         <input
@@ -1177,6 +1185,20 @@ export const BulkPfdkImport = ({ apiKey, authToken, season, onSuccess, onCancel 
                                                             }}
                                                             className="w-full text-xs font-bold border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-800"
                                                             placeholder="Kulüp veya Kişi Adı"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[9px] font-bold text-slate-400 uppercase">Kategori</label>
+                                                        <input
+                                                            type="text"
+                                                            value={item.category || ''}
+                                                            onChange={e => {
+                                                                const updated = [...parsedItems];
+                                                                updated[idx].category = e.target.value.toUpperCase();
+                                                                setParsedItems(updated);
+                                                            }}
+                                                            className="w-full text-xs font-bold border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-800"
+                                                            placeholder="FUTBOLCU, İDARECİ, KULÜP vb."
                                                         />
                                                     </div>
                                                     <div className="space-y-1">
@@ -1438,6 +1460,40 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
         }
     };
 
+    const handleClearAppeals = async () => {
+        if (!confirm('DİKKAT: Veritabanındaki TÜM disiplin cezalarının Tahkim Kurulu kararlarını (itiraz durumlarını) sıfırlamak/silmek istediğinize emin misiniz? Sevkler ve ana cezalar silinmeyecektir. Bu işlem geri alınamaz!')) return;
+        if (!confirm('Son onay: TÜM Tahkim kararları sıfırlanacaktır. Devam et?')) return;
+
+        setLoading(true);
+        try {
+            const res = await fetch('/api/admin/disciplinary?clearAppeals=true', {
+                method: 'DELETE',
+                headers: {
+                    'x-admin-key': apiKey,
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                }
+            });
+            if (res.ok) {
+                const updatedItems = items.map(item => ({
+                    ...item,
+                    appealStatus: 'none' as const,
+                    appealedPenalty: '',
+                    appealNote: '',
+                    appealDate: ''
+                }));
+                setItems(updatedItems);
+                toast.success('Tüm Tahkim kararları sıfırlandı! ⚖️');
+            } else {
+                toast.error('Sıfırlama işlemi başarısız oldu.');
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('Ağ hatası oluştu.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleDelete = async (id: string) => {
         if (!confirm('Bu kaydı silmek istediğinize emin misiniz?')) return;
         try {
@@ -1472,6 +1528,13 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
                         className="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 transition-colors cursor-pointer"
                     >
                         {loading ? '...' : 'SENKRONİZE ET'}
+                    </button>
+                    <button
+                        onClick={handleClearAppeals}
+                        disabled={loading}
+                        className="text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-2 py-1 rounded hover:bg-amber-100 transition-colors cursor-pointer"
+                    >
+                        {loading ? '...' : 'TAHKİM SIFIRLA'}
                     </button>
                     <button
                         onClick={handleDeleteAll}
@@ -2261,6 +2324,7 @@ export const BulkTahkimImport = ({ apiKey, authToken, season, onSuccess }: BulkT
         setSaving(true);
         let successCount = 0;
         let failCount = 0;
+        let lastErrorMsg = '';
 
         for (let idx = 0; idx < parsedAppeals.length; idx++) {
             if (!checkedAppeals[idx] || selectedMatches[idx] === 'none') continue;
@@ -2301,10 +2365,14 @@ export const BulkTahkimImport = ({ apiKey, authToken, season, onSuccess }: BulkT
                     successCount++;
                 } else {
                     failCount++;
+                    const errData = await res.json().catch(() => ({}));
+                    lastErrorMsg = errData.error || `Status ${res.status}`;
+                    console.error('Failed to save item:', appeal, errData);
                 }
             } catch (err) {
                 console.error(err);
                 failCount++;
+                lastErrorMsg = err instanceof Error ? err.message : String(err);
             }
         }
 
@@ -2312,14 +2380,14 @@ export const BulkTahkimImport = ({ apiKey, authToken, season, onSuccess }: BulkT
         if (successCount > 0) {
             toast.success(`${successCount} ceza kaydı Tahkim kararları ile başarıyla güncellendi! ✅`);
             if (failCount > 0) {
-                toast.warning(`${failCount} güncelleme başarısız oldu.`);
+                toast.warning(`${failCount} güncelleme başarısız oldu: ${lastErrorMsg}`);
             }
             // Clear state
             setParsedAppeals([]);
             setBulkText('');
             if (onSuccess) onSuccess();
         } else {
-            toast.error('Güncelleme işlemi başarısız oldu.');
+            toast.error(`Güncelleme işlemi başarısız oldu: ${lastErrorMsg}`);
         }
     };
 

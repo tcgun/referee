@@ -207,22 +207,23 @@ export const statementSchema = z.object({
 // Disciplinary Action Schema
 export const disciplinaryActionSchema = z.object({
     id: z.string().min(1).max(100),
-    teamName: z.string().max(100).optional().or(z.literal('')),
-    teamId: z.string().max(50).optional().or(z.literal('')),
+    teamName: z.string().max(100).optional().nullable().or(z.literal('')),
+    teamId: z.string().max(50).optional().nullable().or(z.literal('')),
     subject: z.string().min(1).max(100),
     reason: z.string().min(1).max(5000),
-    matchId: z.string().max(100).optional(),
-    type: z.enum(['pfdk', 'performance', 'penalty']).optional(),
-    penalty: z.string().max(1000).optional(), // Increased max length for flexibility
+    matchId: z.string().max(100).optional().nullable(),
+    type: z.enum(['pfdk', 'performance', 'penalty']).optional().nullable(),
+    penalty: z.string().max(1000).optional().nullable(), // Increased max length for flexibility
     date: z.string().regex(REGEX_DATE, MSG_DATE),
-    week: z.number().int().min(0).max(34).optional(), // Updated min to 0 for cup/general
-    note: z.string().max(10000).optional().or(z.literal('')), // Full legal text
-    competition: z.enum(['league', 'cup']).optional(),
-    season: z.string().regex(REGEX_SEASON, MSG_SEASON).optional(),
-    appealStatus: z.enum(['none', 'pending', 'accepted', 'rejected', 'partially_accepted']).optional().or(z.literal('')),
-    appealedPenalty: z.string().max(1000).optional().or(z.literal('')),
-    appealNote: z.string().max(10000).optional().or(z.literal('')),
-    appealDate: z.string().regex(REGEX_DATE, MSG_DATE).optional().or(z.literal('')),
+    week: z.number().int().min(0).max(34).optional().nullable(), // Updated min to 0 for cup/general
+    category: z.string().max(100).optional().nullable(),
+    note: z.string().max(10000).optional().nullable().or(z.literal('')), // Full legal text
+    competition: z.enum(['league', 'cup']).optional().nullable(),
+    season: z.string().regex(REGEX_SEASON, MSG_SEASON).optional().nullable(),
+    appealStatus: z.enum(['none', 'pending', 'accepted', 'rejected', 'partially_accepted']).optional().nullable().or(z.literal('')),
+    appealedPenalty: z.string().max(1000).optional().nullable().or(z.literal('')),
+    appealNote: z.string().max(10000).optional().nullable().or(z.literal('')),
+    appealDate: z.string().regex(REGEX_DATE, MSG_DATE).optional().nullable().or(z.literal('')),
 });
 
 

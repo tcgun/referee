@@ -225,6 +225,7 @@ export interface DisciplinaryAction {
     date: string;
     competition?: 'league' | 'cup'; // 'league' by default
     week?: number; // Added for weekly grouping
+    category?: string; // 'FUTBOLCU' | 'İDARECİ' | 'KULÜP' | 'TEKNİK SORUMLU' | 'KULÜP ÇALIŞANI' vb.
     group?: string; // Added for group grouping (A, B, C)
     note?: string; // Full legal text
     season?: string;

@@ -12,6 +12,106 @@ export interface ParsedAction {
     week?: number;
     competition: 'league' | 'cup';
     note: string;
+    category?: string;
+}
+
+export function extractDate(text: string): string | null {
+    if (!text) return null;
+    // YYYY-MM-DD
+    const ymdMatch = text.match(/(\d{4})[-/.](\d{2})[-/.](\d{2})/);
+    if (ymdMatch) {
+        return `${ymdMatch[1]}-${ymdMatch[2]}-${ymdMatch[3]}`;
+    }
+    // DD.MM.YYYY
+    const dmyMatch = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+    if (dmyMatch) {
+        const day = dmyMatch[1].padStart(2, '0');
+        const month = dmyMatch[2].padStart(2, '0');
+        const year = dmyMatch[3];
+        return `${year}-${month}-${day}`;
+    }
+    // Turkish month format: e.g. "20 Haziran 2026", "9 Ağustos 2025"
+    const monthsTr: Record<string, string> = {
+        'ocak': '01', 'subat': '02', 'şubat': '02', 'mart': '03', 'nisan': '04',
+        'mayis': '05', 'mayıs': '05', 'haziran': '06', 'temmuz': '07', 'agustos': '08',
+        'ağustos': '08', 'eylul': '09', 'eylül': '09', 'ekim': '10', 'kasim': '11',
+        'kasım': '11', 'aralik': '12', 'aralık': '12'
+    };
+    const monthsKeys = Object.keys(monthsTr).join('|');
+    const trDateRegex = new RegExp(`(\\d{1,2})\\s+(${monthsKeys})\\s+(\\d{4})`, 'i');
+    const trDateMatch = text.match(trDateRegex);
+    if (trDateMatch) {
+        const day = trDateMatch[1].padStart(2, '0');
+        const monthStr = trDateMatch[2].toLowerCase();
+        const month = monthsTr[monthStr];
+        const year = trDateMatch[3];
+        return `${year}-${month}-${day}`;
+    }
+    return null;
+}
+
+export function parseCategoryFromText(text: string, subject: string): string {
+    const s = subject.toUpperCase();
+    if (s === 'KULÜP' || s.includes('KULÜBÜ') || s.includes('A.Ş.')) {
+        return 'KULÜP';
+    }
+
+    const normText = text.toLowerCase();
+    const normSubject = subject.toLowerCase();
+
+    // Escape regex characters in subject name
+    const escapedSubject = normSubject.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(`(?:\\b([a-zçğıöşüıİ]+(?:\\s+[a-zçğıöşüıİ]+){0,2})\\s+)?${escapedSubject}`, 'i');
+    const match = normText.match(regex);
+    
+    if (match && match[1]) {
+        const role = match[1].trim();
+        const cleanRole = role.replace(/^(?:ve|veya|ile|aynı|müsabakada|müsabakasında|sonrasında|tarihinde|tarihli)\s+/, '').trim();
+        if (cleanRole && cleanRole.length > 2) {
+            return normalizeCategory(cleanRole);
+        }
+    }
+
+    // Fallbacks
+    const normP = normText;
+    if (normP.includes('idarecisi') || normP.includes('baskani') || normP.includes('başkanı') || normP.includes('yoneticisi') || normP.includes('yöneticisi')) {
+        return 'İDARECİ';
+    }
+    if (normP.includes('teknik sorumlusu') || normP.includes('antrenoru') || normP.includes('antrenörü') || normP.includes('teknik direktoru') || normP.includes('teknik direktörü')) {
+        return 'TEKNİK SORUMLU';
+    }
+    if (normP.includes('gorevlisi') || normP.includes('görevlisi') || normP.includes('masoru') || normP.includes('masörü') || normP.includes('fizyoterapisti') || normP.includes('doktoru') || normP.includes('calisani') || normP.includes('çalışanı') || normP.includes('temsilcisi')) {
+        return 'KULÜP ÇALIŞANI';
+    }
+    if (normP.includes('futbolcusu') || normP.includes('sporcusu')) {
+        return 'FUTBOLCU';
+    }
+
+    return 'FUTBOLCU'; // Default fallback for a person
+}
+
+function normalizeCategory(role: string): string {
+    const r = role.toLowerCase().trim();
+    if (r.includes('idareci') || r.includes('yönetici') || r.includes('başkan')) {
+        return 'İDARECİ';
+    }
+    if (r.includes('futbolcu') || r.includes('sporcu')) {
+        return 'FUTBOLCU';
+    }
+    if (r.includes('teknik') || r.includes('antrenör')) {
+        return 'TEKNİK SORUMLU';
+    }
+    if (r.includes('görevli') || r.includes('masör') || r.includes('fizyoterapist') || r.includes('doktor') || r.includes('çalışan') || r.includes('temsilci') || r.includes('personel')) {
+        return 'KULÜP ÇALIŞANI';
+    }
+    return r.toUpperCase()
+        .replace(/i/g, 'İ')
+        .replace(/ı/g, 'I')
+        .replace(/ğ/g, 'Ğ')
+        .replace(/ü/g, 'Ü')
+        .replace(/ş/g, 'Ş')
+        .replace(/ö/g, 'Ö')
+        .replace(/ç/g, 'Ç');
 }
 
 function normalizeText(s: string): string {
@@ -33,20 +133,24 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
         return [];
     }
 
+    const defaultDate = extractDate(rawInput) || new Date().toISOString().split('T')[0];
+
     const paragraphs: string[] = [];
     let currentParagraph = "";
     
     for (const line of rawInput.split('\n')) {
         const trimmed = line.trim();
         if (!trimmed) {
-            if (currentParagraph) {
+            // Only split on blank lines if the current paragraph seems complete (ends with a period/punctuation)
+            const endsWithSentenceFinisher = /[.!?]['"’”)•“]?\s*$/.test(currentParagraph);
+            if (currentParagraph && endsWithSentenceFinisher) {
                 paragraphs.push(currentParagraph);
                 currentParagraph = "";
             }
             continue;
         }
         
-        const isNewClause = /^\d+[-.]/.test(trimmed) || trimmed.startsWith("Aynı müsabakada") || trimmed.startsWith("Aynı müsabakada,");
+        const isNewClause = /^\d+[-.]/.test(trimmed) || /^[-•*]\s+/.test(trimmed) || trimmed.startsWith("Aynı müsabakada") || trimmed.startsWith("Aynı müsabakada,");
         if (isNewClause && currentParagraph) {
             paragraphs.push(currentParagraph);
             currentParagraph = trimmed;
@@ -106,19 +210,23 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
 
         const teamName = getTeamName(teamId);
 
-        const dateMatch = p.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+        const dateMatch = p.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
         let dateStr = "";
         if (dateMatch) {
-            dateStr = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+            const day = dateMatch[1].padStart(2, '0');
+            const month = dateMatch[2].padStart(2, '0');
+            const year = dateMatch[3];
+            dateStr = `${year}-${month}-${day}`;
             lastMatchDate = dateStr;
         } else if (p.includes("Aynı müsabakada") || p.includes("Aynı müsabakada,")) {
-            dateStr = lastMatchDate || "";
+            dateStr = lastMatchDate || defaultDate;
         } else {
-            dateStr = lastMatchDate || new Date().toISOString().split('T')[0];
+            dateStr = lastMatchDate || defaultDate;
         }
 
         let matchedMatch: Match | undefined = undefined;
-        if (teamId && dateStr) {
+        const isMatchRelated = /müsabaka|maç/i.test(p);
+        if (isMatchRelated && teamId && dateStr) {
             matchedMatch = allMatches.find(m => {
                 const mDateStr = new Date(m.date).toISOString().split('T')[0];
                 const involvesTeam = m.homeTeamId === teamId || m.awayTeamId === teamId;
@@ -139,7 +247,7 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
         }
 
         let subject = "Kulüp";
-        const subjectRegex = /(?:idarecisi|yöneticisi|başkanı|antrenörü|teknik sorumlusu|futbolcusu|sporcusu|görevlisi|masörü)\s+([A-ZÇĞİÖŞÜa-zçğıöşü\s’'-]{3,30})(?=['’’](?:nin|nın|nun|nün|in|ın|un|ün|i|ı|u|ü|a|e|den|dan|ta|te|da|de|la|le)\b)/i;
+        const subjectRegex = /(?:[iİıI]darec[iİıI]s[iİıI]|yönet[iİıI]c[iİıI]s[iİıI]|başkan[ıİiI]|antrenörü|tekn[iİıI]k\s+sorumlusu|tekn[iİıI]k\s+d[iİıI]rektörü|futbolcusu|sporcusu|görevl[iİıI]s[iİıI]|masörü)\s+([A-ZÇĞİÖŞÜa-zçğıöşü\s'-]{3,30})(?=['’’](?:nin|nın|nun|nün|in|ın|un|ün|i|ı|u|ü|a|e|den|dan|ta|te|da|de|la|le)\b)/i;
         const subMatch = p.match(subjectRegex);
         if (subMatch) {
             subject = subMatch[1].trim();
@@ -201,6 +309,7 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
         }
         
         const penalty = penalties.length > 0 ? penalties.join(" ve ") : "Cezalandırılmasına";
+        const category = parseCategoryFromText(p, subject);
 
         items.push({
             teamName,
@@ -208,11 +317,12 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
             subject,
             reason,
             penalty,
-            date: dateStr || new Date().toISOString().split('T')[0],
+            date: dateStr || defaultDate,
             matchId,
             week,
             competition: (matchedMatch?.competition as 'league' | 'cup') || 'league',
-            note: replaceTeamNamesWithSystemNames(p)
+            note: replaceTeamNamesWithSystemNames(p),
+            category
         });
     }
 

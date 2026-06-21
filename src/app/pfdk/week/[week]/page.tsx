@@ -3,19 +3,17 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import { DisciplinaryAction, Statement, Match } from '@/types';
+import { DisciplinaryAction, Match } from '@/types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { getTeamName, resolveTeamId, cleanSponsorsInText } from '@/lib/teams';
+import { getTeamName, resolveTeamId } from '@/lib/teams';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function PfdkWeekPage() {
-    // ... existing state ...
     const params = useParams();
     const weekNumber = Number(params.week);
 
     const [actions, setActions] = useState<DisciplinaryAction[]>([]);
-    const [statements, setStatements] = useState<Statement[]>([]);
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -31,11 +29,6 @@ export default function PfdkWeekPage() {
                 const matchSnap = await getDocs(query(collection(db, 'matches'), where('week', '==', weekNumber)));
                 const weekMatches = matchSnap.docs.map(d => ({ ...d.data(), id: d.id } as Match));
                 setMatches(weekMatches);
-
-                const stmtSnap = await getDocs(collection(db, 'statements'));
-                const allStmts = stmtSnap.docs.map(d => ({ ...d.data(), id: d.id } as Statement));
-                const matchDates = new Set(weekMatches.map(m => m.date));
-                setStatements(allStmts.filter(s => s.title.toLowerCase().includes('pfdk') && matchDates.has(s.date)));
             } catch (err) {
                 console.error("PFDK Week Fetch Error:", err);
             } finally {
@@ -48,12 +41,6 @@ export default function PfdkWeekPage() {
     const cleanTeamName = (rawName: string) => {
         const id = resolveTeamId(rawName);
         return id ? getTeamName(id) : rawName;
-    };
-
-    // Helper: Clean Penalty String
-    const cleanPenalty = (p: string) => {
-        if (!p) return '';
-        return p.replace(/(\d+)\.-TL/g, '$1 TL');
     };
 
     if (loading) return (
@@ -106,7 +93,7 @@ export default function PfdkWeekPage() {
                         ← TÜM HAFTALAR
                     </Link>
                     <div>
-                        <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase text-primary">{weekNumber}. HAFTA</h1>
+                        <h1 className="text-3xl font-black tracking-tighter uppercase text-primary">{weekNumber}. HAFTA</h1>
                         <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">
                             PFDK KARARLARI VE SEVKLERİ
                         </p>
@@ -123,7 +110,7 @@ export default function PfdkWeekPage() {
                             <div className="grid grid-cols-1 gap-8">
                                 {sortedGroups.map(group => {
                                     const groupActions = groupMap[group];
-                                    const referralCount = groupActions.filter(a => !a.penalty).length;
+                                    const referralCount = groupActions.length;
                                     const penaltyCount = groupActions.filter(a => a.penalty).length;
                                     const firstAction = groupActions[0];
                                     const matchId = firstAction?.matchId?.replace(/^d-/, '');
