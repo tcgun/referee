@@ -905,6 +905,7 @@ interface ParsedAction {
     matchedMatch?: Match;
     selected: boolean;
     category?: string;
+    isMatchRelated?: boolean;
 }
 
 interface BulkPfdkImportProps extends BaseProps {
@@ -1004,7 +1005,8 @@ export const BulkPfdkImport = ({ apiKey, authToken, season, onSuccess, onCancel 
                     note: item.note,
                     type: 'pfdk',
                     season: season || '2025-2026',
-                    category: item.category
+                    category: item.category,
+                    isMatchRelated: item.isMatchRelated
                 };
 
                 const res = await fetch('/api/admin/disciplinary', {
@@ -1234,36 +1236,50 @@ export const BulkPfdkImport = ({ apiKey, authToken, season, onSuccess, onCancel 
 
                                                 <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-200/60">
                                                     <div className="flex items-center gap-2 text-xs">
-                                                        <span className="font-bold text-slate-500">Bağlı Maç:</span>
-                                                        {teamMatchesOnDate.length > 0 ? (
-                                                            <select
-                                                                value={item.matchId}
-                                                                onChange={e => {
-                                                                    const updated = [...parsedItems];
-                                                                    updated[idx].matchId = e.target.value;
-                                                                    const foundMatch = allMatches.find(m => m.id === e.target.value);
-                                                                    if (foundMatch) {
-                                                                        updated[idx].week = foundMatch.week;
-                                                                        updated[idx].competition = foundMatch.competition || 'league';
-                                                                    }
-                                                                    setParsedItems(updated);
-                                                                }}
-                                                                className="text-xs font-bold border border-slate-200 rounded px-2 py-1 bg-white text-slate-800"
-                                                            >
-                                                                <option value="">Maçsız Sevk</option>
-                                                                {teamMatchesOnDate.map(m => (
-                                                                    <option key={m.id} value={m.id}>
-                                                                        {m.homeTeamName} - {m.awayTeamName} ({m.week}. Hafta)
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                        ) : (
+                                                        {!item.isMatchRelated ? (
                                                             <div className="flex items-center gap-2">
-                                                                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                                                    Maç Bulunamadı
+                                                                <span className="font-bold text-slate-500">Bağlı Kulüp:</span>
+                                                                <span className="text-xs font-black text-slate-800 bg-slate-100 border border-slate-200 px-2 py-1 rounded">
+                                                                    {item.teamName}
                                                                 </span>
-                                                                <span className="text-[10px] text-slate-400 font-medium">(Tarihte maç bulunmuyor)</span>
+                                                                <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-bold">
+                                                                    Maçsız Sevk (Açıklama / Beyan)
+                                                                </span>
                                                             </div>
+                                                        ) : (
+                                                            <>
+                                                                <span className="font-bold text-slate-500">Bağlı Maç:</span>
+                                                                {teamMatchesOnDate.length > 0 ? (
+                                                                    <select
+                                                                        value={item.matchId}
+                                                                        onChange={e => {
+                                                                            const updated = [...parsedItems];
+                                                                            updated[idx].matchId = e.target.value;
+                                                                            const foundMatch = allMatches.find(m => m.id === e.target.value);
+                                                                            if (foundMatch) {
+                                                                                updated[idx].week = foundMatch.week;
+                                                                                updated[idx].competition = foundMatch.competition || 'league';
+                                                                            }
+                                                                            setParsedItems(updated);
+                                                                        }}
+                                                                        className="text-xs font-bold border border-slate-200 rounded px-2 py-1 bg-white text-slate-800"
+                                                                    >
+                                                                        <option value="">Maçsız Sevk</option>
+                                                                        {teamMatchesOnDate.map(m => (
+                                                                            <option key={m.id} value={m.id}>
+                                                                                {m.homeTeamName} - {m.awayTeamName} ({m.week}. Hafta)
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                                                            Maç Bulunamadı
+                                                                        </span>
+                                                                        <span className="text-[10px] text-slate-400 font-medium">(Tarihte maç bulunmuyor)</span>
+                                                                    </div>
+                                                                )}
+                                                            </>
                                                         )}
                                                     </div>
                                                     <span className="text-[9px] font-mono text-slate-400 max-w-[150px] truncate" title={item.note}>
@@ -2284,9 +2300,19 @@ export const BulkTahkimImport = ({ apiKey, authToken, season, onSuccess }: BulkT
                 const matchedAction = actions.find(action => {
                     if (action.type === 'performance') return false;
                     const normActionSub = action.subject.toLowerCase().trim();
-                    if (normAppealSub === 'kulüp') {
-                        return normActionSub === 'kulüp';
+                    
+                    const isClubSubject = (sub: string) => {
+                        const s = sub.toLowerCase().trim();
+                        return s === 'kulüp' || s === 'kulup' || s === 'kulübü' || s === 'kulubu' || s.includes('a.ş.');
+                    };
+
+                    const isAppealClub = isClubSubject(normAppealSub);
+                    const isActionClub = isClubSubject(normActionSub);
+
+                    if (isAppealClub) {
+                        return isActionClub;
                     }
+
                     return (
                         normActionSub.includes(normAppealSub) || 
                         normAppealSub.includes(normActionSub) ||

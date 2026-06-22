@@ -90,7 +90,9 @@ export default function DisciplinaryAnalysisPage() {
 
                 const pfdkSnap = await getDocs(pfdkQ);
                 const allActions = pfdkSnap.docs.map(d => ({ ...d.data(), id: d.id } as DisciplinaryAction));
-                const filteredActions = allActions.filter(act => getSeasonFromDate(act.date) === selectedSeason);
+                const filteredActions = allActions
+                    .filter(act => getSeasonFromDate(act.date) === selectedSeason)
+                    .filter(act => act.teamId && act.matchId);
                 setActions(filteredActions);
 
                 const matchQ = competition === 'league'
@@ -372,6 +374,7 @@ export default function DisciplinaryAnalysisPage() {
                                         const penaltyCount = groupActions.filter(a => a.penalty).length;
                                         const firstAction = groupActions[0];
                                         const matchId = firstAction?.matchId?.replace(/^d-/, '');
+                                        const matchExists = matchId && matches.some(m => m.id === matchId || m.id === `d-${matchId}`);
 
                                         return (
                                             <div key={group} className="bg-card border-2 border-border rounded-2xl p-6 shadow-neo overflow-hidden relative group hover:border-primary transition-colors">
@@ -381,13 +384,51 @@ export default function DisciplinaryAnalysisPage() {
                                                 </div>
                                                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                                                     <div className="flex-1 text-center md:text-left">
-                                                        <h3 className="font-black text-xl text-white uppercase tracking-tight leading-none mb-3">{group}</h3>
+                                                         <h3 className="font-black text-xl text-white uppercase tracking-tight leading-none mb-3 flex items-center gap-1.5 flex-wrap justify-center md:justify-start animate-pulse hover:animate-none">
+                                                             {group.includes(' - ') ? (
+                                                                 (() => {
+                                                                     const parts = group.split(' - ');
+                                                                     const team1Id = resolveTeamId(parts[0]);
+                                                                     const team2Id = resolveTeamId(parts[1]);
+                                                                     return (
+                                                                         <>
+                                                                             {team1Id ? (
+                                                                                 <Link href={`/teams/${team1Id}`} className="hover:text-primary transition-colors hover:underline">
+                                                                                     {parts[0]}
+                                                                                 </Link>
+                                                                             ) : (
+                                                                                 <span>{parts[0]}</span>
+                                                                             )}
+                                                                             <span className="text-gray-500 font-medium font-mono text-sm select-none mx-1">VS</span>
+                                                                             {team2Id ? (
+                                                                                 <Link href={`/teams/${team2Id}`} className="hover:text-primary transition-colors hover:underline">
+                                                                                     {parts[1]}
+                                                                                 </Link>
+                                                                             ) : (
+                                                                                 <span>{parts[1]}</span>
+                                                                             )}
+                                                                         </>
+                                                                     );
+                                                                 })()
+                                                             ) : (
+                                                                 (() => {
+                                                                     const teamId = resolveTeamId(group);
+                                                                     return teamId ? (
+                                                                         <Link href={`/teams/${teamId}`} className="hover:text-primary transition-colors hover:underline">
+                                                                             {group}
+                                                                         </Link>
+                                                                     ) : (
+                                                                         <span>{group}</span>
+                                                                     );
+                                                                 })()
+                                                             )}
+                                                         </h3>
                                                         <div className="flex gap-2 justify-center md:justify-start">
                                                             <span className="text-[9px] font-black text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded border border-blue-500/20 uppercase">{referralCount} SEVK</span>
                                                             <span className="text-[9px] font-black text-red-500 bg-red-500/10 px-2.5 py-1 rounded border border-red-500/20 uppercase">{penaltyCount} CEZA</span>
                                                         </div>
                                                     </div>
-                                                    {matchId && (
+                                                    {matchExists && (
                                                         <Link
                                                             href={`/matches/${matchId}?tab=pfdk`}
                                                             className="bg-primary text-black text-[10px] font-black px-6 py-3 rounded-lg hover:scale-105 transition-all uppercase tracking-widest shadow-neo-sm active:scale-95"
@@ -396,6 +437,81 @@ export default function DisciplinaryAnalysisPage() {
                                                         </Link>
                                                     )}
                                                 </div>
+
+                                                {!matchExists && (
+                                                    <div className="mt-6 border-t border-white/10 pt-4 space-y-4">
+                                                        {groupActions.map((action) => (
+                                                            <div key={action.id} className="bg-black/20 border border-white/5 rounded-xl p-4 space-y-3">
+                                                                <div className="flex flex-wrap justify-between items-start gap-2">
+                                                                    <div>
+                                                                        <span className="text-xs font-black text-white">👤 {action.subject}</span>
+                                                                        {!action.matchId && (
+                                                                            (() => {
+                                                                                const tId = resolveTeamId(action.teamName || '');
+                                                                                return tId ? (
+                                                                                    <Link href={`/teams/${tId}`} className="block mt-1 text-[9px] font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-colors px-1.5 py-0.5 rounded border border-primary/20 w-fit">
+                                                                                        Bağlı Kulüp: {cleanTeamName(action.teamName || '')} (Maçsız Sevk)
+                                                                                    </Link>
+                                                                                ) : (
+                                                                                    <span className="block mt-1 text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 w-fit">
+                                                                                        Bağlı Kulüp: {cleanTeamName(action.teamName || '')} (Maçsız Sevk)
+                                                                                    </span>
+                                                                                );
+                                                                            })()
+                                                                        )}
+                                                                        <span className="block text-[9px] text-gray-500 font-bold uppercase tracking-wider mt-0.5">{action.reason}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-1.5 shrink-0">
+                                                                        <span className="bg-slate-900 border border-white/5 text-gray-400 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                                                                            {action.date}
+                                                                        </span>
+                                                                        {action.category && (
+                                                                            <span className="bg-primary/10 text-primary border border-primary/20 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                                                                                {action.category}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {action.penalty && (
+                                                                    <div className="bg-red-500/10 border border-red-500/20 px-3.5 py-2.5 rounded-lg flex flex-col gap-1.5">
+                                                                        <span className={`text-red-500 text-xs font-black uppercase tracking-wider ${action.appealStatus === 'accepted' || action.appealStatus === 'partially_accepted' ? 'line-through opacity-60' : ''}`}>
+                                                                            ⚠️ Ceza: {action.penalty}
+                                                                        </span>
+                                                                        {action.appealStatus && action.appealStatus !== 'none' && (
+                                                                            <span className={`w-fit text-[9px] font-black px-2 py-1 rounded border uppercase tracking-wider ${
+                                                                                action.appealStatus === 'accepted' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                                                action.appealStatus === 'partially_accepted' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                                                action.appealStatus === 'rejected' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                                                                                'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                                            }`}>
+                                                                                {action.appealStatus === 'accepted' ? 'Tahkim: İptal' :
+                                                                                 action.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${action.appealedPenalty})` :
+                                                                                 action.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+
+                                                                {action.appealStatus && action.appealStatus !== 'none' && action.appealNote && (
+                                                                    <div className="bg-indigo-950/20 border border-indigo-500/10 rounded-lg p-3 text-[11px] text-gray-400 leading-relaxed font-medium">
+                                                                        <div className="font-bold text-indigo-400 mb-1 flex items-center justify-between">
+                                                                            <span>⚖️ Tahkim Kurulu Kararı</span>
+                                                                            {action.appealDate && <span className="text-[9px] text-zinc-500 font-mono">{action.appealDate}</span>}
+                                                                        </div>
+                                                                        {action.appealNote}
+                                                                    </div>
+                                                                )}
+
+                                                                {action.note && (
+                                                                    <div className="bg-black/30 border border-white/5 rounded-lg p-3 text-[11px] text-gray-400 leading-relaxed font-medium">
+                                                                        {action.note}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}

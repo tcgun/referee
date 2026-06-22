@@ -15,7 +15,37 @@ export default function TeamPage() {
     const [matches, setMatches] = useState<Match[]>([]);
     const [actions, setActions] = useState<DisciplinaryAction[]>([]);
     const [activeTab, setActiveTab] = useState<'matches' | 'disciplinary'>('matches');
+    const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
     const [loading, setLoading] = useState(true);
+
+    const getNormalizedCategory = (act: DisciplinaryAction): string => {
+        if (act.category) {
+            const c = act.category.toUpperCase().trim();
+            if (c === 'İDARECİ' || c === 'YÖNETİCİ') return 'YÖNETİCİ';
+            if (c === 'TEKNİK SORUMLU' || c === 'TEKNİK KADRO') return 'TEKNİK KADRO';
+            if (c === 'KULÜP ÇALIŞANI' || c === 'ÇALIŞAN') return 'ÇALIŞAN';
+            return c; // KULÜP, FUTBOLCU, etc.
+        }
+        const s = (act.subject || '').toUpperCase();
+        if (s === 'KULÜP' || s.includes('KULÜBÜ') || s.includes('A.Ş.')) return 'KULÜP';
+        if (s.includes('İDARECİSİ') || s.includes('BAŞKANI') || s.includes('YÖNETİCİSİ')) return 'YÖNETİCİ';
+        if (s.includes('TEKNİK') || s.includes('ANTRENÖR')) return 'TEKNİK KADRO';
+        if (s.includes('GÖREVLİSİ') || s.includes('MASÖRÜ') || s.includes('ÇALIŞANI')) return 'ÇALIŞAN';
+        return 'FUTBOLCU';
+    };
+
+    const categories = [
+        { id: 'ALL', label: 'TÜMÜ' },
+        { id: 'KULÜP', label: 'KULÜP CEZALARI' },
+        { id: 'YÖNETİCİ', label: 'YÖNETİCİLER' },
+        { id: 'TEKNİK KADRO', label: 'TEKNİK KADRO' },
+        { id: 'FUTBOLCU', label: 'FUTBOLCULAR' },
+        { id: 'ÇALIŞAN', label: 'ÇALIŞANLAR' }
+    ];
+
+    const filteredActions = selectedCategory === 'ALL'
+        ? actions
+        : actions.filter(act => getNormalizedCategory(act) === selectedCategory);
 
     useEffect(() => {
         async function fetchData() {
@@ -210,13 +240,40 @@ export default function TeamPage() {
                         {/* List */}
                         <div className="space-y-4 pt-4">
                             <h2 className="text-xs font-black uppercase tracking-widest text-primary px-2">Cezalar & Sevkler</h2>
-                            {actions.length === 0 && (
+                            
+                            {/* Category Filter Tabs */}
+                            <div className="flex flex-wrap gap-2 mb-4 bg-slate-900/60 p-2 rounded-xl border border-white/5">
+                                {categories.map(cat => {
+                                    const count = cat.id === 'ALL'
+                                        ? actions.length
+                                        : actions.filter(a => getNormalizedCategory(a) === cat.id).length;
+
+                                    if (count === 0 && cat.id !== 'ALL') return null; // Hide empty categories to keep UI clean
+
+                                    return (
+                                        <button
+                                            key={cat.id}
+                                            type="button"
+                                            onClick={() => setSelectedCategory(cat.id)}
+                                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                                                selectedCategory === cat.id
+                                                    ? 'bg-primary text-black font-extrabold shadow-sm scale-102'
+                                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                            }`}
+                                        >
+                                            {cat.label} ({count})
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {filteredActions.length === 0 && (
                                 <p className="p-8 text-center bg-[#161b22] border border-white/5 rounded-2xl text-muted-foreground text-xs font-bold uppercase tracking-widest">
-                                    Kayıtlı disiplin cezası bulunmamaktadır.
+                                    Bu kategoride disiplin kaydı bulunmamaktadır.
                                 </p>
                             )}
 
-                            {actions.map(act => (
+                            {filteredActions.map(act => (
                                 <div key={act.id} className="bg-[#161b22] border-2 border-white/10 rounded-2xl p-6 shadow-neo-sm flex flex-col gap-4 relative overflow-hidden">
                                     <div className="absolute top-0 left-0 right-0 h-1 bg-red-600" />
                                     
@@ -225,6 +282,11 @@ export default function TeamPage() {
                                             <span className="text-md font-black text-white uppercase tracking-tight">
                                                 👤 {act.subject}
                                             </span>
+                                            {!act.matchId && (
+                                                <span className="inline-block mt-1 text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 w-fit">
+                                                    Bağlı Kulüp: {team?.name || act.teamName || ''} (Maçsız Sevk)
+                                                </span>
+                                            )}
                                             <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">
                                                 {act.reason}
                                             </span>

@@ -13,6 +13,7 @@ export interface ParsedAction {
     competition: 'league' | 'cup';
     note: string;
     category?: string;
+    isMatchRelated?: boolean;
 }
 
 export function extractDate(text: string): string | null {
@@ -141,16 +142,32 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
     for (const line of rawInput.split('\n')) {
         const trimmed = line.trim();
         if (!trimmed) {
-            // Only split on blank lines if the current paragraph seems complete (ends with a period/punctuation)
-            const endsWithSentenceFinisher = /[.!?]['"’”)•“]?\s*$/.test(currentParagraph);
-            if (currentParagraph && endsWithSentenceFinisher) {
+            // Split on blank lines if the current paragraph seems complete (ends with a period/comma/semicolon/punctuation)
+            const endsWithClauseFinisher = /[.,;!?]['"’”)•“]?\s*$/.test(currentParagraph);
+            if (currentParagraph && endsWithClauseFinisher) {
                 paragraphs.push(currentParagraph);
                 currentParagraph = "";
             }
             continue;
         }
         
-        const isNewClause = /^\d+[-.]/.test(trimmed) || /^[-•*]\s+/.test(trimmed) || trimmed.startsWith("Aynı müsabakada") || trimmed.startsWith("Aynı müsabakada,");
+        const normTrimmed = normalizeText(trimmed);
+        const startsWithTeam = Object.values(SUPER_LIG_TEAMS).some(data => {
+            const normName = normalizeText(data.name);
+            if (normTrimmed.startsWith(normName)) return true;
+            if (data.aliases) {
+                return data.aliases.some(alias => normTrimmed.startsWith(normalizeText(alias)));
+            }
+            return false;
+        });
+
+        const isNewClause = 
+            /^\d+[-.]/.test(trimmed) || 
+            /^[-•*]\s+/.test(trimmed) || 
+            trimmed.startsWith("Aynı müsabakada") || 
+            trimmed.startsWith("Aynı müsabakada,") ||
+            startsWithTeam;
+
         if (isNewClause && currentParagraph) {
             paragraphs.push(currentParagraph);
             currentParagraph = trimmed;
@@ -210,6 +227,33 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
 
         const teamName = getTeamName(teamId);
 
+        // Find all teams mentioned in this paragraph
+        const mentionedTeamIds = new Set<string>();
+        for (const [id, data] of Object.entries(SUPER_LIG_TEAMS)) {
+            const normName = normalizeText(data.name);
+            if (normP.includes(normName)) {
+                mentionedTeamIds.add(id);
+                continue;
+            }
+
+            const normShort = normalizeText(data.short);
+            const shortRegex = new RegExp(`\\b${normShort}\\b`, 'i');
+            if (shortRegex.test(normP)) {
+                mentionedTeamIds.add(id);
+                continue;
+            }
+
+            if (data.aliases) {
+                for (const alias of data.aliases) {
+                    const normAlias = normalizeText(alias);
+                    if (normP.includes(normAlias)) {
+                        mentionedTeamIds.add(id);
+                        break;
+                    }
+                }
+            }
+        }
+
         const dateMatch = p.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
         let dateStr = "";
         if (dateMatch) {
@@ -225,13 +269,71 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
         }
 
         let matchedMatch: Match | undefined = undefined;
-        const isMatchRelated = /müsabaka|maç/i.test(p);
-        if (isMatchRelated && teamId && dateStr) {
-            matchedMatch = allMatches.find(m => {
-                const mDateStr = new Date(m.date).toISOString().split('T')[0];
-                const involvesTeam = m.homeTeamId === teamId || m.awayTeamId === teamId;
-                return involvesTeam && mDateStr === dateStr;
-            });
+        const isMatchRelated = /müsabaka|maç|karşılaşma/i.test(p);
+        if (isMatchRelated && teamId) {
+            const otherTeamIds = Array.from(mentionedTeamIds).filter(id => id !== teamId);
+            
+            if (otherTeamIds.length > 0) {
+                // Find all matches between teamId and any of these otherTeamIds
+                const candidateMatches = allMatches.filter(m => {
+                    const involvesTeam = m.homeTeamId === teamId || m.awayTeamId === teamId;
+                    const involvesOpponent = otherTeamIds.includes(m.homeTeamId) || otherTeamIds.includes(m.awayTeamId);
+                    return involvesTeam && involvesOpponent;
+                });
+                
+                if (candidateMatches.length > 0) {
+                    const targetTime = dateStr ? new Date(dateStr).getTime() : NaN;
+                    if (!isNaN(targetTime)) {
+                        let bestDiff = Infinity;
+                        let bestMatch = candidateMatches[0];
+                        for (const m of candidateMatches) {
+                            const mTime = new Date(m.date).getTime();
+                            if (!isNaN(mTime)) {
+                                const diff = Math.abs(mTime - targetTime);
+                                if (diff < bestDiff) {
+                                    bestDiff = diff;
+                                    bestMatch = m;
+                                }
+                            }
+                        }
+                        // Accept matching if within 30 days
+                        if (bestDiff <= 30 * 24 * 60 * 60 * 1000) {
+                            matchedMatch = bestMatch;
+                        }
+                    }
+                    
+                    if (!matchedMatch) {
+                        // Unconditional closest match
+                        const targetTime = dateStr ? new Date(dateStr).getTime() : NaN;
+                        if (!isNaN(targetTime)) {
+                            let bestDiff = Infinity;
+                            let bestMatch = candidateMatches[0];
+                            for (const m of candidateMatches) {
+                                const mTime = new Date(m.date).getTime();
+                                if (!isNaN(mTime)) {
+                                    const diff = Math.abs(mTime - targetTime);
+                                    if (diff < bestDiff) {
+                                        bestDiff = diff;
+                                        bestMatch = m;
+                                    }
+                                }
+                            }
+                            matchedMatch = bestMatch;
+                        } else {
+                            matchedMatch = candidateMatches[0];
+                        }
+                    }
+                }
+            }
+
+            // Fallback to date-only matching if no match was found yet
+            if (!matchedMatch && dateStr) {
+                matchedMatch = allMatches.find(m => {
+                    const mDateStr = new Date(m.date).toISOString().split('T')[0];
+                    const involvesTeam = m.homeTeamId === teamId || m.awayTeamId === teamId;
+                    return involvesTeam && mDateStr === dateStr;
+                });
+            }
         }
 
         let matchId = "";
@@ -322,7 +424,8 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
             week,
             competition: (matchedMatch?.competition as 'league' | 'cup') || 'league',
             note: replaceTeamNamesWithSystemNames(p),
-            category
+            category,
+            isMatchRelated
         });
     }
 

@@ -153,8 +153,46 @@ describe('PFDK Parser Tests', () => {
         expect(result[6].matchId).toBe('');
         expect(result[6].week).toBeUndefined();
         expect(result[6].category).toBe('KULÜP');
+        expect(result[6].isMatchRelated).toBe(false);
 
         // Check cleaned note text
         expect(result[0].note).toContain('Gaziantep FK-Galatasaray SÜPER LİG müsabakasında');
+        expect(result[0].isMatchRelated).toBe(true);
+    });
+
+    it('should correctly match matchId even if parsed date differs slightly from match date, by using opponent name matching', () => {
+        // In mockMatches, we have a match on 2025-08-08 for gaz vs gal.
+        // Let's pass a text containing a slightly different date (e.g. 09.08.2025)
+        const rawText = `
+        1- GAZİANTEP FUTBOL KULÜBÜ A.Ş.’nin, 09.08.2025 tarihinde oynanan GAZİANTEP FUTBOL KULÜBÜ A.Ş.-GALATASARAY A.Ş. Trendyol Süper Lig müsabakasında taraftarların neden olduğu saha olayları nedeniyle 220.000.-TL PARA CEZASI ile cezalandırılmasına,
+        `;
+
+        const result = parsePfdkText(rawText, mockMatches);
+        
+        expect(result.length).toBe(1);
+        expect(result[0].teamId).toBe('gaz');
+        // It should match the 2025-08-08 match because gaz and gal are both mentioned, and it is the closest match
+        expect(result[0].matchId).toBe('week1-gaz-gal-2025-08-08');
+        expect(result[0].week).toBe(1);
+    });
+
+    it('should split multiple club/manager clauses ending in a comma or starting with team names, even with no leading numbers', () => {
+        const rawText = `
+        FENERBAHÇE A.Ş.’nin, 09.08.2025 tarihinde Kulüp resmi internet sitesinde yapılan paylaşımda yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamalar nedeniyle FDT’nin 38/1-b maddesi uyarınca 2.700.000.-TL PARA CEZASI ile cezalandırılmasına,
+
+        FENERBAHÇE A.Ş. idarecisi SERTAÇ KOMSUOĞLU’nun, 09.08.2025 tarihinde Kulüp resmi internet sitesinde ve 10.08.2025 tarihinde SporX medya kuruluşunda paylaşılan beyanlarında yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamaları nedeniyle FDT’nin 38/1-a maddesi uyarınca 30 GÜN HAK MAHRUMİYETİ ve 3.000.000.-TL PARA CEZASI ile cezalandırılmasına,
+        `;
+
+        const result = parsePfdkText(rawText);
+
+        expect(result.length).toBe(2);
+
+        expect(result[0].teamId).toBe('fen');
+        expect(result[0].subject).toBe('Kulüp');
+        expect(result[0].penalty).toBe('2.700.000 TL Para Cezası');
+
+        expect(result[1].teamId).toBe('fen');
+        expect(result[1].subject).toBe('SERTAÇ KOMSUOĞLU');
+        expect(result[1].penalty).toBe('30 Gün Hak Mahrumiyeti ve 3.000.000 TL Para Cezası');
     });
 });

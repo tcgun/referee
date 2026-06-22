@@ -233,4 +233,5 @@ export interface DisciplinaryAction {
     appealedPenalty?: string;
     appealNote?: string;
     appealDate?: string;
+    isMatchRelated?: boolean;
 }

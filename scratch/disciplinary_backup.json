@@ -2,42 +2,19 @@
   {
     "teamName": "Fenerbahçe",
     "teamId": "fen",
-    "subject": "Kulüp",
+    "subject": "SERTAÇ KOMSUOĞLU",
     "reason": "2025 tarihinde Kulüp resmi internet sitesinde yapılan paylaşımda yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamalar",
     "matchId": null,
     "type": "pfdk",
-    "penalty": "2.700.000 TL Para Cezası",
+    "penalty": "30 Gün Hak Mahrumiyeti ve 2.700.000 TL Para Cezası",
     "date": "2025-08-09",
-    "note": "8-Fenerbahçe ’nin, 09.08.2025 tarihinde Kulüp resmi internet sitesinde yapılan paylaşımda yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamalar nedeniyle FDT’nin 38/1-b maddesi uyarınca 2.700.000.-TL PARA CEZASI ile cezalandırılmasına,",
+    "category": "İDARECİ",
+    "note": "8-Fenerbahçe ’nin, 09.08.2025 tarihinde Kulüp resmi internet sitesinde yapılan paylaşımda yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamalar nedeniyle FDT’nin 38/1-b maddesi uyarınca 2.700.000.-TL PARA CEZASI ile cezalandırılmasına, Fenerbahçe idarecisi SERTAÇ KOMSUOĞLU’nun, 09.08.2025 tarihinde Kulüp resmi internet sitesinde ve 10.08.2025 tarihinde SporX medya kuruluşunda paylaşılan beyanlarında yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamaları nedeniyle FDT’nin 38/1-a maddesi uyarınca 30 GÜN HAK MAHRUMİYETİ ve 3.000.000.-TL PARA CEZASI ile cezalandırılmasına,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d--kulup-4227",
-    "week": null,
-    "updatedAt": "2026-06-20T23:46:11.436Z",
-    "appealStatus": "rejected",
-    "appealedPenalty": "İtiraz Reddedildi",
-    "appealNote": "Fenerbahçe ’nin 09.08.2025 tarihinde Kulüp resmi internet sitesinde yapılan paylaşımda yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamalar nedeniyle FDT’nin 38/1-b maddesi uyarınca 2.700.000,00 TL para cezası ile cezalandırılmasına dair kararda sübut, hukuki niteleme ve cezanın tayini bakımından bir isabetsizlik bulunmadığı anlaşıldığından, başvurunun reddi ile kararın onanmasına, oybirliğiyle,",
-    "appealDate": "2025-08-22"
-  },
-  {
-    "teamName": "Fenerbahçe",
-    "teamId": "fen",
-    "subject": "SERTAÇ KOMSUOĞLU",
-    "reason": "2025 tarihinde SporX medya kuruluşunda paylaşılan beyanlarında yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamaları",
-    "matchId": null,
-    "type": "pfdk",
-    "penalty": "30 Gün Hak Mahrumiyeti ve 3.000.000 TL Para Cezası",
-    "date": "2025-08-09",
-    "note": "Fenerbahçe idarecisi SERTAÇ KOMSUOĞLU’nun, 09.08.2025 tarihinde Kulüp resmi internet sitesinde ve 10.08.2025 tarihinde SporX medya kuruluşunda paylaşılan beyanlarında yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamaları nedeniyle FDT’nin 38/1-a maddesi uyarınca 30 GÜN HAK MAHRUMİYETİ ve 3.000.000.-TL PARA CEZASI ile cezalandırılmasına,",
-    "competition": "league",
-    "season": "2025-2026",
-    "id": "d--sertac-komsuoglu-c0d5",
-    "week": null,
-    "updatedAt": "2026-06-20T23:46:11.880Z",
-    "appealStatus": "rejected",
-    "appealedPenalty": "İtiraz Reddedildi",
-    "appealNote": "Fenerbahçe ’nin İdarecisi Sertaç Komsuoğlu’nun 09.08.2025 tarihinde Kulüp resmi internet sitesinde ve 10.08.2025 tarihinde SporX medya kuruluşunda paylaşılan beyanlarında yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamaları nedeniyle FDT’nin 38/1-a maddesi uyarınca 30 gün hak mahrumiyeti ve 3.000.000,00 TL para cezası ile cezalandırılmasına dair kararda ayrıntısı gerekçeli kararda açıklanacağı üzere aleyhe bozma yasağı gözetilerek kararın onanmasına, oyçokluğuyla,",
-    "appealDate": "2025-08-22"
+    "id": "d--sertac-komsuoglu-983c",
+    "week": 1,
+    "updatedAt": "2026-06-22T00:20:19.735Z"
   },
   {
     "teamName": "Galatasaray",
@@ -49,15 +26,12 @@
     "penalty": "220.000 TL Para Cezası",
     "date": "2025-08-08",
     "week": 1,
+    "category": "KULÜP",
     "note": "2-Galatasaray ’nin, 08.08.2025 tarihinde oynanan Gaziantep FK-Galatasaray SÜPER LİG müsabakasında, taraftarlarının neden olduğu saha olayları nedeniyle FDT’nin 52/2. ve 46/1. maddeleri uyarınca 220.000.-TL PARA CEZASI ile cezalandırılmasına,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-gaz-gal-2025-08-08-kulup-f6ac",
-    "updatedAt": "2026-06-20T22:53:36.115Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-gaz-gal-2025-08-08-kulup-0598",
+    "updatedAt": "2026-06-22T00:20:20.276Z"
   },
   {
     "teamName": "Galatasaray",
@@ -69,15 +43,12 @@
     "penalty": "Kart Bloke (MİSAFİR TRİBÜN B blokta)",
     "date": "2025-08-08",
     "week": 1,
+    "category": "KULÜP",
     "note": "Aynı müsabakada Galatasaray ’nin, taraftarlarının neden olduğu çirkin ve kötü tezahürat nedeniyle FDT’nin 53/3. maddesi uyarınca çirkin ve kötü tezahüratta bulunan MİSAFİR TRİBÜN B blokta yer alan seyircilerin elektronik bilet kapsamındaki kartlarının bloke edilmesi suretiyle bir sonraki misafir kulüp olduğu müsabakaya girişlerinin engellenmesine,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-gaz-gal-2025-08-08-kulup-a1e4",
-    "updatedAt": "2026-06-20T22:53:36.351Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-gaz-gal-2025-08-08-kulup-a54b",
+    "updatedAt": "2026-06-22T00:20:20.411Z"
   },
   {
     "teamName": "Gaziantep Futbol Kulübü",
@@ -89,15 +60,12 @@
     "penalty": "220.000 TL Para Cezası",
     "date": "2025-08-08",
     "week": 1,
+    "category": "KULÜP",
     "note": "1-Gaziantep FK ’nin, 08.08.2025 tarihinde oynanan Gaziantep FK-Galatasaray SÜPER LİG müsabakasında, taraftarlarının neden olduğu saha olayları nedeniyle FDT’nin 52/2. ve 46/1. maddeleri uyarınca 220.000.-TL PARA CEZASI ile cezalandırılmasına,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-gaz-gal-2025-08-08-kulup-8850",
-    "updatedAt": "2026-06-20T22:53:36.489Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-gaz-gal-2025-08-08-kulup-3fce",
+    "updatedAt": "2026-06-22T00:20:20.550Z"
   },
   {
     "teamName": "Gaziantep Futbol Kulübü",
@@ -109,15 +77,12 @@
     "penalty": "Kart Bloke (GÜNEY KALE ARKASI ALT TRİBÜN D blokta)",
     "date": "2025-08-08",
     "week": 1,
+    "category": "KULÜP",
     "note": "Aynı müsabakada Gaziantep FK ’nin, taraftarlarının neden olduğu çirkin ve kötü tezahürat nedeniyle FDT’nin 53/3. maddesi uyarınca çirkin ve kötü tezahüratta bulunan GÜNEY KALE ARKASI ALT TRİBÜN D blokta yer alan seyircilerin elektronik bilet kapsamındaki kartlarının bloke edilmesi suretiyle bir sonraki ev sahibi kulüp olduğu müsabakaya girişlerinin engellenmesine,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-gaz-gal-2025-08-08-kulup-12a1",
-    "updatedAt": "2026-06-20T22:53:36.619Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-gaz-gal-2025-08-08-kulup-b06a",
+    "updatedAt": "2026-06-22T00:20:20.693Z"
   },
   {
     "teamName": "Gençlerbirliği",
@@ -129,15 +94,12 @@
     "penalty": "40.000 TL Para Cezası",
     "date": "2025-08-09",
     "week": 1,
+    "category": "İDARECİ",
     "note": "3-Gençlerbirliği Kulübü idarecisi RIFAT SONGÜR’ün, 09.08.2025 tarihinde oynanan Samsunspor-Gençlerbirliği SÜPER LİG müsabakasında, akredite edilmediği alanlarda bulunmasından dolayı talimatlara aykırılık nedeniyle FDT’nin 46/1. maddesi uyarınca 40.000.-TL PARA CEZASI ile cezalandırılmasına,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-sam-gen-2025-08-09-rifat-songur-4cfd",
-    "updatedAt": "2026-06-20T22:53:36.756Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-sam-gen-2025-08-09-rifat-songur-0279",
+    "updatedAt": "2026-06-22T00:20:20.813Z"
   },
   {
     "teamName": "Göztepe",
@@ -149,15 +111,12 @@
     "penalty": "Kart Bloke (Misafir Tribün)",
     "date": "2025-08-10",
     "week": 1,
+    "category": "KULÜP",
     "note": "5-Göztepe ’nin, 10.08.2025 tarihinde oynanan Rizespor-Göztepe SÜPER LİG müsabakasında, taraftarlarının neden olduğu çirkin ve kötü tezahürat nedeniyle FDT’nin 53/3. maddesi uyarınca çirkin ve kötü tezahüratta bulunan MİSAFİR TRİBÜN MİSAFİR blokta yer alan seyircilerin elektronik bilet kapsamındaki kartlarının bloke edilmesi suretiyle bir sonraki misafir kulüp olduğu müsabakaya girişlerinin engellenmesine,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-riz-goz-2025-08-10-kulup-5a05",
-    "updatedAt": "2026-06-20T22:53:36.882Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-riz-goz-2025-08-10-kulup-18c6",
+    "updatedAt": "2026-06-22T00:20:20.960Z"
   },
   {
     "teamName": "Kasımpaşa",
@@ -169,15 +128,12 @@
     "penalty": "40.000 TL Para Cezası",
     "date": "2025-08-09",
     "week": 1,
+    "category": "TEKNİK SORUMLU",
     "note": "4-Kasımpaşa Antrenörü ÖZGÜR ÖÇAL’ın, 09.08.2025 tarihinde oynananHESAP.COM Antalyaspor-Kasımpaşa SÜPER LİG müsabakasında, akreditasyon kartını görünür bir şekilde boynuna asmamasından dolayı talimatlara aykırılık nedeniyle FDT’nin 46/1. maddesi uyarınca 40.000.-TL PARA CEZASI ile cezalandırılmasına,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-ant-kas-2025-08-09-ozgur-ocal-8100",
-    "updatedAt": "2026-06-20T22:53:38.996Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-ant-kas-2025-08-09-ozgur-ocal-2b17",
+    "updatedAt": "2026-06-22T00:20:21.080Z"
   },
   {
     "teamName": "Konyaspor",
@@ -189,15 +145,12 @@
     "penalty": "40.000 TL Para Cezası",
     "date": "2025-08-10",
     "week": 1,
+    "category": "İDARECİ",
     "note": "Aynı müsabakada Konyaspor Kulübü idarecisi ALİ KAYA’nın, müsabaka sonrasında akredite edilmediği yeşil zeminde bulunmasından dolayı talimatlara aykırılık nedeniyle FDT’nin 46/1. maddesi uyarınca 40.000.-TL PARA CEZASI ile cezalandırılmasına,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-eyu-kon-2025-08-10-ali-kaya-98ab",
-    "updatedAt": "2026-06-20T22:53:39.120Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-eyu-kon-2025-08-10-ali-kaya-e052",
+    "updatedAt": "2026-06-22T00:20:21.220Z"
   },
   {
     "teamName": "Konyaspor",
@@ -209,15 +162,12 @@
     "penalty": "40.000 TL Para Cezası",
     "date": "2025-08-10",
     "week": 1,
+    "category": "İDARECİ",
     "note": "Aynı müsabakada Konyaspor Kulübü idarecisi CELALETTİN HAKAN KATIRCI’nın, müsabaka sonrasında akredite edilmediği yeşil zeminde bulunmasından dolayı talimatlara aykırılık nedeniyle FDT’nin 46/1. maddesi uyarınca 40.000.-TL PARA CEZASI ile cezalandırılmasına,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-eyu-kon-2025-08-10-celalettin-hakan-katirci-978b",
-    "updatedAt": "2026-06-20T22:53:39.250Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-eyu-kon-2025-08-10-celalettin-hakan-katirci-1a0f",
+    "updatedAt": "2026-06-22T00:20:21.405Z"
   },
   {
     "teamName": "Konyaspor",
@@ -229,15 +179,12 @@
     "penalty": "40.000 TL Para Cezası",
     "date": "2025-08-10",
     "week": 1,
+    "category": "İDARECİ",
     "note": "Aynı müsabakada Konyaspor Kulübü idarecisi OKAY TINKIR’ın, müsabaka sonrasında akredite edilmediği yeşil zeminde bulunmasından dolayı talimatlara aykırılık nedeniyle FDT’nin 46/1. maddesi uyarınca 40.000.-TL PARA CEZASI ile cezalandırılmasına,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-eyu-kon-2025-08-10-okay-tinkir-f7ff",
-    "updatedAt": "2026-06-20T22:53:39.374Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-eyu-kon-2025-08-10-okay-tinkir-47f7",
+    "updatedAt": "2026-06-22T00:20:21.552Z"
   },
   {
     "teamName": "Konyaspor",
@@ -249,15 +196,12 @@
     "penalty": "40.000 TL Para Cezası",
     "date": "2025-08-10",
     "week": 1,
+    "category": "İDARECİ",
     "note": "6-Konyaspor Kulübü Başkanı ÖMER ATİKER’in, 10.08.2025 tarihinde oynanan Eyüpspor-Konyaspor SÜPER LİG müsabakasında, müsabaka sonrasında akredite edilmediği yeşil zeminde bulunmasından dolayı talimatlara aykırılık nedeniyle FDT’nin 46/1. maddesi uyarınca 40.000.-TL PARA CEZASI ile cezalandırılmasına,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-eyu-kon-2025-08-10-omer-atiker-1ed7",
-    "updatedAt": "2026-06-20T22:53:39.493Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-eyu-kon-2025-08-10-omer-atiker-1b70",
+    "updatedAt": "2026-06-22T00:20:21.688Z"
   },
   {
     "teamName": "Trabzonspor",
@@ -269,14 +213,11 @@
     "penalty": "220.000 TL Para Cezası ve Kart Bloke (KUZEY KALE ARKASI ALT TRİBÜN KUZEY ALT L blokta)",
     "date": "2025-08-11",
     "week": 1,
+    "category": "KULÜP",
     "note": "7-Trabzonspor ’nin, 11.08.2025 tarihinde oynanan Trabzonspor-Kocaelispor SÜPER LİG müsabakasında, taraftarlarının neden olduğu saha olayları nedeniyle FDT’nin 52/2. ve 46/1. maddeleri uyarınca 220.000.-TL PARA CEZASI ile cezalandırılmasına, FDT’nin 52/3. maddesi uyarınca saha olaylarına karışan taraftarların bulunduğu KUZEY KALE ARKASI ALT TRİBÜN KUZEY ALT L blokta yer alan seyircilerin elektronik bilet kapsamındaki kartlarının bloke edilmesi suretiyle bir sonraki ev sahibi kulüp olduğu müsabakaya girişlerinin engellenmesine,",
     "competition": "league",
     "season": "2025-2026",
-    "id": "d-week1-tra-koc-2025-08-11-kulup-d0be",
-    "updatedAt": "2026-06-20T22:53:39.633Z",
-    "appealStatus": "none",
-    "appealedPenalty": "",
-    "appealNote": "",
-    "appealDate": ""
+    "id": "d-week1-tra-koc-2025-08-11-kulup-7fc7",
+    "updatedAt": "2026-06-22T00:20:21.826Z"
   }
 ]

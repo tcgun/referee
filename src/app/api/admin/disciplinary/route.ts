@@ -65,11 +65,13 @@ export async function POST(request: Request) {
         let finalWeek = data.week !== undefined && data.week !== null ? data.week : null;
 
         if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-            if (finalWeek === null && matchId) {
+            if (finalWeek === null) {
                 const matches = await getCachedMatches();
-                const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
-                if (mDoc) {
-                    finalWeek = mDoc.week || null;
+                if (matchId) {
+                    const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
+                    if (mDoc) {
+                        finalWeek = mDoc.week || null;
+                    }
                 }
                 if (finalWeek === null && data.date) {
                     finalWeek = findWeekByDate(data.date, matches);
@@ -113,11 +115,13 @@ export async function POST(request: Request) {
         }
 
         const firestore = getAdminDb();
-        if (finalWeek === null && matchId) {
+        if (finalWeek === null) {
             const matches = await getCachedMatches();
-            const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
-            if (mDoc) {
-                finalWeek = mDoc.week || null;
+            if (matchId) {
+                const mDoc = matches.find(m => m.id === matchId.replace('d-', ''));
+                if (mDoc) {
+                    finalWeek = mDoc.week || null;
+                }
             }
             if (finalWeek === null && data.date) {
                 finalWeek = findWeekByDate(data.date, matches);
