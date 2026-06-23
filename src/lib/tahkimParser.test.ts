@@ -107,5 +107,13 @@ describe('Tahkim Parser Tests', () => {
         expect(result[1].appealStatus).toBe('rejected');
         expect(result[1].appealedPenalty).toBe('İtiraz Reddedildi');
     });
+
+    it('should ignore/skip non-disciplinary Board of Directors appeals', () => {
+        const rawText = `
+        1- E.2025/403 – K.2025/497 Fenerbahçe ’nin Yönetim Kurulu’nun 23.06.2025 tarihli kararına itirazı incelendi. Yapılan müzakere neticesinde; Talimat değişikliklerine ilişkin TFF Yönetim Kurulu kararının hukuka aykırılık yönünden yapılan incelemesinde; usule, esasa ve talimatlara aykırı bir yön bulunmadığı anlaşıldığından ayrıntısı ve diğer hususlar gerekçeli kararda belirtilmek üzere bir kısım maddeler yönünden oybirliğiyle, bir kısım maddeler yönünden oyçokluğuyla, itirazın reddine,
+        `;
+        const result = parseTahkimText(rawText);
+        expect(result.length).toBe(0);
+    });
 });
 

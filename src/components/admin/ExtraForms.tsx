@@ -5,6 +5,7 @@ import { Standing, Statement, DisciplinaryAction, RefereeStats, Match, VarInterv
 import { toast } from 'sonner';
 import { parsePfdkText } from '@/lib/pfdkParser';
 import { ParsedAppeal } from '@/lib/tahkimParser';
+import { normalizeTurkish } from '@/lib/turkishUtils';
 
 interface BaseProps {
     apiKey: string;
@@ -735,7 +736,7 @@ export const DisciplinaryForm = ({ apiKey, authToken, editItem, onCancelEdit, on
                                 <select 
                                     className="border border-gray-300 p-2 w-full rounded text-sm bg-white"
                                     value={action.appealStatus || 'none'}
-                                    onChange={e => setAction({ ...action, appealStatus: e.target.value as any })}
+                                    onChange={e => setAction({ ...action, appealStatus: e.target.value as DisciplinaryAction['appealStatus'] })}
                                 >
                                     <option value="none">İtiraz Yok</option>
                                     <option value="pending">İtiraz Edildi / Karar Bekleniyor</option>
@@ -1664,9 +1665,9 @@ export const DisciplinaryList = ({ apiKey, authToken, onEdit, refreshTrigger, se
                                                 item.appealStatus === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                                                 'bg-blue-50 text-blue-700 border-blue-200'
                                             }`}>
-                                                {item.appealStatus === 'accepted' ? `Tahkim: İptal` :
-                                                 item.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${item.appealedPenalty})` :
-                                                 item.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                                                {item.appealStatus === 'accepted' ? (item.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: İptal (İkinci İtiraz)' : 'Tahkim: İptal') :
+                                                 item.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${item.appealedPenalty})${item.appealNote?.includes('İkinci İtiraz') ? ' (İkinci İtiraz)' : ''}` :
+                                                 item.appealStatus === 'rejected' ? (item.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: Red (İkinci İtiraz)' : 'Tahkim: Red') : 'Tahkim: Karar Bekleniyor'}
                                             </span>
                                         )}
                                     </div>
@@ -2238,7 +2239,7 @@ interface BulkTahkimImportProps extends BaseProps {
     onSuccess?: () => void;
 }
 
-export const BulkTahkimImport = ({ apiKey, authToken, season, onSuccess }: BulkTahkimImportProps) => {
+export const BulkTahkimImport = ({ apiKey, authToken, onSuccess }: BulkTahkimImportProps) => {
     const [bulkText, setBulkText] = useState('');
     const [parsedAppeals, setParsedAppeals] = useState<ParsedAppeal[]>([]);
     const [teamActions, setTeamActions] = useState<Record<string, DisciplinaryAction[]>>({});
@@ -2293,35 +2294,86 @@ export const BulkTahkimImport = ({ apiKey, authToken, season, onSuccess }: BulkT
             appeals.forEach((appeal, index) => {
                 const actions = actionsMap[appeal.teamId] || [];
                 const normAppealSub = appeal.subject.toLowerCase().trim();
+                const appealTextNorm = normalizeTurkish(appeal.appealNote || '');
 
-                // Find the best match
-                let bestMatchId = 'none';
-                
-                const matchedAction = actions.find(action => {
-                    if (action.type === 'performance') return false;
-                    const normActionSub = action.subject.toLowerCase().trim();
+                const isClubSubject = (sub: string) => {
+                    const s = sub.toLowerCase().trim();
+                    return s === 'kulüp' || s === 'kulup' || s === 'kulübü' || s === 'kulubu' || s.includes('a.ş.');
+                };
+                const isAppealClub = isClubSubject(normAppealSub);
+
+                // Helper to extract numbers from a string
+                const extractNumbers = (text: string): string[] => {
+                    const rawNums = text.match(/\d+[\d.,]*/g) || [];
+                    return rawNums
+                        .map(n => n.replace(/[,.]/g, ''))
+                        .map(n => n.replace(/^0+/, ''))
+                        .filter(n => n.length >= 4);
+                };
+
+                const appealNumbers = extractNumbers(appealTextNorm);
+
+                // Score each candidate action
+                const scoredActions = actions.map(action => {
+                    if (action.type === 'performance') return { action, score: -1 };
                     
-                    const isClubSubject = (sub: string) => {
-                        const s = sub.toLowerCase().trim();
-                        return s === 'kulüp' || s === 'kulup' || s === 'kulübü' || s === 'kulubu' || s.includes('a.ş.');
-                    };
-
-                    const isAppealClub = isClubSubject(normAppealSub);
+                    const normActionSub = action.subject.toLowerCase().trim();
                     const isActionClub = isClubSubject(normActionSub);
 
+                    // 1. Subject match
+                    let subjectScore = 0;
                     if (isAppealClub) {
-                        return isActionClub;
+                        if (!isActionClub) return { action, score: -1 };
+                        subjectScore = 1;
+                    } else {
+                        if (isActionClub) return { action, score: -1 };
+                        const subMatches = normActionSub.includes(normAppealSub) || 
+                                           normAppealSub.includes(normActionSub) ||
+                                           normActionSub.split(' ').some(part => part.length > 2 && normAppealSub.includes(part));
+                        if (!subMatches) return { action, score: -1 };
+                        subjectScore = 10;
                     }
 
-                    return (
-                        normActionSub.includes(normAppealSub) || 
-                        normAppealSub.includes(normActionSub) ||
-                        normActionSub.split(' ').some(part => part.length > 2 && normAppealSub.includes(part))
-                    );
+                    let score = subjectScore;
+
+                    // 2. Reason keyword overlap
+                    const reasonNorm = normalizeTurkish(action.reason || '');
+                    const reasonWords = reasonNorm.split(/[^a-zA-ZçğıöşüÇĞİÖŞÜ0-9]+/g)
+                        .map(w => w.trim())
+                        .filter(w => w.length > 3)
+                        .filter(w => !['nedeniyle', 'dolayi', 'ceza', 'cezalandirilmasina', 'karar', 'kararina', 'eylem', 'eylemi', 'tarihli', 'tarih', 'veya', 'incelendi'].includes(w));
+
+                    reasonWords.forEach(word => {
+                        if (appealTextNorm.includes(word)) {
+                            score += 5;
+                        }
+                    });
+
+                    // 3. Penalty number overlap
+                    const actionPenaltyNorm = normalizeTurkish(action.penalty || '');
+                    const actionNumbers = extractNumbers(actionPenaltyNorm);
+                    
+                    let penaltyMatch = false;
+                    actionNumbers.forEach(num => {
+                        if (appealNumbers.includes(num)) {
+                            penaltyMatch = true;
+                        }
+                    });
+                    if (penaltyMatch) {
+                        score += 20;
+                    }
+
+                    return { action, score };
                 });
 
-                if (matchedAction) {
-                    bestMatchId = matchedAction.id;
+                // Filter valid matches and sort by score descending
+                const validMatches = scoredActions
+                    .filter(sa => sa.score >= 0)
+                    .sort((a, b) => b.score - a.score);
+
+                let bestMatchId = 'none';
+                if (validMatches.length > 0 && validMatches[0].score > 0) {
+                    bestMatchId = validMatches[0].action.id || 'none';
                     initialChecked[index] = true;
                 } else {
                     initialChecked[index] = false;
@@ -2361,12 +2413,40 @@ export const BulkTahkimImport = ({ apiKey, authToken, season, onSuccess }: BulkT
 
             if (!originalAction) continue;
 
+            const appealStatus = appeal.appealStatus;
+            let appealNote = appeal.appealNote;
+            let appealedPenalty = appeal.appealedPenalty;
+            const appealDate = appeal.appealDate;
+
+            // Check if there was already an appeal decision in the database
+            if (originalAction.appealStatus && originalAction.appealStatus !== 'none') {
+                const oldStatusText = 
+                    originalAction.appealStatus === 'accepted' ? 'İptal' :
+                    originalAction.appealStatus === 'partially_accepted' ? `İndirildi (${originalAction.appealedPenalty})` :
+                    originalAction.appealStatus === 'rejected' ? 'Red' : 'Bilinmiyor';
+
+                const newStatusText = 
+                    appeal.appealStatus === 'accepted' ? 'Kabul Edildi / İptal' :
+                    appeal.appealStatus === 'partially_accepted' ? `Kısmen Kabul / İndirildi (${appeal.appealedPenalty})` :
+                    appeal.appealStatus === 'rejected' ? 'Reddedildi' : 'Bilinmiyor';
+
+                appealNote = `[İkinci İtiraz Kararı - ${newStatusText}]\n${appeal.appealNote}\n\n-------------------\n[İlk İtiraz Kararı - ${oldStatusText} (${originalAction.appealDate || ''})]\n${originalAction.appealNote || ''}`;
+                
+                if (appeal.appealStatus === 'accepted') {
+                    appealedPenalty = "Ceza Kaldırıldı (İkinci İtiraz)";
+                } else if (appeal.appealStatus === 'partially_accepted') {
+                    appealedPenalty = `${appeal.appealedPenalty} (İkinci İtiraz)`;
+                } else {
+                    appealedPenalty = "İtiraz Reddedildi (İkinci İtiraz)";
+                }
+            }
+
             const updatedAction: DisciplinaryAction = {
                 ...originalAction,
-                appealStatus: appeal.appealStatus,
-                appealedPenalty: appeal.appealedPenalty,
-                appealNote: appeal.appealNote,
-                appealDate: appeal.appealDate
+                appealStatus,
+                appealedPenalty,
+                appealNote,
+                appealDate
             };
 
             // clean appealed penalty
@@ -2456,6 +2536,8 @@ export const BulkTahkimImport = ({ apiKey, authToken, season, onSuccess }: BulkT
                             const actions = teamActions[appeal.teamId] || [];
                             const selectedVal = selectedMatches[index] || 'none';
                             const isChecked = checkedAppeals[index] || false;
+                            const originalAction = actions.find(a => a.id === selectedVal);
+                            const isSecondAppeal = !!(originalAction && originalAction.appealStatus && originalAction.appealStatus !== 'none');
 
                             return (
                                 <div key={index} className={`p-4 hover:bg-slate-50/50 transition-colors flex gap-3 items-start ${!isChecked ? 'opacity-60' : ''}`}>
@@ -2482,10 +2564,10 @@ export const BulkTahkimImport = ({ apiKey, authToken, season, onSuccess }: BulkT
                                                 appeal.appealStatus === 'partially_accepted' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                                                 appeal.appealStatus === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                                                 'bg-blue-50 text-blue-700 border-blue-200'
-                                            }`}>
-                                                {appeal.appealStatus === 'accepted' ? 'Tahkim: İptal' :
-                                                 appeal.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${appeal.appealedPenalty})` :
-                                                 appeal.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                                             }`}>
+                                                {appeal.appealStatus === 'accepted' ? `Tahkim: İptal${isSecondAppeal ? ' (İkinci İtiraz)' : ''}` :
+                                                 appeal.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${appeal.appealedPenalty})${isSecondAppeal ? ' (İkinci İtiraz)' : ''}` :
+                                                 appeal.appealStatus === 'rejected' ? `Tahkim: Red${isSecondAppeal ? ' (İkinci İtiraz)' : ''}` : 'Tahkim: Karar Bekleniyor'}
                                             </span>
                                         </div>
 

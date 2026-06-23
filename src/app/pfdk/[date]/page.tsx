@@ -262,9 +262,9 @@ function DisciplinaryItem({ act, activeTab, cleanPenalty }: { act: DisciplinaryA
                                 act.appealStatus === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                                 'bg-blue-50 text-blue-700 border-blue-200'
                             }`}>
-                                {act.appealStatus === 'accepted' ? 'Tahkim: İptal' :
-                                 act.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${act.appealedPenalty})` :
-                                 act.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                                {act.appealStatus === 'accepted' ? (act.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: İptal (İkinci İtiraz)' : 'Tahkim: İptal') :
+                                 act.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${act.appealedPenalty})${act.appealNote?.includes('İkinci İtiraz') ? ' (İkinci İtiraz)' : ''}` :
+                                 act.appealStatus === 'rejected' ? (act.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: Red (İkinci İtiraz)' : 'Tahkim: Red') : 'Tahkim: Karar Bekleniyor'}
                             </span>
                         )}
                         <div className="flex items-center gap-2">

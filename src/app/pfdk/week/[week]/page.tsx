@@ -196,16 +196,27 @@ export default function PfdkWeekPage() {
                                                                 <div>
                                                                     <span className="text-xs font-black text-slate-800">👤 {action.subject}</span>
                                                                     <span className="block text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">{action.reason}</span>
-                                                                    {!action.matchId && (
+                                                                    {action.matchId ? (
+                                                                        (() => {
+                                                                            const mId = action.matchId.replace(/^d-/, '');
+                                                                            const match = matches.find(m => m.id === mId || m.id === `d-${mId}`);
+                                                                            const matchName = match ? `${cleanTeamName(match.homeTeamName)} - ${cleanTeamName(match.awayTeamName)}` : 'Maç Detayı';
+                                                                            return (
+                                                                                <Link href={`/matches/${mId}?tab=pfdk`} className="inline-block mt-1 text-[9px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors px-1.5 py-0.5 rounded border border-blue-100">
+                                                                                    Maç: {matchName}
+                                                                                </Link>
+                                                                            );
+                                                                        })()
+                                                                    ) : (
                                                                         (() => {
                                                                             const tId = resolveTeamId(action.teamName || '');
                                                                             return tId ? (
                                                                                 <Link href={`/teams/${tId}`} className="inline-block mt-1 text-[9px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors px-1.5 py-0.5 rounded border border-blue-100">
-                                                                                    Bağlı Kulüp: {cleanTeamName(action.teamName || '')} (Maçsız Sevk)
+                                                                                    {cleanTeamName(action.teamName || '')}
                                                                                 </Link>
                                                                             ) : (
                                                                                 <span className="inline-block mt-1 text-[9px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
-                                                                                    Bağlı Kulüp: {cleanTeamName(action.teamName || '')} (Maçsız Sevk)
+                                                                                    {cleanTeamName(action.teamName || '')}
                                                                                 </span>
                                                                             );
                                                                         })()
@@ -235,9 +246,9 @@ export default function PfdkWeekPage() {
                                                                             action.appealStatus === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                                                                             'bg-blue-50 text-blue-700 border-blue-200'
                                                                         }`}>
-                                                                            {action.appealStatus === 'accepted' ? 'Tahkim: İptal' :
-                                                                             action.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${action.appealedPenalty})` :
-                                                                             action.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                                                                            {action.appealStatus === 'accepted' ? (action.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: İptal (İkinci İtiraz)' : 'Tahkim: İptal') :
+                                                                             action.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${action.appealedPenalty})${action.appealNote?.includes('İkinci İtiraz') ? ' (İkinci İtiraz)' : ''}` :
+                                                                             action.appealStatus === 'rejected' ? (action.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: Red (İkinci İtiraz)' : 'Tahkim: Red') : 'Tahkim: Karar Bekleniyor'}
                                                                         </span>
                                                                     )}
                                                                 </div>

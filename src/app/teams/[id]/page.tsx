@@ -6,11 +6,17 @@ import { db } from '@/firebase/client';
 import { Team, Match, DisciplinaryAction } from '@/types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { resolveTeamId, getTeamStadium } from '@/lib/teams';
+import { resolveTeamId, getTeamStadium, getTeamName } from '@/lib/teams';
 
 export default function TeamPage() {
     const params = useParams();
     const teamId = params.id as string;
+
+    const cleanTeamName = (rawName: string) => {
+        const id = resolveTeamId(rawName);
+        return id ? getTeamName(id) : rawName;
+    };
+
     const [team, setTeam] = useState<Team | null>(null);
     const [matches, setMatches] = useState<Match[]>([]);
     const [actions, setActions] = useState<DisciplinaryAction[]>([]);
@@ -282,9 +288,20 @@ export default function TeamPage() {
                                             <span className="text-md font-black text-white uppercase tracking-tight">
                                                 👤 {act.subject}
                                             </span>
-                                            {!act.matchId && (
+                                            {act.matchId ? (
+                                                (() => {
+                                                    const mId = act.matchId.replace(/^d-/, '');
+                                                    const match = matches.find(m => m.id === mId || m.id === `d-${mId}`);
+                                                    const matchName = match ? `${cleanTeamName(match.homeTeamName)} - ${cleanTeamName(match.awayTeamName)}` : 'Maç Detayı';
+                                                    return (
+                                                        <Link href={`/matches/${mId}?tab=pfdk`} className="inline-block mt-1 text-[9px] font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-colors px-1.5 py-0.5 rounded border border-primary/20 w-fit">
+                                                            Maç: {matchName}
+                                                        </Link>
+                                                    );
+                                                })()
+                                            ) : (
                                                 <span className="inline-block mt-1 text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 w-fit">
-                                                    Bağlı Kulüp: {team?.name || act.teamName || ''} (Maçsız Sevk)
+                                                    {team?.name || act.teamName || ''}
                                                 </span>
                                             )}
                                             <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">
@@ -295,7 +312,7 @@ export default function TeamPage() {
                                             <span className="bg-slate-900 border border-white/5 text-gray-300 text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-wider">
                                                 📅 {new Date(act.date).toLocaleDateString('tr-TR')}
                                             </span>
-                                            {act.week && (
+                                            {act.matchId && act.week && (
                                                 <span className="bg-primary text-black text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-wider">
                                                     {act.week}. HAFTA
                                                 </span>
@@ -316,9 +333,9 @@ export default function TeamPage() {
                                                         act.appealStatus === 'rejected' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
                                                         'bg-blue-500/10 text-blue-400 border-blue-500/20'
                                                     }`}>
-                                                        {act.appealStatus === 'accepted' ? 'Tahkim: İptal' :
-                                                         act.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${act.appealedPenalty})` :
-                                                         act.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                                                        {act.appealStatus === 'accepted' ? (act.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: İptal (İkinci İtiraz)' : 'Tahkim: İptal') :
+                                                         act.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${act.appealedPenalty})${act.appealNote?.includes('İkinci İtiraz') ? ' (İkinci İtiraz)' : ''}` :
+                                                         act.appealStatus === 'rejected' ? (act.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: Red (İkinci İtiraz)' : 'Tahkim: Red') : 'Tahkim: Karar Bekleniyor'}
                                                     </span>
                                                 )}
                                             </div>

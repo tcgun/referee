@@ -445,16 +445,27 @@ export default function DisciplinaryAnalysisPage() {
                                                                 <div className="flex flex-wrap justify-between items-start gap-2">
                                                                     <div>
                                                                         <span className="text-xs font-black text-white">👤 {action.subject}</span>
-                                                                        {!action.matchId && (
+                                                                        {action.matchId ? (
+                                                                            (() => {
+                                                                                const mId = action.matchId.replace(/^d-/, '');
+                                                                                const match = matches.find(m => m.id === mId || m.id === `d-${mId}`);
+                                                                                const matchName = match ? `${cleanTeamName(match.homeTeamName)} - ${cleanTeamName(match.awayTeamName)}` : 'Maç Detayı';
+                                                                                return (
+                                                                                    <Link href={`/matches/${mId}?tab=pfdk`} className="block mt-1 text-[9px] font-bold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-colors px-1.5 py-0.5 rounded border border-blue-500/20 w-fit">
+                                                                                        Maç: {matchName}
+                                                                                    </Link>
+                                                                                );
+                                                                            })()
+                                                                        ) : (
                                                                             (() => {
                                                                                 const tId = resolveTeamId(action.teamName || '');
                                                                                 return tId ? (
                                                                                     <Link href={`/teams/${tId}`} className="block mt-1 text-[9px] font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-colors px-1.5 py-0.5 rounded border border-primary/20 w-fit">
-                                                                                        Bağlı Kulüp: {cleanTeamName(action.teamName || '')} (Maçsız Sevk)
+                                                                                        {cleanTeamName(action.teamName || '')}
                                                                                     </Link>
                                                                                 ) : (
                                                                                     <span className="block mt-1 text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 w-fit">
-                                                                                        Bağlı Kulüp: {cleanTeamName(action.teamName || '')} (Maçsız Sevk)
+                                                                                        {cleanTeamName(action.teamName || '')}
                                                                                     </span>
                                                                                 );
                                                                             })()
@@ -485,9 +496,9 @@ export default function DisciplinaryAnalysisPage() {
                                                                                 action.appealStatus === 'rejected' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
                                                                                 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                                                                             }`}>
-                                                                                {action.appealStatus === 'accepted' ? 'Tahkim: İptal' :
-                                                                                 action.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${action.appealedPenalty})` :
-                                                                                 action.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                                                                                {action.appealStatus === 'accepted' ? (action.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: İptal (İkinci İtiraz)' : 'Tahkim: İptal') :
+                                                                                 action.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${action.appealedPenalty})${action.appealNote?.includes('İkinci İtiraz') ? ' (İkinci İtiraz)' : ''}` :
+                                                                                 action.appealStatus === 'rejected' ? (action.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: Red (İkinci İtiraz)' : 'Tahkim: Red') : 'Tahkim: Karar Bekleniyor'}
                                                                             </span>
                                                                         )}
                                                                     </div>

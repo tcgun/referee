@@ -55,6 +55,12 @@ export function parseTahkimText(rawInput: string): ParsedAppeal[] {
 
     for (const p of paragraphs) {
         const normP = normalizeTurkish(p);
+        
+        // Skip TFF Board of Directors (Yönetim Kurulu) or MHK/administrative appeals
+        if (normP.includes('yonetim kurulu') || normP.includes('merkez hakem kurulu') || normP.includes('mhk')) {
+            continue;
+        }
+
         let teamId: string | null = null;
         let bestIndex = Infinity;
 

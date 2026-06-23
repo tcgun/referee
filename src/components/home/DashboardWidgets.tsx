@@ -274,9 +274,9 @@ export const PfdkSection = ({ actions, statements }: { actions: DisciplinaryActi
                                                                     act.appealStatus === 'rejected' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
                                                                     'bg-blue-500/10 text-blue-400 border-blue-500/20'
                                                                 }`}>
-                                                                    {act.appealStatus === 'accepted' ? 'Tahkim: İptal' :
-                                                                     act.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${act.appealedPenalty})` :
-                                                                     act.appealStatus === 'rejected' ? 'Tahkim: Red' : 'Tahkim: Karar Bekleniyor'}
+                                                                    {act.appealStatus === 'accepted' ? (act.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: İptal (İkinci İtiraz)' : 'Tahkim: İptal') :
+                                                                     act.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${act.appealedPenalty})${act.appealNote?.includes('İkinci İtiraz') ? ' (İkinci İtiraz)' : ''}` :
+                                                                     act.appealStatus === 'rejected' ? (act.appealNote?.includes('İkinci İtiraz') ? 'Tahkim: Red (İkinci İtiraz)' : 'Tahkim: Red') : 'Tahkim: Karar Bekleniyor'}
                                                                 </span>
                                                             )}
                                                         </div>}
