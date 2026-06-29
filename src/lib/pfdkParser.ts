@@ -1,5 +1,6 @@
 import { SUPER_LIG_TEAMS, getTeamName, replaceTeamNamesWithSystemNames } from '@/lib/teams';
 import { Match } from '@/types';
+import { normalizeTurkish } from './turkishUtils';
 
 export interface ParsedAction {
     teamName: string;
@@ -8,6 +9,7 @@ export interface ParsedAction {
     reason: string;
     penalty: string;
     date: string;
+    pfdkDecisionDate?: string;
     matchId: string;
     week?: number;
     competition: 'league' | 'cup';
@@ -84,7 +86,7 @@ export function parseCategoryFromText(text: string, subject: string): string {
     if (normP.includes('gorevlisi') || normP.includes('görevlisi') || normP.includes('masoru') || normP.includes('masörü') || normP.includes('fizyoterapisti') || normP.includes('doktoru') || normP.includes('calisani') || normP.includes('çalışanı') || normP.includes('temsilcisi')) {
         return 'KULÜP ÇALIŞANI';
     }
-    if (normP.includes('futbolcusu') || normP.includes('sporcusu')) {
+    if (normP.includes('futbolcusu') || normP.includes('sporcusu') || normP.includes('futbolculari') || normP.includes('sporculari')) {
         return 'FUTBOLCU';
     }
 
@@ -164,8 +166,7 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
         const isNewClause = 
             /^\d+[-.]/.test(trimmed) || 
             /^[-•*]\s+/.test(trimmed) || 
-            trimmed.startsWith("Aynı müsabakada") || 
-            trimmed.startsWith("Aynı müsabakada,") ||
+            normTrimmed.startsWith("ayni musabakada") || 
             startsWithTeam;
 
         if (isNewClause && currentParagraph) {
@@ -262,15 +263,16 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
             const year = dateMatch[3];
             dateStr = `${year}-${month}-${day}`;
             lastMatchDate = dateStr;
-        } else if (p.includes("Aynı müsabakada") || p.includes("Aynı müsabakada,")) {
+        } else if (normP.includes("ayni musabakada")) {
             dateStr = lastMatchDate || defaultDate;
         } else {
             dateStr = lastMatchDate || defaultDate;
         }
 
+        const isSameMatch = normP.includes("ayni musabakada");
         let matchedMatch: Match | undefined = undefined;
-        const isMatchRelated = /müsabaka|maç|karşılaşma/i.test(p);
-        if (isMatchRelated && teamId) {
+        const isMatchRelated = /musabaka|mac|karsilasma/i.test(normP);
+        if (isMatchRelated && teamId && !isSameMatch) {
             const otherTeamIds = Array.from(mentionedTeamIds).filter(id => id !== teamId);
             
             if (otherTeamIds.length > 0) {
@@ -343,17 +345,18 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
             week = matchedMatch.week;
             lastMatchId = matchId;
             lastWeek = week;
-        } else if (p.includes("Aynı müsabakada") || p.includes("Aynı müsabakada,")) {
+        } else if (normP.includes("ayni musabakada")) {
             matchId = lastMatchId || "";
             week = lastWeek;
         }
 
         let subject = "Kulüp";
-        const subjectRegex = /(?:[iİıI]darec[iİıI]s[iİıI]|yönet[iİıI]c[iİıI]s[iİıI]|başkan[ıİiI]|antrenörü|tekn[iİıI]k\s+sorumlusu|tekn[iİıI]k\s+d[iİıI]rektörü|futbolcusu|sporcusu|görevl[iİıI]s[iİıI]|masörü)\s+([A-ZÇĞİÖŞÜa-zçğıöşü\s'-]{3,30})(?=['’’](?:nin|nın|nun|nün|in|ın|un|ün|i|ı|u|ü|a|e|den|dan|ta|te|da|de|la|le)\b)/i;
+        const subjectRegex = /(?:[iİıI]darec[iİıI]s[iİıI]|[iİıI]darec[iİıI]ler[iİıI]|yönet[iİıI]c[iİıI]s[iİıI]|yönet[iİıI]c[iİıI]ler[iİıI]|başkan[ıİiI]|başkanlar[ıİiI]|antrenörü|antrenörler[iİıI]|tekn[iİıI]k\s+sorumlusu|tekn[iİıI]k\s+sorumlular[ıİiI]|futbolcusu|futbolcular[ıİiI]|sporcu(?:su|ları)?|görevl[iİıI]s[iİıI]|görevl[iİıI]ler[iİıI]|masörü)\s+([A-ZÇĞİÖŞÜa-zçğıöşü\s'-]{3,30})(?:’|'|‘|’)?(?:nin|nın|nun|nün|in|ın|un|ün|i|ı|u|ü|a|e|den|dan|ta|te|da|de|la|le)?/i;
         const subMatch = p.match(subjectRegex);
         if (subMatch) {
             subject = subMatch[1].trim();
             subject = subject.replace(/['’]s$/, '');
+            subject = subject.replace(/\s+(?:hakkında|ilişkin|dair|hakkındaki|yönelik)\b.*/i, '').trim();
         }
 
         let reason = "Disiplin İhlali";
@@ -363,11 +366,11 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
             reason = quoteMatch[1].trim();
         } else {
             const patterns = [
-                /,\s*([^,.]+?)\s+nedeniyle/i,
-                /,\s*([^,.]+?)\s+dolayı/i,
-                /,\s*([^,.]+?)\s+ötürü/i,
-                /([^,.]+?)\s+nedeniyle/i,
-                /([^,.]+?)\s+dolayı/i
+                /,\s*([^,]+?)\s+nedeniyle/i,
+                /,\s*([^,]+?)\s+dolayı/i,
+                /,\s*([^,]+?)\s+ötürü/i,
+                /([^,]+?)\s+nedeniyle/i,
+                /([^,]+?)\s+dolayı/i
             ];
             for (const pattern of patterns) {
                 const match = p.match(pattern);
@@ -376,7 +379,9 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
                     val = val.replace(/^müsabakasında,\s*/i, '')
                              .replace(/^maddesi\s+uyarınca\s*/i, '')
                              .replace(/^beyanlarında\s+yer\s+alan\s*/i, '')
-                             .replace(/^paylaşımda\s+yer\s+alan\s*/i, '');
+                             .replace(/^paylaşımda\s+yer\s+alan\s*/i, '')
+                             .replace(/^.*?\byer\s+alan\s+/i, '')
+                             .replace(/^.*?\b(müsabakasında|karsilasmasinda|karşılaşmasında)\s+/i, '');
                     reason = val.charAt(0).toUpperCase() + val.slice(1);
                     break;
                 }
@@ -392,6 +397,10 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
         if (menMatch) {
             penalties.push(`${menMatch[1]} Maç Men`);
         }
+        const girisMatch = p.match(/(\d+)\s+RESMİ\s+MÜSABAKADA\s+SOYUNMA\s+ODASINA\s+VE\s+YEDEK\s+KULÜBESİNE\s+GİRİŞ\s+YASAĞI/i);
+        if (girisMatch) {
+            penalties.push(`${girisMatch[1]} Maç Soyunma Odasına ve Yedek Kulübesine Giriş Yasağı`);
+        }
         const fineMatch = p.match(/([\d.]+)\.-?\s*TL\s+PARA\s+CEZASI/i);
         if (fineMatch) {
             penalties.push(`${fineMatch[1]} TL Para Cezası`);
@@ -399,10 +408,25 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
         if (p.includes("İHTAR CEZASI")) {
             penalties.push("İhtar");
         }
+        const seyircisizMatch = p.match(/(\d+)\s+RESMİ\s+MÜSABAKAYI\s+(?:KENDİ\s+SAHASINDA\s+)?SEYİRCİSİZ\s+OYNAMA/i);
+        if (seyircisizMatch) {
+            penalties.push(`${seyircisizMatch[1]} Maç Seyircisiz Oynama`);
+        }
+        const puanSilmeMatch = p.match(/(\d+)\s+PUAN\s+SİLME/i);
+        if (puanSilmeMatch) {
+            penalties.push(`${puanSilmeMatch[1]} Puan Silme`);
+        }
+        if (p.includes("KINAMA CEZASI")) {
+            penalties.push("Kınama");
+        }
         if (p.includes("kartlarının bloke edilmesi")) {
-            const blockMatch = p.match(/([A-ZÇĞİÖŞÜ0-9\s]+TRİBÜN[A-ZÇĞİÖŞÜ0-9\s]*\s+[A-Za-z0-9\s-]+blok(?:ta|ında)?)/);
+            const blockMatch = p.match(/(?:bulunan|bulunduğu|yer\s+alan|bloke\s+edilen)\s+([a-zçğıöşüA-ZÇĞİÖŞÜ0-9\s(),\-\/]+\bblok(?:ta|ında|larda|larında)?\b)/i);
             if (blockMatch) {
-                penalties.push(`Kart Bloke (${blockMatch[1].trim().replace(/\s+/g, ' ')})`);
+                let blockText = blockMatch[1].trim().replace(/\s+/g, ' ');
+                blockText = blockText.replace(/\s*numaralı\s*blok(?:ta|ında|larda|larında)?/i, '')
+                                     .replace(/\s*blok(?:ta|ında|larda|larında)?/i, '')
+                                     .trim();
+                penalties.push(`Kart Bloke (${blockText})`);
             } else if (p.includes("MİSAFİR TRİBÜN")) {
                 penalties.push("Kart Bloke (Misafir Tribün)");
             } else {
@@ -410,8 +434,39 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
             }
         }
         
-        const penalty = penalties.length > 0 ? penalties.join(" ve ") : "Cezalandırılmasına";
+        let penalty = "";
+        if (penalties.length > 0) {
+            penalty = penalties.join(" ve ");
+        } else if (normP.includes("ceza tayinine yer olmadigina")) {
+            penalty = "Ceza Tayinine Yer Olmadığına";
+        } else if (normP.includes("ceza verilmesine yer olmadigina")) {
+            penalty = "Ceza Verilmesine Yer Olmadığına";
+        } else {
+            penalty = "Cezalandırılmasına";
+        }
+        
         const category = parseCategoryFromText(p, subject);
+
+        const cleanReason = reason.trim().replace(/^,+|,+$/g, '').trim();
+        const cleanPenalty = penalty.trim();
+        
+        let formattedPenalty = cleanPenalty.charAt(0).toLowerCase() + cleanPenalty.slice(1);
+        let noteActionWord = "verilmiştir";
+        
+        if (cleanPenalty === "Ceza Tayinine Yer Olmadığına") {
+            formattedPenalty = "ceza tayinine yer olmadığına";
+            noteActionWord = "karar verilmiştir";
+        } else if (cleanPenalty === "Ceza Verilmesine Yer Olmadığına") {
+            formattedPenalty = "ceza verilmesine yer olmadığına";
+            noteActionWord = "karar verilmiştir";
+        }
+
+        let generatedNote = "";
+        if (subject.toLowerCase() === 'kulüp') {
+            generatedNote = `Kulübe, ${cleanReason.charAt(0).toLowerCase() + cleanReason.slice(1)} nedeniyle ${formattedPenalty} ${noteActionWord}.`;
+        } else {
+            generatedNote = `${subject} hakkında, ${cleanReason.charAt(0).toLowerCase() + cleanReason.slice(1)} nedeniyle ${formattedPenalty} ${noteActionWord}.`;
+        }
 
         items.push({
             teamName,
@@ -420,10 +475,11 @@ export function parsePfdkText(rawInput: string, allMatches: Match[] = []): Parse
             reason,
             penalty,
             date: dateStr || defaultDate,
+            pfdkDecisionDate: defaultDate,
             matchId,
             week,
             competition: (matchedMatch?.competition as 'league' | 'cup') || 'league',
-            note: replaceTeamNamesWithSystemNames(p),
+            note: generatedNote,
             category,
             isMatchRelated
         });

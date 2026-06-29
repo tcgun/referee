@@ -1093,9 +1093,20 @@ function AdminContent() {
 
                     {/* EXTRAS (PFDK) TAB */}
                     {activeTab === 'extras' && (
-                        <div className="grid md:grid-cols-2 gap-6">
-                            <StatementForm apiKey={apiKey} authToken={authToken} season={selectedSeason} />
-                            <DisciplinaryWrapper apiKey={apiKey} authToken={authToken} season={selectedSeason} />
+                        <div className="space-y-10">
+                            <div>
+                                <h2 className="text-sm font-black uppercase text-slate-500 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2 tracking-wider">
+                                    <span>⚖️</span> Disiplin Cezaları Yönetimi (PFDK & Tahkim)
+                                </h2>
+                                <DisciplinaryWrapper apiKey={apiKey} authToken={authToken} season={selectedSeason} />
+                            </div>
+                            
+                            <div className="border-t border-slate-200/80 pt-8 max-w-4xl">
+                                <h2 className="text-sm font-black uppercase text-slate-500 mb-4 flex items-center gap-2 tracking-wider">
+                                    <span>📢</span> Resmi Kulüp & TFF Açıklamaları
+                                </h2>
+                                <StatementForm apiKey={apiKey} authToken={authToken} season={selectedSeason} />
+                            </div>
                         </div>
                     )}
 

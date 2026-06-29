@@ -32,7 +32,7 @@ interface WeeklyTrend {
 }
 
 export default function DisciplinaryAnalysisPage() {
-    const [activeTab, setActiveTab] = useState<'weekly' | 'teams'>('weekly');
+    const [activeTab, setActiveTab] = useState<'weekly' | 'teams' | 'tribunes'>('weekly');
     const [selectedSeason, setSelectedSeason] = useState<string>('2025-2026');
 
     // ==========================================
@@ -140,7 +140,7 @@ export default function DisciplinaryAnalysisPage() {
         teams: TeamStats[],
         weeklyTrend: WeeklyTrend[],
         subjectBreakdown: Record<string, number>,
-        categoryActions?: Record<string, Array<{ id: string; subject: string; teamName: string; penalty: string; date: string; reason: string; appealStatus?: string; appealedPenalty?: string }>>,
+        categoryActions?: Record<string, Array<{ id: string; subject: string; teamName: string; penalty: string; date: string; reason: string; week?: number; appealStatus?: string; appealedPenalty?: string }>>,
         leagueTotalFine: number,
         matchStats?: {
             mostFouledTeam: { name: string, count: number } | null;
@@ -156,7 +156,7 @@ export default function DisciplinaryAnalysisPage() {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
     useEffect(() => {
-        if (activeTab !== 'teams') return;
+        if (activeTab !== 'teams' && activeTab !== 'tribunes') return;
         setSelectedCategory(null);
         async function fetchStats() {
             try {
@@ -203,7 +203,7 @@ export default function DisciplinaryAnalysisPage() {
                 </div>
 
                 {/* Main Tab Switcher */}
-                <div className="flex bg-[#161b22] p-1.5 rounded-xl border border-white/10 shadow-neo-sm overflow-hidden">
+                <div className="flex bg-[#161b22] p-1.5 rounded-xl border border-white/10 shadow-neo-sm overflow-hidden flex-wrap md:flex-nowrap gap-1">
                     <button
                         onClick={() => setActiveTab('weekly')}
                         className={`flex-1 py-3 px-4 rounded-lg font-black text-xs uppercase tracking-widest transition-all ${
@@ -219,6 +219,14 @@ export default function DisciplinaryAnalysisPage() {
                         }`}
                     >
                         📊 Takım Analiz Raporu
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('tribunes')}
+                        className={`flex-1 py-3 px-4 rounded-lg font-black text-xs uppercase tracking-widest transition-all ${
+                            activeTab === 'tribunes' ? 'bg-primary text-black shadow-lg scale-102' : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        🚫 Kapanan Tribünler
                     </button>
                 </div>
 
@@ -797,6 +805,100 @@ export default function DisciplinaryAnalysisPage() {
                                 </div>
                             </>
                         )}
+                    </div>
+                )}
+
+                {/* ==========================================
+                    TAB 3: TRIBUNES / BLOCKS CLOSURES PANEL
+                   ========================================== */}
+                {activeTab === 'tribunes' && (
+                    <div className="space-y-6">
+                        {loadingTeams ? (
+                            <div className="space-y-4">
+                                {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
+                            </div>
+                        ) : (() => {
+                            const allCategoryActions = teamsData?.categoryActions || {};
+                            const clubActions = allCategoryActions['KULÜP'] || [];
+                            
+                            const blokeActions = clubActions.filter(act => 
+                                act.penalty && act.penalty.toLowerCase().includes('bloke')
+                            );
+
+                            const sortedBlokes = blokeActions.sort((a, b) => {
+                                const wA = a.week || 0;
+                                const wB = b.week || 0;
+                                if (wA !== wB) return wB - wA;
+                                return new Date(b.date).getTime() - new Date(a.date).getTime();
+                            });
+
+                            if (sortedBlokes.length === 0) {
+                                return (
+                                    <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl text-muted-foreground text-sm italic">
+                                        Seçilen sezonda henüz kapatılan/bloke edilen bir tribün/blok cezası bulunamadı.
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h2 className="text-lg font-black uppercase tracking-wider text-primary">
+                                            Kapatılan Tribün ve Bloklar Listesi ({sortedBlokes.length})
+                                        </h2>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 gap-4">
+                                        {sortedBlokes.map(act => {
+                                            const match = act.penalty.match(/Kart Bloke \(([^)]+)\)/i) || act.penalty.match(/kart Bloke \(([^)]+)\)/i);
+                                            const blockText = match ? match[1] : act.penalty;
+
+                                            return (
+                                                <div key={act.id} className="bg-[#161b22] border border-white/10 rounded-2xl p-5 hover:border-primary transition-colors flex flex-col md:flex-row justify-between gap-4">
+                                                    <div className="space-y-2 flex-1">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="text-xs font-black uppercase bg-primary/20 text-primary px-2.5 py-1 rounded-md">
+                                                                {act.teamName}
+                                                            </span>
+                                                            <span className="text-[10px] font-black bg-slate-900 text-gray-400 px-2 py-1 rounded-md">
+                                                                {act.week ? `${act.week}. Hafta` : 'Kupa'}
+                                                            </span>
+                                                            <span className="text-[10px] font-bold text-gray-500">
+                                                                {new Date(act.date).toLocaleDateString('tr-TR')}
+                                                            </span>
+                                                            {act.appealStatus && (
+                                                                <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
+                                                                    act.appealStatus === 'accepted' 
+                                                                        ? 'bg-green-500/20 text-green-400' 
+                                                                        : act.appealStatus === 'rejected' 
+                                                                            ? 'bg-red-500/20 text-red-400' 
+                                                                            : 'bg-yellow-500/20 text-yellow-400'
+                                                                }`}>
+                                                                    Tahkim: {
+                                                                        act.appealStatus === 'accepted' ? 'İptal Edildi' :
+                                                                        act.appealStatus === 'rejected' ? 'Onandı' :
+                                                                        act.appealStatus === 'partially_accepted' ? 'Kısmen Kabul' : 'İtiraz Yapıldı'
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-sm font-semibold text-gray-300">
+                                                            Gerekçe: <span className="text-gray-400">{act.reason}</span>
+                                                        </div>
+                                                        <div className="p-3 bg-slate-950/60 rounded-xl border border-white/5 space-y-1">
+                                                            <div className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Kapanan Tribün / Blok Detayları:</div>
+                                                            <div className="text-sm font-bold text-red-400 font-mono tracking-tight leading-relaxed">
+                                                                {blockText}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
             </div>

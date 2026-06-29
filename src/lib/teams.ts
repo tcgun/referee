@@ -30,28 +30,31 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
         name: 'Antalyaspor',
         colors: { primary: '#E30613', secondary: '#FFFFFF' },
         short: 'ant',
-        aliases: ['bitexen antalyaspor', 'hesapcom antalyaspor']
+        aliases: ['bitexen antalyaspor', 'hesapcom antalyaspor', 'antalya spor']
     },
     'sam': {
         name: 'Samsunspor',
         colors: { primary: '#CC0000', secondary: '#FFFFFF' },
-        short: 'sam'
+        short: 'sam',
+        aliases: ['samsun spor', 'samsunspor a.ş.', 'samsun spor a.ş.', 'samsunspor futbol a.ş.']
     },
     'tra': {
         name: 'Trabzonspor',
         colors: { primary: '#A52A2A', secondary: '#87CEEB' },
-        short: 'tra'
+        short: 'tra',
+        aliases: ['trabzon spor', 'trabzonspor a.ş.', 'trabzon spor a.ş.']
     },
     'ala': {
         name: 'Alanyaspor',
         colors: { primary: '#F9B517', secondary: '#008C45' },
         short: 'ala',
-        aliases: ['corendon alanyaspor']
+        aliases: ['corendon alanyaspor', 'alanya spor']
     },
     'fen': {
         name: 'Fenerbahçe',
         colors: { primary: '#002d72', secondary: '#f9b517' },
-        short: 'fen'
+        short: 'fen',
+        aliases: ['fener bahçe', 'fenerbahçe a.ş.', 'fenerbahce']
     },
     'gen': {
         name: 'Gençlerbirliği',
@@ -61,12 +64,14 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
     'kas': {
         name: 'Kasımpaşa',
         colors: { primary: '#004A99', secondary: '#FFFFFF' },
-        short: 'kas'
+        short: 'kas',
+        aliases: ['kasım paşa', 'kasimpasa']
     },
     'koc': {
         name: 'Kocaelispor',
         colors: { primary: '#008000', secondary: '#000000' },
-        short: 'koc'
+        short: 'koc',
+        aliases: ['kocaeli spor']
     },
     'fat': {
         name: 'Fatih Karagümrük',
@@ -78,13 +83,13 @@ export const SUPER_LIG_TEAMS: Record<string, { name: string; colors: { primary: 
         name: 'Eyüpspor',
         colors: { primary: '#800080', secondary: '#FFFF00' },
         short: 'eyu',
-        aliases: ['ikas eyüpspor']
+        aliases: ['ikas eyüpspor', 'eyüp spor']
     },
     'riz': {
         name: 'Rizespor',
         colors: { primary: '#008C45', secondary: '#163962' },
         short: 'riz',
-        aliases: ['çaykur rizespor']
+        aliases: ['çaykur rizespor', 'rize spor']
     },
     'gaz': {
         name: 'Gaziantep Futbol Kulübü',

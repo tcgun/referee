@@ -69,18 +69,21 @@ describe('Tahkim Parser Tests', () => {
         expect(result[0].subject).toBe('Kulüp');
         expect(result[0].appealStatus).toBe('rejected');
         expect(result[0].appealedPenalty).toBe('İtiraz Reddedildi');
+        expect(result[0].pfdkDecisionDate).toBe('2025-08-21');
 
         // Second decision: Sportif Ekipman - Rejected
         expect(result[1].teamId).toBe('fen');
         expect(result[1].subject).toBe('Kulüp');
         expect(result[1].appealStatus).toBe('rejected');
         expect(result[1].appealedPenalty).toBe('İtiraz Reddedildi');
+        expect(result[1].pfdkDecisionDate).toBe('2025-08-21');
 
         // Third decision: Pedro Machado - Rejected
         expect(result[2].teamId).toBe('fen');
         expect(result[2].subject).toBe('Pedro Luis Ferreira Machado');
         expect(result[2].appealStatus).toBe('rejected');
         expect(result[2].appealedPenalty).toBe('İtiraz Reddedildi');
+        expect(result[2].pfdkDecisionDate).toBe('2025-08-21');
     });
 
     it('should correctly parse appeal decisions with multi-line/blank-line copy-paste issues', () => {
@@ -114,6 +117,41 @@ describe('Tahkim Parser Tests', () => {
         `;
         const result = parseTahkimText(rawText);
         expect(result.length).toBe(0);
+    });
+
+    it('should parse Salih Tekke edge cases correctly (no-space typo and partial accepted as kaldırılmasına ve cezalandırılmasına)', () => {
+        const rawText = `
+        Trabzonspor Kulübü idarecisi Salih Tekke’nin PFDK’nın 18.09.2025 tarihli kararına itirazı.
+        
+        1- Trabzonspor ’nin Antrenörü Salih Tekke’nin akreditasyon kartını görünür bir şekilde boynuna asmamasından dolayı talimatlara aykırılık nedeniyle FDT’nin 46/1. maddesi uyarınca 40.000,00 TL para cezası ile cezalandırılmasına dair kararın kaldırılmasına ve Trabzonspor ’nin Antrenörü Salih Tekke’nin akreditasyon kartını görünür bir şekilde boynuna asmamasından dolayı talimatlara aykırılık nedeniyle FDT’nin 46/1. maddesi uyarınca takdiren 25.000,00 TL para cezası ile cezalandırılmasına, oybirliğiyle,
+        
+        2- Trabzonspor ’nin Antrenörü Salih Tekke’ninmüsabaka hakemine yönelik hakareti nedeniyle FDT’nin 41/1-c maddesi uyarınca 21 gün hak mahrumiyeti cezası ile cezalandırılmasına dair kararda sübut, hukuki niteleme ve cezanın tayini bakımından bir isabetsizlik bulunmadığı anlaşıldığından, başvurunun reddi ile kararın onanmasına, oybirliğiyle,
+        `;
+        const result = parseTahkimText(rawText);
+        expect(result.length).toBe(2);
+
+        // Case 1: Akreditasyon kartı - Partially Accepted (40k -> 25k)
+        expect(result[0].subject).toBe('Salih Tekke');
+        expect(result[0].appealStatus).toBe('partially_accepted');
+        expect(result[0].appealedPenalty).toBe('25.000,00 TL Para Cezası');
+
+        // Case 2: Müsabaka hakemine hakaret (no-space typo) - Rejected
+        expect(result[1].subject).toBe('Salih Tekke');
+        expect(result[1].appealStatus).toBe('rejected');
+        expect(result[1].appealedPenalty).toBe('İtiraz Reddedildi');
+    });
+
+    it('should parse Samsunspor block appeal edge cases correctly (partially approved card bloke)', () => {
+        const rawText = `
+        Samsunspor ’nin taraftarlarının neden olduğu çirkin ve kötü tezahürat nedeniyle FDT’nin 53/3. maddesi uyarınca çirkin ve kötü tezahüratta bulunan Güney Tribünü 104 ve Kuzey Tribünü 122 ve 123 numaralı bloklarda yer alan seyircilerin elektronik bilet kapsamındaki kartlarının bloke edilmesi suretiyle bir sonraki ev sahibi kulüp olduğu müsabakaya girişlerinin engellenmesine dair kararda Güney Tribünü 104 numaralı blok yönünden sübut, hukuki niteleme ve cezanın tayini bakımından bir isabetsizlik bulunmadığından kararın bu bölümüne ilişkin itirazın reddi ile kararın bu bölümünün onanmasına, oybirliğiyle, Kuzey Tribünü 122 ve 123 numaralı bloklar yönünden verilen cezaya yapılan itirazın kabulü ile kararın bu bölümünün kaldırılmasına, oyçokluğuyla, PFDK kararının bu şekliyle düzeltilerek onanmasına
+        `;
+        const result = parseTahkimText(rawText);
+        expect(result.length).toBe(1);
+
+        expect(result[0].teamId).toBe('sam');
+        expect(result[0].subject).toBe('Kulüp');
+        expect(result[0].appealStatus).toBe('partially_accepted');
+        expect(result[0].appealedPenalty).toBe('Kart Bloke (Güney Tribünü 104)');
     });
 });
 

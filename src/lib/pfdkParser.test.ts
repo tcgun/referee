@@ -114,7 +114,7 @@ describe('PFDK Parser Tests', () => {
         // Gaziantep FK Kart Bloke (Aynı Müsabaka)
         expect(result[1].teamId).toBe('gaz');
         expect(result[1].subject).toBe('Kulüp');
-        expect(result[1].penalty).toContain('Kart Bloke (GÜNEY KALE ARKASI ALT TRİBÜN D blok');
+        expect(result[1].penalty).toContain('Kart Bloke (GÜNEY KALE ARKASI ALT TRİBÜN D)');
         expect(result[1].matchId).toBe('week1-gaz-gal-2025-08-08');
         expect(result[1].category).toBe('KULÜP');
 
@@ -156,7 +156,7 @@ describe('PFDK Parser Tests', () => {
         expect(result[6].isMatchRelated).toBe(false);
 
         // Check cleaned note text
-        expect(result[0].note).toContain('Gaziantep FK-Galatasaray SÜPER LİG müsabakasında');
+        expect(result[0].note).toBe('Kulübe, taraftarlarının neden olduğu saha olayları nedeniyle 220.000 TL Para Cezası verilmiştir.');
         expect(result[0].isMatchRelated).toBe(true);
     });
 
@@ -194,5 +194,144 @@ describe('PFDK Parser Tests', () => {
         expect(result[1].teamId).toBe('fen');
         expect(result[1].subject).toBe('SERTAÇ KOMSUOĞLU');
         expect(result[1].penalty).toBe('30 Gün Hak Mahrumiyeti ve 3.000.000 TL Para Cezası');
+        expect(result[1].reason).toBe('Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamaları');
+        expect(result[1].note).toBe('SERTAÇ KOMSUOĞLU hakkında, futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamaları nedeniyle 30 Gün Hak Mahrumiyeti ve 3.000.000 TL Para Cezası verilmiştir.');
+    });
+
+    it('should parse Yıldırım Ali Koç paragraph correctly and inherit the match date/id', () => {
+        const mockMatchesList: Match[] = [
+            {
+                id: 'week5-fb-ala-2025-09-17',
+                homeTeamId: 'fen',
+                awayTeamId: 'ala',
+                homeTeamName: 'Fenerbahçe',
+                awayTeamName: 'Alanyaspor',
+                date: '2025-09-17T20:00:00.000Z',
+                week: 5,
+                season: '2025-2026',
+                stadium: 'Şükrü Saracoğlu',
+                referee: 'Kadir Sağlam',
+                varReferee: 'Hakan Ceylan',
+                competition: 'league'
+            }
+        ];
+
+        const rawText = `
+        1- FENERBAHÇE A.Ş.’nin, 17.09.2025 tarihinde oynanan FENERBAHÇE A.Ş.-CORENDON ALANYASPOR Trendyol Süper Lig Mehmet Ali Yılmaz Sezonu müsabakasında, taraftarlarının neden olduğu çirkin ve kötü tezahürat nedeniyle ve bu eylemin aynı sezon içinde ev sahibi kulüp olduğu müsabakada 2. kez gerçekleştirilmesinden dolayı FDT’nin 53/2. maddesi uyarınca 400.000.-TL PARA CEZASI ile cezalandırılmasına, FDT’nin 53/3. maddesi uyarınca çirkin ve kötü tezahüratta bulunan KUZEY TRİBÜN E, K, M, C, D, L bloklarda yer alan seyircilerin elektronik bilet kapsamındaki kartlarının bloke edilmesi suretiyle bir sonraki ev sahibi kulüp olduğu müsabakaya girişlerinin engellenmesine,
+        
+        Aynı müsabakada FENERBAHÇE A.Ş. Başkanı YILDIRIM ALİ KOÇ’un, müsabaka sonrası medyada yapmış olduğu beyanlarında yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamaları nedeniyle FDT’nin 38/1-a maddesi uyarınca 15 GÜN HAK MAHRUMİYETİ ve 2.000.000.-TL PARA CEZASI ile cezalandırılmasına,
+        `;
+
+        const result = parsePfdkText(rawText, mockMatchesList);
+        
+        expect(result.length).toBe(2);
+
+        // First action: Fenerbahçe Kulüp
+        expect(result[0].teamId).toBe('fen');
+        expect(result[0].subject).toBe('Kulüp');
+        expect(result[0].matchId).toBe('week5-fb-ala-2025-09-17');
+        expect(result[0].week).toBe(5);
+
+        // Second action: Yıldırım Ali Koç
+        expect(result[1].teamId).toBe('fen');
+        expect(result[1].subject).toBe('YILDIRIM ALİ KOÇ');
+        expect(result[1].matchId).toBe('week5-fb-ala-2025-09-17');
+        expect(result[1].week).toBe(5);
+        expect(result[1].isMatchRelated).toBe(true);
+    });
+
+    it('should parse Samsunspor Pape Cherif Ndiaye appeal rejection correctly as a Futbolcu action', () => {
+        const mockMatchesList: Match[] = [
+            {
+                id: 'week6-gaz-sam-2025-09-27',
+                homeTeamId: 'gaz',
+                awayTeamId: 'sam',
+                homeTeamName: 'Gaziantep FK',
+                awayTeamName: 'Samsunspor',
+                date: '2025-09-27T19:00:00.000Z',
+                week: 6,
+                season: '2025-2026',
+                stadium: 'Gaziantep Stadyumu',
+                referee: 'Ali Şansalan',
+                varReferee: 'Alper Ulusoy',
+                competition: 'league'
+            }
+        ];
+
+        const rawText = `
+        3- SAMSUNSPOR A.Ş. vekilinin sporcuları PAPE CHERIF NDIAYE hakkında, 27.09.2025 tarihinde Gaziantep Stadyumunda oynanan GAZİANTEP FUTBOL A.Ş.- SAMSUNSPOR FUTBOL A.Ş. Trendyol Süper Lig Mehmet Ali Yılmaz Sezonu müsabakasında, müsabakada görmüş olduğu ikinci sarı kart ile devamındaki kırmızı kart ve cezai uygulamalarının kaldırılmasına ilişkin talebinin somut olayda şahısta hata hali bulunmadığından FDT’nin 86/2. ve 86/3. maddeleri uyarınca REDDİNE,
+        `;
+
+        const result = parsePfdkText(rawText, mockMatchesList);
+        expect(result.length).toBe(1);
+        expect(result[0].teamId).toBe('sam');
+        expect(result[0].subject).toBe('PAPE CHERIF NDIAYE');
+        expect(result[0].category).toBe('FUTBOLCU');
+        expect(result[0].matchId).toBe('week6-gaz-sam-2025-09-27');
+        expect(result[0].week).toBe(6);
+        expect(result[0].isMatchRelated).toBe(true);
+    });
+
+    it('should strip match details and date prefixes and extract multiple block closures correctly for Beşiktaş action', () => {
+        const rawText = `
+        1- BEŞİKTAŞ A.Ş.’nin, 17.08.2025 tarihinde oynanan BEŞİKTAŞ A.Ş.-İKAS EYÜPSPOR Trendyol Süper Lig müsabakasında taraftarlarının neden olduğu çirkin ve kötü tezahürat nedeniyle ve bu eylemin aynı sezon içinde ev sahibi kulüp olduğu müsabakada ilk kez gerçekleştirilmesinden dolayı FDT’nin 53/2. maddesi uyarınca İHTAR CEZASI ile cezalandırılmasına, FDT’nin 53/3. maddesi uyarınca çirkin ve kötü tezahüratta bulunan SPOR TOTO (KUZEY ALT) TRİBÜN 107-108-109, SPOR TOTO (KUZEY ÜST) TRİBÜN 408-409, BABA HAKKI (DOĞU ALT) TRİBÜN 116, DOĞU ÜST TRİBÜN 416, GÜNEY ALT TRİBÜN 120-121, GÜNEY ÜST TRİBÜN 423 numaralı bloklarda yer alan seyircilerin elektronik bilet kapsamındaki kartlarının bloke edilmesi suretiyle bir sonraki ev sahibi kulüp olduğu müsabakaya girişlerinin engellenmesine,
+        `;
+        const result = parsePfdkText(rawText);
+        expect(result.length).toBe(1);
+        expect(result[0].teamId).toBe('bes');
+        expect(result[0].reason).toBe('Taraftarlarının neden olduğu çirkin ve kötü tezahürat');
+        expect(result[0].penalty).toBe('İhtar ve Kart Bloke (SPOR TOTO (KUZEY ALT) TRİBÜN 107-108-109, SPOR TOTO (KUZEY ÜST) TRİBÜN 408-409, BABA HAKKI (DOĞU ALT) TRİBÜN 116, DOĞU ÜST TRİBÜN 416, GÜNEY ALT TRİBÜN 120-121, GÜNEY ÜST TRİBÜN 423)');
+        expect(result[0].note).toBe('Kulübe, taraftarlarının neden olduğu çirkin ve kötü tezahürat nedeniyle i̇htar ve Kart Bloke (SPOR TOTO (KUZEY ALT) TRİBÜN 107-108-109, SPOR TOTO (KUZEY ÜST) TRİBÜN 408-409, BABA HAKKI (DOĞU ALT) TRİBÜN 116, DOĞU ÜST TRİBÜN 416, GÜNEY ALT TRİBÜN 120-121, GÜNEY ÜST TRİBÜN 423) verilmiştir.');
+    });
+
+    it('should parse Ceza Tayinine Yer Olmadığına actions correctly', () => {
+        const rawText = `
+        RAMS BAŞAKŞEHİR FK Başkanı GÖKSEL GÜMÜŞDAĞ hakkında, 28.09.2025 tarihinde Kulüp resmi sosyal medya (X) hesabından yapılan paylaşımda yer alan Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamalar nedeniyle Kurulumuza sevk yapılmış ise de; CEZA TAYİNİNE YER OLMADIĞINA,
+        `;
+        const result = parsePfdkText(rawText);
+        expect(result.length).toBe(1);
+        expect(result[0].teamId).toBe('bas');
+        expect(result[0].subject).toBe('GÖKSEL GÜMÜŞDAĞ');
+        expect(result[0].reason).toBe('Futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamalar');
+        expect(result[0].penalty).toBe('Ceza Tayinine Yer Olmadığına');
+        expect(result[0].note).toBe('GÖKSEL GÜMÜŞDAĞ hakkında, futbolun ve Kurumların İtibarını Zedelemeye Yönelik Açıklamalar nedeniyle ceza tayinine yer olmadığına karar verilmiştir.');
+    });
+
+    it('should parse Soyunma Odasına ve Yedek Kulübesine Giriş Yasağı correctly', () => {
+        const rawText = `
+        MISIRLI.COM.TR FATİH KARAGÜMRÜK Kulübü görevlisi UMUT KÖSE’nin, 24.10.2025 tarihinde oynananMISIRLI.COM.TR FATİH KARAGÜMRÜK-ZECORNER KAYSERİSPOR Trendyol Süper Lig Mehmet Ali Yılmaz Sezonu müsabakasında, müsabaka hakemine yönelik sportmenliğe aykırı hareketi nedeniyle FDT’nin 36/1-c ve 35/4. maddeleri uyarınca 1 RESMİ MÜSABAKADA SOYUNMA ODASINA VE YEDEK KULÜBESİNE GİRİŞ YASAĞI ve 80.000.-TL PARA CEZASI ile cezalandırılmasına,
+        `;
+        const result = parsePfdkText(rawText);
+        expect(result.length).toBe(1);
+        expect(result[0].teamId).toBe('fat');
+        expect(result[0].subject).toBe('UMUT KÖSE');
+        expect(result[0].reason).toBe('Müsabaka hakemine yönelik sportmenliğe aykırı hareketi');
+        expect(result[0].penalty).toBe('1 Maç Soyunma Odasına ve Yedek Kulübesine Giriş Yasağı ve 80.000 TL Para Cezası');
+        expect(result[0].note).toBe('UMUT KÖSE hakkında, müsabaka hakemine yönelik sportmenliğe aykırı hareketi nedeniyle 1 Maç Soyunma Odasına ve Yedek Kulübesine Giriş Yasağı ve 80.000 TL Para Cezası verilmiştir.');
+    });
+
+    it('should parse Seyircisiz Oynama, Puan Silme, and Kınama penalties correctly', () => {
+        const rawText = `
+        1- FENERBAHÇE A.Ş.’nin, taraftarlarının neden olduğu saha olayları nedeniyle 1 RESMİ MÜSABAKAYI KENDİ SAHASINDA SEYİRCİSİZ OYNAMA CEZASI ve 3 PUAN SİLME CEZASI ve KINAMA CEZASI ile cezalandırılmasına,
+        `;
+        const result = parsePfdkText(rawText);
+        expect(result.length).toBe(1);
+        expect(result[0].teamId).toBe('fen');
+        expect(result[0].subject).toBe('Kulüp');
+        expect(result[0].reason).toBe('Taraftarlarının neden olduğu saha olayları');
+        expect(result[0].penalty).toBe('1 Maç Seyircisiz Oynama ve 3 Puan Silme ve Kınama');
+        expect(result[0].note).toBe('Kulübe, taraftarlarının neden olduğu saha olayları nedeniyle 1 Maç Seyircisiz Oynama ve 3 Puan Silme ve Kınama verilmiştir.');
+    });
+
+    it('should parse Beşiktaş vs Kocaelispor block closures correctly', () => {
+        const rawText = `
+        12- BEŞİKTAŞ A.Ş.’nin, 29.09.2025 tarihinde oynanan BEŞİKTAŞ A.Ş.-KOCAELİSPOR Trendyol Süper Lig Mehmet Ali Yılmaz Sezonu müsabakasında, taraftarlarının neden olduğu çirkin ve kötü tezahürat nedeniyle FDT’nin 53/3. maddesi uyarınca çirkin ve kötü tezahüratta bulunan SPOR TOTO(KUZEYALT) 108, SPOR TOTO(KUZEYÜST) 408, 409, DOĞU ÜST TRİBÜNÜ 415, 416, KUZEY TRİBÜNÜ ÜST 408 numaralı bloklarda yer alan seyircilerin elektronik bilet kapsamındaki kartlarının bloke edilmesi suretiyle bir sonraki ev sahibi kulüp olduğu müsabakaya girişlerinin engellenmesine,
+        `;
+        const result = parsePfdkText(rawText);
+        expect(result.length).toBe(1);
+        expect(result[0].teamId).toBe('bes');
+        expect(result[0].subject).toBe('Kulüp');
+        expect(result[0].penalty).toBe('Kart Bloke (SPOR TOTO(KUZEYALT) 108, SPOR TOTO(KUZEYÜST) 408, 409, DOĞU ÜST TRİBÜNÜ 415, 416, KUZEY TRİBÜNÜ ÜST 408)');
+        expect(result[0].note).toBe('Kulübe, taraftarlarının neden olduğu çirkin ve kötü tezahürat nedeniyle kart Bloke (SPOR TOTO(KUZEYALT) 108, SPOR TOTO(KUZEYÜST) 408, 409, DOĞU ÜST TRİBÜNÜ 415, 416, KUZEY TRİBÜNÜ ÜST 408) verilmiştir.');
     });
 });

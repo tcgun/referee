@@ -899,6 +899,7 @@ interface ParsedAction {
     reason: string;
     penalty: string;
     date: string;
+    pfdkDecisionDate?: string;
     matchId: string;
     week?: number;
     competition: 'league' | 'cup';
@@ -1000,6 +1001,7 @@ export const BulkPfdkImport = ({ apiKey, authToken, season, onSuccess, onCancel 
                     reason: item.reason,
                     penalty: item.penalty,
                     date: item.date,
+                    pfdkDecisionDate: item.pfdkDecisionDate || null,
                     matchId,
                     week: item.week,
                     competition: item.competition,
@@ -2317,10 +2319,36 @@ export const BulkTahkimImport = ({ apiKey, authToken, onSuccess }: BulkTahkimImp
                 const scoredActions = actions.map(action => {
                     if (action.type === 'performance') return { action, score: -1 };
                     
+                    // 1. Date compatibility & scoring
+                    let dateScore = 0;
+                    if (appeal.pfdkDecisionDate && action.pfdkDecisionDate) {
+                        if (appeal.pfdkDecisionDate !== action.pfdkDecisionDate) {
+                            return { action, score: -1 };
+                        }
+                        dateScore = 50; // Exact PFDK meeting date match!
+                    } else if (appeal.pfdkDecisionDate && action.date) {
+                        // Geriye dönük uyumluluk (Legacy data): Eğer action.pfdkDecisionDate yoksa, 
+                        // PFDK karar tarihi ile maç tarihi arasındaki farkı kontrol et (fark 0-8 gün olmalıdır)
+                        const pfdkTime = new Date(appeal.pfdkDecisionDate).getTime();
+                        const actionTime = new Date(action.date).getTime();
+                        if (!isNaN(pfdkTime) && !isNaN(actionTime)) {
+                            const diffPfdkMatch = (pfdkTime - actionTime) / (1000 * 60 * 60 * 24);
+                            if (diffPfdkMatch < 0 || diffPfdkMatch > 8) {
+                                return { action, score: -1 };
+                            }
+                            dateScore = 30; // High matching score for compatible legacy dates
+                        } else {
+                            return { action, score: -1 };
+                        }
+                    } else {
+                        // Eğer Tahkim kararında PFDK tarihi bulunamadıysa eşleme yapma
+                        return { action, score: -1 };
+                    }
+
                     const normActionSub = action.subject.toLowerCase().trim();
                     const isActionClub = isClubSubject(normActionSub);
 
-                    // 1. Subject match
+                    // 2. Subject match
                     let subjectScore = 0;
                     if (isAppealClub) {
                         if (!isActionClub) return { action, score: -1 };
@@ -2334,7 +2362,7 @@ export const BulkTahkimImport = ({ apiKey, authToken, onSuccess }: BulkTahkimImp
                         subjectScore = 10;
                     }
 
-                    let score = subjectScore;
+                    let score = subjectScore + dateScore;
 
                     // 2. Reason keyword overlap
                     const reasonNorm = normalizeTurkish(action.reason || '');
@@ -2550,12 +2578,20 @@ export const BulkTahkimImport = ({ apiKey, authToken, onSuccess }: BulkTahkimImp
                                     
                                     <div className="flex-1 space-y-2">
                                         <div className="flex justify-between items-start flex-wrap gap-1">
-                                            <div>
-                                                <span className="font-extrabold text-slate-900 text-xs bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5 mr-2">
+                                            <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                                <span className="font-extrabold text-slate-900 text-xs bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5">
                                                     {appeal.teamName}
                                                 </span>
                                                 <span className="font-bold text-slate-800 text-xs">
                                                     Özne: {appeal.subject}
+                                                </span>
+                                                {appeal.pfdkDecisionDate && (
+                                                    <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-sm" title="İtiraz edilen PFDK Karar Tarihi">
+                                                        📅 PFDK: {appeal.pfdkDecisionDate}
+                                                    </span>
+                                                )}
+                                                <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-sm" title="Tahkim Karar Tarihi">
+                                                    📅 Tahkim: {appeal.appealDate}
                                                 </span>
                                             </div>
                                             
@@ -2566,7 +2602,11 @@ export const BulkTahkimImport = ({ apiKey, authToken, onSuccess }: BulkTahkimImp
                                                 'bg-blue-50 text-blue-700 border-blue-200'
                                              }`}>
                                                 {appeal.appealStatus === 'accepted' ? `Tahkim: İptal${isSecondAppeal ? ' (İkinci İtiraz)' : ''}` :
-                                                 appeal.appealStatus === 'partially_accepted' ? `Tahkim: İndirildi (${appeal.appealedPenalty})${isSecondAppeal ? ' (İkinci İtiraz)' : ''}` :
+                                                 appeal.appealStatus === 'partially_accepted' ? (
+                                                     appeal.appealedPenalty.startsWith('Kart Bloke') ?
+                                                     `Tahkim: Kısmi İptal (Kalan: ${appeal.appealedPenalty.replace(/Kart Bloke\s*\((.*?)\)/i, '$1')})${isSecondAppeal ? ' (İkinci İtiraz)' : ''}` :
+                                                     `Tahkim: İndirildi (${appeal.appealedPenalty})${isSecondAppeal ? ' (İkinci İtiraz)' : ''}`
+                                                 ) :
                                                  appeal.appealStatus === 'rejected' ? `Tahkim: Red${isSecondAppeal ? ' (İkinci İtiraz)' : ''}` : 'Tahkim: Karar Bekleniyor'}
                                             </span>
                                         </div>
@@ -2577,7 +2617,12 @@ export const BulkTahkimImport = ({ apiKey, authToken, onSuccess }: BulkTahkimImp
 
                                         {/* Matching dropdown */}
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Veritabanındaki PFDK Sevk/Ceza Kaydı Eşleşmesi</label>
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Veritabanındaki PFDK Sevk/Ceza Kaydı Eşleşmesi</label>
+                                                {selectedVal === 'none' && (
+                                                    <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 uppercase tracking-wider">⚠️ Karar Bulunamadı</span>
+                                                )}
+                                            </div>
                                             <select
                                                 value={selectedVal}
                                                 onChange={e => setSelectedMatches({ ...selectedMatches, [index]: e.target.value })}
@@ -2586,11 +2631,22 @@ export const BulkTahkimImport = ({ apiKey, authToken, onSuccess }: BulkTahkimImp
                                                 }`}
                                             >
                                                 <option value="none">-- Eşleşme Yok (Es geç veya manuel seç) --</option>
-                                                {actions.map(action => (
-                                                    <option key={action.id} value={action.id}>
-                                                        [{action.date}] {action.subject} - {action.penalty || 'Ceza Yok/Sevk'} ({action.reason.substring(0, 40)}...)
-                                                    </option>
-                                                ))}
+                                                {actions.map(action => {
+                                                    let diffText = "";
+                                                    if (appeal.appealDate && action.date) {
+                                                        const appTime = new Date(appeal.appealDate).getTime();
+                                                        const actTime = new Date(action.date).getTime();
+                                                        if (!isNaN(appTime) && !isNaN(actTime)) {
+                                                            const diff = Math.round((appTime - actTime) / (1000 * 60 * 60 * 24));
+                                                            diffText = ` (Fark: ${diff} gün)`;
+                                                        }
+                                                    }
+                                                    return (
+                                                        <option key={action.id} value={action.id}>
+                                                            [{action.date}] {action.subject} - {action.penalty || 'Ceza Yok/Sevk'} ({action.reason.substring(0, 40)}...){diffText}
+                                                        </option>
+                                                    );
+                                                })}
                                             </select>
                                         </div>
                                     </div>

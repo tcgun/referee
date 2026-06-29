@@ -125,7 +125,7 @@ export async function GET(request: Request) {
             return 'FUTBOLCU';
         };
 
-        const categoryActions: Record<string, Array<{ id: string; subject: string; teamName: string; penalty: string; date: string; reason: string; appealStatus?: string; appealedPenalty?: string }>> = {};
+        const categoryActions: Record<string, Array<{ id: string; subject: string; teamName: string; penalty: string; date: string; reason: string; week?: number; appealStatus?: string; appealedPenalty?: string }>> = {};
 
         actions.forEach((act) => {
             const team = act.teamName || 'DİĞER';
@@ -169,6 +169,7 @@ export async function GET(request: Request) {
                 penalty: effectivePenaltyText || 'Ceza Yok',
                 date: act.date,
                 reason: act.reason || '',
+                week: act.week,
                 appealStatus: act.appealStatus,
                 appealedPenalty: act.appealedPenalty
             });
